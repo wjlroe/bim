@@ -28,7 +28,7 @@ struct editorConfig {
 
 struct editorConfig E;
 
-void die(const char *s) {
+void die(const char* s) {
   write(STDOUT_FILENO, "\x1b[2J", 4);
   write(STDOUT_FILENO, "\x1b[H", 3);
 
@@ -88,22 +88,22 @@ int editorReadKey() {
         }
         if (seq[2] == '~') {
           switch (seq[1]) {
-          case '5':
-            return PAGE_UP;
-          case '6':
-            return PAGE_DOWN;
+            case '5':
+              return PAGE_UP;
+            case '6':
+              return PAGE_DOWN;
           }
         }
       } else {
         switch (seq[1]) {
-        case 'A':
-          return ARROW_UP;
-        case 'B':
-          return ARROW_DOWN;
-        case 'C':
-          return ARROW_RIGHT;
-        case 'D':
-          return ARROW_LEFT;
+          case 'A':
+            return ARROW_UP;
+          case 'B':
+            return ARROW_DOWN;
+          case 'C':
+            return ARROW_RIGHT;
+          case 'D':
+            return ARROW_LEFT;
         }
       }
     }
@@ -114,7 +114,7 @@ int editorReadKey() {
   }
 }
 
-int getCursorPosition(int *rows, int *cols) {
+int getCursorPosition(int* rows, int* cols) {
   char buf[32];
   unsigned int i = 0;
 
@@ -144,7 +144,7 @@ int getCursorPosition(int *rows, int *cols) {
   return 0;
 }
 
-int getWindowSize(int *rows, int *cols) {
+int getWindowSize(int* rows, int* cols) {
   struct winsize ws;
 
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
@@ -160,15 +160,15 @@ int getWindowSize(int *rows, int *cols) {
 }
 
 struct abuf {
-  char *b;
+  char* b;
   int len;
 };
 
-#define ABUF_INIT                                                              \
+#define ABUF_INIT \
   { NULL, 0 }
 
-void abAppend(struct abuf *ab, const char *s, int len) {
-  char *new = realloc(ab->b, ab->len + len);
+void abAppend(struct abuf* ab, const char* s, int len) {
+  char* new = realloc(ab->b, ab->len + len);
 
   if (new == NULL) {
     return;
@@ -178,9 +178,9 @@ void abAppend(struct abuf *ab, const char *s, int len) {
   ab->len += len;
 }
 
-void abFree(struct abuf *ab) { free(ab->b); }
+void abFree(struct abuf* ab) { free(ab->b); }
 
-void editorDrawRows(struct abuf *ab) {
+void editorDrawRows(struct abuf* ab) {
   int y;
   for (y = 0; y < E.screenrows; y++) {
     if (y == E.screenrows / 3) {
@@ -230,26 +230,26 @@ void editorRefreshScreen() {
 
 void editorMoveCursor(int key) {
   switch (key) {
-  case ARROW_LEFT:
-    if (E.cx != 0) {
-      E.cx--;
-    }
-    break;
-  case ARROW_RIGHT:
-    if (E.cx != E.screencols - 1) {
-      E.cx++;
-    }
-    break;
-  case ARROW_UP:
-    if (E.cy != 0) {
-      E.cy--;
-    }
-    break;
-  case ARROW_DOWN:
-    if (E.cy != E.screenrows - 1) {
-      E.cy++;
-    }
-    break;
+    case ARROW_LEFT:
+      if (E.cx != 0) {
+        E.cx--;
+      }
+      break;
+    case ARROW_RIGHT:
+      if (E.cx != E.screencols - 1) {
+        E.cx++;
+      }
+      break;
+    case ARROW_UP:
+      if (E.cy != 0) {
+        E.cy--;
+      }
+      break;
+    case ARROW_DOWN:
+      if (E.cy != E.screenrows - 1) {
+        E.cy++;
+      }
+      break;
   }
 }
 
@@ -257,26 +257,26 @@ void editorProcessKeypress() {
   int c = editorReadKey();
 
   switch (c) {
-  case CTRL_KEY('q'):
-    write(STDOUT_FILENO, "\x1b[2J", 4);
-    write(STDOUT_FILENO, "\x1b[H", 3);
-    exit(0);
-    break;
+    case CTRL_KEY('q'):
+      write(STDOUT_FILENO, "\x1b[2J", 4);
+      write(STDOUT_FILENO, "\x1b[H", 3);
+      exit(0);
+      break;
 
-  case PAGE_UP:
-  case PAGE_DOWN: {
-    int times = E.screenrows;
-    while (times--) {
-      editorMoveCursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
-    }
-  } break;
+    case PAGE_UP:
+    case PAGE_DOWN: {
+      int times = E.screenrows;
+      while (times--) {
+        editorMoveCursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
+      }
+    } break;
 
-  case ARROW_UP:
-  case ARROW_DOWN:
-  case ARROW_LEFT:
-  case ARROW_RIGHT:
-    editorMoveCursor(c);
-    break;
+    case ARROW_UP:
+    case ARROW_DOWN:
+    case ARROW_LEFT:
+    case ARROW_RIGHT:
+      editorMoveCursor(c);
+      break;
   }
 }
 
