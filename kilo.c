@@ -299,3 +299,7 @@ int main() {
   }
   return 0;
 }
+
+// Local Variables:
+// c-basic-offset: 2
+// End:
