@@ -280,12 +280,34 @@ void editorRowInsertChar(erow* row, int at, int c) {
   E.unsaved++;
 }
 
+void editorRowDelChar(erow* row, int at) {
+  if (at < 0 || at >= row->size) {
+    return;
+  }
+  memmove(&row->chars[at], &row->chars[at + 1], row->size - at);
+  row->size--;
+  editorUpdateRow(row);
+  E.unsaved++;
+}
+
 void editorInsertChar(int c) {
   if (E.cy == E.numrows) {
     editorAppendRow("", 0);
   }
   editorRowInsertChar(&E.row[E.cy], E.cx, c);
   E.cx++;
+}
+
+void editorDelChar() {
+  if (E.cy == E.numrows) {
+    return;
+  }
+
+  erow* row = &E.row[E.cy];
+  if (E.cx > 0) {
+    editorRowDelChar(row, E.cx - 1);
+    E.cx--;
+  }
 }
 
 char* editorRowsToString(int* buflen) {
@@ -585,7 +607,10 @@ void editorProcessKeypress() {
     case BACKSPACE:
     case CTRL_KEY('h'):
     case DEL_KEY:
-      /* TODO */
+      if (c == DEL_KEY) {
+        editorMoveCursor(ARROW_RIGHT);
+      }
+      editorDelChar();
       break;
 
     case PAGE_UP:
