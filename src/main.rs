@@ -1,10 +1,11 @@
 extern crate libc;
 
-use libc::{termios, tcgetattr, tcsetattr, STDIN_FILENO, ECHO, TCSAFLUSH, atexit};
+use libc::{ECHO, ICANON, STDIN_FILENO, TCSAFLUSH, atexit, tcgetattr, tcsetattr,
+           termios};
 use std::char;
 use std::io::{self, Read};
 
-static mut orig_termios: termios = termios {
+static mut ORIG_TERMIOS: termios = termios {
     c_iflag: 0,
     c_oflag: 0,
     c_lflag: 0,
@@ -17,16 +18,16 @@ static mut orig_termios: termios = termios {
 
 extern "C" fn disable_raw_mode() {
     unsafe {
-        tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &ORIG_TERMIOS);
     }
 }
 
 fn enable_raw_mode() {
     unsafe {
-        tcgetattr(STDIN_FILENO, &mut orig_termios);
+        tcgetattr(STDIN_FILENO, &mut ORIG_TERMIOS);
         atexit(disable_raw_mode);
-        let mut raw = orig_termios.clone();
-        raw.c_lflag &= !(ECHO);
+        let mut raw = ORIG_TERMIOS.clone();
+        raw.c_lflag &= !(ECHO | ICANON);
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
     }
 }
@@ -34,7 +35,7 @@ fn enable_raw_mode() {
 fn main() {
     enable_raw_mode();
 
-    let mut stdin = io::stdin();
+    let stdin = io::stdin();
     for byte in stdin.bytes() {
         if let Ok(byte_in) = byte {
             if let Some('q') = char::from_u32(byte_in as u32) {
