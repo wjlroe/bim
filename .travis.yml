@@ -1,13 +1,10 @@
 language: c
-
 os:
   - linux
   - osx
-
 compiler:
   - clang
   - gcc
-
 addons:
   apt:
     sources:
@@ -15,9 +12,15 @@ addons:
     packages:
       - bats
       - xterm
-
-before_script: ./.travis/install.sh
-
+cache: cargo
+before_script:
+  - rustup install stable
+  - ./.travis/install.sh
+  - export PATH="$PATH:$HOME/.cargo/bin"
+  - which rustfmt || cargo install rustfmt
 script:
   - make
   - ./.travis/test.sh
+  - cargo fmt -- --write-mode=diff
+  - cargo build
+  - cargo test
