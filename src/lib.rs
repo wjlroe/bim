@@ -1,4 +1,3 @@
-#[cfg(unix)]
 extern crate libc;
 
 #[cfg(unix)]
@@ -6,6 +5,11 @@ mod unix;
 
 #[cfg(unix)]
 pub use unix::run;
+
+#[cfg(windows)]
+extern crate kernel32;
+#[cfg(windows)]
+extern crate winapi;
 
 #[cfg(windows)]
 mod win;

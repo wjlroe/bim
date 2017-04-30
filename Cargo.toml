@@ -4,11 +4,16 @@ version = "0.1.0"
 authors = ["William Roe <git@wjlr.org.uk>"]
 
 [dependencies]
+libc = "*"
 term = "*"
 
 [target.'cfg(unix)'.dependencies]
-libc = "*"
 
 [target.'cfg(windows)'.dependencies]
 winapi = "*"
 kernel32-sys = "*"
+
+[[bin]]
+name = "kilo"
+doctest = false
+doc = false
