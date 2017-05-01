@@ -6,3 +6,7 @@
     -   id: check-merge-conflict
     -   id: check-symlinks
     -   id: end-of-file-fixer
+-   repo: git://github.com/doublify/pre-commit-rust
+    sha: master
+    hooks:
+    -   id: fmt
