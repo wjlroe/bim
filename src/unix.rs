@@ -1,5 +1,6 @@
-use libc::{ECHO, ICANON, ICRNL, IEXTEN, ISIG, IXON, OPOST, STDIN_FILENO,
-           TCSAFLUSH, atexit, tcgetattr, tcsetattr, termios};
+use libc::{BRKINT, CS8, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP,
+           IXON, OPOST, STDIN_FILENO, TCSAFLUSH, atexit, tcgetattr, tcsetattr,
+           termios};
 use std::char;
 use std::io::{self, Read};
 
@@ -25,8 +26,9 @@ fn enable_raw_mode() {
         tcgetattr(STDIN_FILENO, &mut ORIG_TERMIOS);
         atexit(disable_raw_mode);
         let mut raw = ORIG_TERMIOS.clone();
-        raw.c_iflag &= !(ICRNL | IXON);
+        raw.c_iflag &= !(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
         raw.c_oflag &= !(OPOST);
+        raw.c_cflag |= CS8;
         raw.c_lflag &= !(ECHO | ICANON | IEXTEN | ISIG);
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
     }
