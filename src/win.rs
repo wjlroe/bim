@@ -24,13 +24,11 @@ fn enable_raw_mode() {
             let mut raw = ORIG_CONSOLE_MODE.clone();
             raw &= !(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT |
                      ENABLE_PROCESSED_INPUT);
-            if SetConsoleMode(handle, raw) != 0 {
-                println!("set console mode");
-            } else {
-                println!("setting console mode failed!");
+            if SetConsoleMode(handle, raw) == 0 {
+                panic!("setting console mode failed!");
             }
         } else {
-            println!("getting console didn't work");
+            panic!("getting console didn't work");
         }
     }
 }
@@ -62,7 +60,7 @@ fn read_a_character() {
                     }
                 }
             } else {
-                println!("ReadConsoleW didn't work!");
+                panic!("ReadConsoleW didn't work!");
             }
         }
     }
