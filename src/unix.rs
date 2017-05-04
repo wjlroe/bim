@@ -1,5 +1,5 @@
-use libc::{ECHO, ICANON, ICRNL, IEXTEN, ISIG, IXON, STDIN_FILENO, TCSAFLUSH,
-           atexit, tcgetattr, tcsetattr, termios};
+use libc::{ECHO, ICANON, ICRNL, IEXTEN, ISIG, IXON, OPOST, STDIN_FILENO,
+           TCSAFLUSH, atexit, tcgetattr, tcsetattr, termios};
 use std::char;
 use std::io::{self, Read};
 
@@ -26,6 +26,7 @@ fn enable_raw_mode() {
         atexit(disable_raw_mode);
         let mut raw = ORIG_TERMIOS.clone();
         raw.c_iflag &= !(ICRNL | IXON);
+        raw.c_oflag &= !(OPOST);
         raw.c_lflag &= !(ECHO | ICANON | IEXTEN | ISIG);
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
     }
@@ -42,9 +43,9 @@ pub fn run() {
                 break;
             } else {
                 if let Some(read_char) = maybe_char {
-                    println!("{:?} ('{}')", byte_in, read_char);
+                    println!("{:?} ('{}')\r", byte_in, read_char);
                 } else {
-                    println!("{:?}", byte_in);
+                    println!("{:?}\r", byte_in);
                 }
             }
         }
