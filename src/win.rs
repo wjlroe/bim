@@ -4,7 +4,8 @@ use std::char;
 use std::ptr;
 use winapi::minwindef::{DWORD, LPDWORD, LPVOID};
 use winapi::winbase::STD_INPUT_HANDLE;
-use winapi::wincon::{ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT};
+use winapi::wincon::{ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT,
+                     ENABLE_PROCESSED_INPUT};
 
 static mut ORIG_CONSOLE_MODE: DWORD = 0;
 
@@ -21,7 +22,8 @@ fn enable_raw_mode() {
         if GetConsoleMode(handle, &mut ORIG_CONSOLE_MODE) != 0 {
             atexit(disable_raw_mode);
             let mut raw = ORIG_CONSOLE_MODE.clone();
-            raw &= !(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
+            raw &= !(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT |
+                     ENABLE_PROCESSED_INPUT);
             if SetConsoleMode(handle, raw) != 0 {
                 println!("set console mode");
             } else {
