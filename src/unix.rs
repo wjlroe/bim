@@ -36,8 +36,15 @@ pub fn run() {
     let stdin = io::stdin();
     for byte in stdin.bytes() {
         if let Ok(byte_in) = byte {
-            if let Some('q') = char::from_u32(byte_in as u32) {
+            let maybe_char = char::from_u32(byte_in as u32);
+            if let Some('q') = maybe_char {
                 break;
+            } else {
+                if let Some(read_char) = maybe_char {
+                    println!("{:?} ('{}')", byte_in, read_char);
+                } else {
+                    println!("{:?}", byte_in);
+                }
             }
         }
     }

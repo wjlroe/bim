@@ -46,12 +46,17 @@ fn read_a_character() {
                             utf16.len() as u32,
                             &mut chars_read as LPDWORD,
                             ptr::null_mut()) != 0 {
-                println!("char read: {:?}, chars read: {}", utf16, chars_read);
                 if chars_read > 0 {
                     // TODO: process each character if there are multiple?
                     let current_char = char::from_u32(utf16[0] as u32);
                     if let Some('q') = current_char {
                         running = false;
+                    } else {
+                        if let Some(read_char) = current_char {
+                            println!("{:?} ('{}')", utf16[0], read_char);
+                        } else {
+                            println!("{:?}", utf16[0]);
+                        }
                     }
                 }
             } else {
