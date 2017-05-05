@@ -4,3 +4,7 @@ kilo-unix2.c
 .kilo_debug
 target
 build/
+*.sln
+.vs/
+*.dll
+*.exe
