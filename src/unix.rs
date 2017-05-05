@@ -1,8 +1,7 @@
 use libc::{BRKINT, CS8, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP,
-           IXON, OPOST, STDIN_FILENO, TCSAFLUSH, atexit, tcgetattr, tcsetattr,
-           termios};
+           IXON, OPOST, STDIN_FILENO, TCSAFLUSH, VMIN, VTIME, atexit, c_void,
+           isprint, read, tcgetattr, tcsetattr, termios};
 use std::char;
-use std::io::{self, Read};
 
 static mut ORIG_TERMIOS: termios = termios {
     c_iflag: 0,
@@ -30,6 +29,9 @@ fn enable_raw_mode() {
         raw.c_oflag &= !(OPOST);
         raw.c_cflag |= CS8;
         raw.c_lflag &= !(ECHO | ICANON | IEXTEN | ISIG);
+        raw.c_cc[VMIN] = 0;
+        raw.c_cc[VTIME] = 1;
+
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
     }
 }
@@ -37,18 +39,18 @@ fn enable_raw_mode() {
 pub fn run() {
     enable_raw_mode();
 
-    let stdin = io::stdin();
-    for byte in stdin.bytes() {
-        if let Ok(byte_in) = byte {
-            let maybe_char = char::from_u32(byte_in as u32);
-            if let Some('q') = maybe_char {
-                break;
+    unsafe {
+        loop {
+            let mut buf = vec![0u8; 1];
+            read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1);
+            let c = char::from(buf[0]);
+            if isprint(c as i32) != 0 {
+                println!("{:?} ('{}')\r", c, c);
             } else {
-                if let Some(read_char) = maybe_char {
-                    println!("{:?} ('{}')\r", byte_in, read_char);
-                } else {
-                    println!("{:?}\r", byte_in);
-                }
+                println!("{:?}\r", c);
+            }
+            if c == 'q' {
+                break;
             }
         }
     }
