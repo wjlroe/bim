@@ -1,4 +1,5 @@
 use errno::{Errno, errno};
+use keycodes::ctrl_key;
 use libc::{BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG,
            ISTRIP, IXON, OPOST, STDIN_FILENO, TCSAFLUSH, VMIN, VTIME, atexit,
            c_void, isprint, read, tcgetattr, tcsetattr, termios};
@@ -59,7 +60,7 @@ pub fn run() {
             } else {
                 println!("{:?}\r", c as i32);
             }
-            if c == 'q' {
+            if ctrl_key('q', buf[0] as u32) {
                 break;
             }
         }

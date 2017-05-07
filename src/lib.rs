@@ -18,3 +18,5 @@ mod win;
 
 #[cfg(windows)]
 pub use win::run;
+
+mod keycodes;

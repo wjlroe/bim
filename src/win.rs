@@ -1,5 +1,6 @@
 use kernel32::{GetConsoleMode, GetStdHandle, ReadConsoleInputA,
                SetConsoleMode, WaitForSingleObjectEx};
+use keycodes::ctrl_key;
 use libc::atexit;
 use std::char;
 use winapi::minwindef::DWORD;
@@ -80,16 +81,16 @@ fn read_a_character() {
                     if events_read > 0 &&
                        input_records[0].EventType == KEY_EVENT {
                         let record = input_records[0].KeyEvent();
-                        if record.bKeyDown != 0 {
+                        if record.bKeyDown == 0 {
                             let unicode_char = record.UnicodeChar as u32;
                             let read_char = char::from_u32(unicode_char);
-                            if let Some('q') = read_char {
-                                running = false;
-                            }
                             if let Some(the_char) = read_char {
                                 println!("{:?} ('{}')\r",
                                          unicode_char,
                                          the_char);
+                            }
+                            if ctrl_key('q', unicode_char) {
+                                running = false;
                             }
                         }
                     }

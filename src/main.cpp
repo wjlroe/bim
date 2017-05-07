@@ -7,6 +7,7 @@ static DWORD ORIG_INPUT_MODE;
 static DWORD ORIG_OUTPUT_MODE;
 
 #define NUM_EVENTS 1
+#define CTRL_KEY(k) ((k) & 0x1f)
 
 void die(const char* s)
 {
@@ -84,7 +85,7 @@ int main(int argc, char* argv[])
         DWORD writtenChars;
         WriteConsole(stdOut, output, numChars, &writtenChars, NULL);
 
-        if (buf[0] == 'q') {
+        if (buf[0] == CTRL_KEY('q')) {
             running = false;
         }
     }
