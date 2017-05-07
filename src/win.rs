@@ -1,11 +1,11 @@
-use kernel32::{GetConsoleMode, GetStdHandle, ReadConsoleW, SetConsoleMode};
+use kernel32::{GetConsoleMode, GetStdHandle, ReadConsoleInputA,
+               SetConsoleMode, WaitForSingleObjectEx};
 use libc::atexit;
 use std::char;
-use std::ptr;
-use winapi::minwindef::{DWORD, LPDWORD, LPVOID};
-use winapi::winbase::{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
+use winapi::minwindef::DWORD;
+use winapi::winbase::{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, WAIT_OBJECT_0};
 use winapi::wincon::{ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT,
-                     ENABLE_PROCESSED_INPUT};
+                     ENABLE_PROCESSED_INPUT, INPUT_RECORD, KEY_EVENT};
 
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING: DWORD = 0x0004;
 const DISABLE_NEWLINE_AUTO_RETURN: DWORD = 0x0008;
@@ -64,29 +64,38 @@ fn read_a_character() {
 
     unsafe {
         let handle = GetStdHandle(STD_INPUT_HANDLE);
-        let mut utf16 = vec![0u16; 1];
-        let mut chars_read: DWORD = 0;
         while running {
-            if ReadConsoleW(handle,
-                            utf16.as_mut_ptr() as LPVOID,
-                            utf16.len() as u32,
-                            &mut chars_read as LPDWORD,
-                            ptr::null_mut()) != 0 {
-                if chars_read > 0 {
-                    // TODO: process each character if there are multiple?
-                    let current_char = char::from_u32(utf16[0] as u32);
-                    if let Some('q') = current_char {
-                        running = false;
-                    } else {
-                        if let Some(read_char) = current_char {
-                            println!("{:?} ('{}')\r", utf16[0], read_char);
-                        } else {
-                            println!("{:?}\r", utf16[0]);
+            let waited = WaitForSingleObjectEx(handle, 1000, 1);
+            if waited == WAIT_OBJECT_0 {
+                let empty_record = INPUT_RECORD {
+                    EventType: 0,
+                    Event: [0; 4],
+                };
+                let mut input_records = [empty_record];
+                let mut events_read = 0;
+                if ReadConsoleInputA(handle,
+                                     input_records.as_mut_ptr(),
+                                     1,
+                                     &mut events_read) != 0 {
+                    if events_read > 0 &&
+                       input_records[0].EventType == KEY_EVENT {
+                        let record = input_records[0].KeyEvent();
+                        if record.bKeyDown != 0 {
+                            let unicode_char = record.UnicodeChar as u32;
+                            let read_char = char::from_u32(unicode_char);
+                            if let Some('q') = read_char {
+                                running = false;
+                            }
+                            if let Some(the_char) = read_char {
+                                println!("{:?} ('{}')\r",
+                                         unicode_char,
+                                         the_char);
+                            }
                         }
                     }
+                } else {
+                    panic!("ReadConsoleInputA failed");
                 }
-            } else {
-                panic!("ReadConsoleW didn't work!");
             }
         }
     }
