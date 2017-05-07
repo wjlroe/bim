@@ -8,6 +8,7 @@ libc = "*"
 term = "*"
 
 [target.'cfg(unix)'.dependencies]
+errno = "*"
 
 [target.'cfg(windows)'.dependencies]
 winapi = "*"

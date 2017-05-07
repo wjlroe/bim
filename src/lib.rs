@@ -5,6 +5,8 @@ mod unix;
 
 #[cfg(unix)]
 pub use unix::run;
+#[cfg(unix)]
+extern crate errno;
 
 #[cfg(windows)]
 extern crate kernel32;
