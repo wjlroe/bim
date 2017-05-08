@@ -5,6 +5,7 @@ use libc::{BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG,
            c_void, isprint, read, tcgetattr, tcsetattr, termios};
 use std::char;
 
+#[cfg(linux)]
 static mut ORIG_TERMIOS: termios = termios {
     c_iflag: 0,
     c_oflag: 0,
@@ -12,6 +13,17 @@ static mut ORIG_TERMIOS: termios = termios {
     c_line: 0,
     c_cflag: 0,
     c_cc: [0; 32],
+    c_ospeed: 0,
+    c_ispeed: 0,
+};
+
+#[cfg(not(linux))]
+static mut ORIG_TERMIOS: termios = termios {
+    c_iflag: 0,
+    c_oflag: 0,
+    c_lflag: 0,
+    c_cflag: 0,
+    c_cc: [0; 20],
     c_ospeed: 0,
     c_ispeed: 0,
 };
