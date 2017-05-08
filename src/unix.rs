@@ -4,6 +4,7 @@ use libc::{BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG,
            ISTRIP, IXON, OPOST, STDIN_FILENO, TCSAFLUSH, VMIN, VTIME, atexit,
            c_void, read, tcgetattr, tcsetattr, termios};
 use std::char;
+use std::io::{Write, stdout};
 
 #[cfg(target_os = "linux")]
 static mut ORIG_TERMIOS: termios = termios {
@@ -67,6 +68,12 @@ fn read_key() -> char {
     char::from(buf[0])
 }
 
+fn refresh_screen() {
+    print!("\x1b[2J");
+    print!("\x1b[H");
+    stdout().flush().unwrap();
+}
+
 fn process_keypress() {
     let c = read_key();
 
@@ -79,6 +86,7 @@ pub fn run() {
     enable_raw_mode();
 
     loop {
+        refresh_screen();
         process_keypress();
     }
 }
