@@ -92,6 +92,7 @@ void processKeyPress() {
 void refreshScreen() {
     DWORD writtenChars;
     WriteConsole(stdOut, "\x1b[2J", 4, &writtenChars, NULL);
+    WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
 }
 
 int main(int argc, char* argv[]) {
