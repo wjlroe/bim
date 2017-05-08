@@ -5,7 +5,7 @@ use libc::{BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG,
            c_void, isprint, read, tcgetattr, tcsetattr, termios};
 use std::char;
 
-#[cfg(linux)]
+#[cfg(target_os = "linux")]
 static mut ORIG_TERMIOS: termios = termios {
     c_iflag: 0,
     c_oflag: 0,
@@ -17,7 +17,7 @@ static mut ORIG_TERMIOS: termios = termios {
     c_ispeed: 0,
 };
 
-#[cfg(not(linux))]
+#[cfg(not(target_os = "linux"))]
 static mut ORIG_TERMIOS: termios = termios {
     c_iflag: 0,
     c_oflag: 0,
@@ -62,8 +62,8 @@ pub fn run() {
     unsafe {
         loop {
             let mut buf = vec![0u8; 1];
-            if read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1) ==
-               -1 && errno() != Errno(EAGAIN) {
+            if read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1) == -1 &&
+               errno() != Errno(EAGAIN) {
                 panic!("read");
             }
             let c = char::from(buf[0]);
