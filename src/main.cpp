@@ -89,10 +89,16 @@ void processKeyPress() {
     }
 }
 
+void refreshScreen() {
+    DWORD writtenChars;
+    WriteConsole(stdOut, "\x1b[2J", 4, &writtenChars, NULL);
+}
+
 int main(int argc, char* argv[]) {
     enableRawMode();
 
     while (1) {
+        refreshScreen();
         processKeyPress();
     }
 }
