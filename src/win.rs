@@ -60,49 +60,51 @@ fn enable_raw_mode() {
     }
 }
 
-fn read_a_character() {
-    let mut running = true;
+fn process_keypress(key: char) {
+    let char_num = key as u32;
+    if ctrl_key('q', char_num) {
+        ::std::process::exit(0);
+    }
+}
 
+fn read_a_character() -> Option<char> {
+    let mut character = None;
     unsafe {
         let handle = GetStdHandle(STD_INPUT_HANDLE);
-        while running {
-            let waited = WaitForSingleObjectEx(handle, 1000, 1);
-            if waited == WAIT_OBJECT_0 {
-                let empty_record = INPUT_RECORD {
-                    EventType: 0,
-                    Event: [0; 4],
-                };
-                let mut input_records = [empty_record];
-                let mut events_read = 0;
-                if ReadConsoleInputA(handle,
-                                     input_records.as_mut_ptr(),
-                                     1,
-                                     &mut events_read) != 0 {
-                    if events_read > 0 &&
-                       input_records[0].EventType == KEY_EVENT {
-                        let record = input_records[0].KeyEvent();
-                        if record.bKeyDown == 0 {
-                            let unicode_char = record.UnicodeChar as u32;
-                            let read_char = char::from_u32(unicode_char);
-                            if let Some(the_char) = read_char {
-                                println!("{:?} ('{}')\r",
-                                         unicode_char,
-                                         the_char);
-                            }
-                            if ctrl_key('q', unicode_char) {
-                                running = false;
-                            }
-                        }
+        let waited = WaitForSingleObjectEx(handle, 1000, 1);
+        if waited == WAIT_OBJECT_0 {
+            let empty_record = INPUT_RECORD {
+                EventType: 0,
+                Event: [0; 4],
+            };
+            let mut input_records = [empty_record];
+            let mut events_read = 0;
+            if ReadConsoleInputA(handle,
+                                 input_records.as_mut_ptr(),
+                                 1,
+                                 &mut events_read) != 0 {
+                if events_read > 0 && input_records[0].EventType == KEY_EVENT {
+                    let record = input_records[0].KeyEvent();
+                    if record.bKeyDown == 0 {
+                        let unicode_char = record.UnicodeChar as u32;
+                        let read_char = char::from_u32(unicode_char);
+                        character = read_char;
                     }
-                } else {
-                    panic!("ReadConsoleInputA failed");
                 }
+            } else {
+                panic!("ReadConsoleInputA failed");
             }
         }
     }
+
+    character
 }
 
 pub fn run() {
     enable_raw_mode();
-    read_a_character();
+    loop {
+        if let Some(character) = read_a_character() {
+            process_keypress(character);
+        }
+    }
 }

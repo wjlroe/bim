@@ -2,7 +2,7 @@ use errno::{Errno, errno};
 use keycodes::ctrl_key;
 use libc::{BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG,
            ISTRIP, IXON, OPOST, STDIN_FILENO, TCSAFLUSH, VMIN, VTIME, atexit,
-           c_void, isprint, read, tcgetattr, tcsetattr, termios};
+           c_void, read, tcgetattr, tcsetattr, termios};
 use std::char;
 
 #[cfg(target_os = "linux")]
@@ -56,25 +56,29 @@ fn enable_raw_mode() {
     }
 }
 
+fn read_key() -> char {
+    let mut buf = vec![0u8; 1];
+    unsafe {
+        if read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1) == -1 &&
+           errno() != Errno(EAGAIN) {
+            panic!("read");
+        }
+    }
+    char::from(buf[0])
+}
+
+fn process_keypress() {
+    let c = read_key();
+
+    if ctrl_key('q', c as u32) {
+        ::std::process::exit(0);
+    }
+}
+
 pub fn run() {
     enable_raw_mode();
 
-    unsafe {
-        loop {
-            let mut buf = vec![0u8; 1];
-            if read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1) ==
-               -1 && errno() != Errno(EAGAIN) {
-                panic!("read");
-            }
-            let c = char::from(buf[0]);
-            if isprint(c as i32) != 0 {
-                println!("{:?} ('{}')\r", c as i32, c);
-            } else {
-                println!("{:?}\r", c as i32);
-            }
-            if ctrl_key('q', buf[0] as u32) {
-                break;
-            }
-        }
+    loop {
+        process_keypress();
     }
 }
