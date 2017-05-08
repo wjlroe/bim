@@ -3,6 +3,7 @@ use kernel32::{GetConsoleMode, GetStdHandle, ReadConsoleInputA,
 use keycodes::ctrl_key;
 use libc::atexit;
 use std::char;
+use terminal;
 use winapi::minwindef::DWORD;
 use winapi::winbase::{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, WAIT_OBJECT_0};
 use winapi::wincon::{ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT,
@@ -103,6 +104,7 @@ fn read_a_character() -> Option<char> {
 pub fn run() {
     enable_raw_mode();
     loop {
+        terminal::refresh_screen();
         if let Some(character) = read_a_character() {
             process_keypress(character);
         }

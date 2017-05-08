@@ -20,3 +20,4 @@ mod win;
 pub use win::run;
 
 mod keycodes;
+mod terminal;
