@@ -62,8 +62,8 @@ pub fn run() {
     unsafe {
         loop {
             let mut buf = vec![0u8; 1];
-            if read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1) == -1 &&
-               errno() != Errno(EAGAIN) {
+            if read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1) ==
+               -1 && errno() != Errno(EAGAIN) {
                 panic!("read");
             }
             let c = char::from(buf[0]);
