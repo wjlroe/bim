@@ -3,7 +3,7 @@ use kernel32::{GetConsoleMode, GetStdHandle, ReadConsoleInputA,
 use keycodes::ctrl_key;
 use libc::atexit;
 use std::char;
-use terminal;
+use terminal::{clear_screen, refresh_screen};
 use winapi::minwindef::DWORD;
 use winapi::winbase::{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, WAIT_OBJECT_0};
 use winapi::wincon::{ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT,
@@ -14,6 +14,8 @@ const DISABLE_NEWLINE_AUTO_RETURN: DWORD = 0x0008;
 
 static mut ORIG_INPUT_CONSOLE_MODE: DWORD = 0;
 static mut ORIG_OUTPUT_CONSOLE_MODE: DWORD = 0;
+
+// TODO: die! macro that clears the screen first
 
 extern "C" fn disable_raw_input_mode() {
     unsafe {
@@ -64,6 +66,7 @@ fn enable_raw_mode() {
 fn process_keypress(key: char) {
     let char_num = key as u32;
     if ctrl_key('q', char_num) {
+        clear_screen();
         ::std::process::exit(0);
     }
 }
@@ -104,7 +107,7 @@ fn read_a_character() -> Option<char> {
 pub fn run() {
     enable_raw_mode();
     loop {
-        terminal::refresh_screen();
+        refresh_screen();
         if let Some(character) = read_a_character() {
             process_keypress(character);
         }

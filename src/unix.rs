@@ -4,7 +4,7 @@ use libc::{BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG,
            ISTRIP, IXON, OPOST, STDIN_FILENO, TCSAFLUSH, VMIN, VTIME, atexit,
            c_void, read, tcgetattr, tcsetattr, termios};
 use std::char;
-use terminal;
+use terminal::{clear_screen, refresh_screen};
 
 #[cfg(target_os = "linux")]
 static mut ORIG_TERMIOS: termios = termios {
@@ -72,6 +72,7 @@ fn process_keypress() {
     let c = read_key();
 
     if ctrl_key('q', c as u32) {
+        clear_screen();
         ::std::process::exit(0);
     }
 }
@@ -80,7 +81,7 @@ pub fn run() {
     enable_raw_mode();
 
     loop {
-        terminal::refresh_screen();
+        refresh_screen();
         process_keypress();
     }
 }
