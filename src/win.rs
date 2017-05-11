@@ -1,13 +1,14 @@
-use kernel32::{GetConsoleMode, GetStdHandle, ReadConsoleInputA,
-               SetConsoleMode, WaitForSingleObjectEx};
+use kernel32::{GetConsoleMode, GetConsoleScreenBufferInfo, GetStdHandle,
+               ReadConsoleInputA, SetConsoleMode, WaitForSingleObjectEx};
 use keycodes::ctrl_key;
 use libc::atexit;
 use std::char;
-use terminal::{clear_screen, refresh_screen};
+use terminal::{Terminal, clear_screen, refresh_screen};
 use winapi::minwindef::DWORD;
 use winapi::winbase::{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, WAIT_OBJECT_0};
-use winapi::wincon::{ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT,
-                     ENABLE_PROCESSED_INPUT, INPUT_RECORD, KEY_EVENT};
+use winapi::wincon::{CONSOLE_SCREEN_BUFFER_INFO, COORD, ENABLE_ECHO_INPUT,
+                     ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT, INPUT_RECORD,
+                     KEY_EVENT, SMALL_RECT};
 
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING: DWORD = 0x0004;
 const DISABLE_NEWLINE_AUTO_RETURN: DWORD = 0x0008;
@@ -28,6 +29,31 @@ extern "C" fn disable_raw_output_mode() {
     unsafe {
         let handle = GetStdHandle(STD_OUTPUT_HANDLE);
         SetConsoleMode(handle, ORIG_OUTPUT_CONSOLE_MODE);
+    }
+}
+
+fn get_window_size() -> Terminal {
+    unsafe {
+        let handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        let mut info = CONSOLE_SCREEN_BUFFER_INFO {
+            dwSize: COORD { X: 0, Y: 0 },
+            dwCursorPosition: COORD { X: 0, Y: 0 },
+            dwMaximumWindowSize: COORD { X: 0, Y: 0 },
+            wAttributes: 0,
+            srWindow: SMALL_RECT {
+                Left: 0,
+                Top: 0,
+                Right: 0,
+                Bottom: 0,
+            },
+        };
+        if GetConsoleScreenBufferInfo(handle, &mut info) != 0 {
+            let x = info.dwSize.X as i32;
+            let y = info.dwSize.Y as i32;
+            Terminal::new(x, y)
+        } else {
+            panic!("GetConsoleScreenBufferInfo failed to get window size!");
+        }
     }
 }
 
@@ -106,8 +132,9 @@ fn read_a_character() -> Option<char> {
 
 pub fn run() {
     enable_raw_mode();
+    let terminal = get_window_size();
     loop {
-        refresh_screen();
+        refresh_screen(&terminal);
         if let Some(character) = read_a_character() {
             process_keypress(character);
         }
