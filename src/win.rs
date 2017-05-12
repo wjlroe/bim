@@ -3,7 +3,7 @@ use kernel32::{GetConsoleMode, GetConsoleScreenBufferInfo, GetStdHandle,
 use keycodes::ctrl_key;
 use libc::atexit;
 use std::char;
-use terminal::{Terminal, clear_screen, refresh_screen};
+use terminal::Terminal;
 use winapi::minwindef::DWORD;
 use winapi::winbase::{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, WAIT_OBJECT_0};
 use winapi::wincon::{CONSOLE_SCREEN_BUFFER_INFO, COORD, ENABLE_ECHO_INPUT,
@@ -89,10 +89,10 @@ fn enable_raw_mode() {
     }
 }
 
-fn process_keypress(key: char) {
+fn process_keypress(mut terminal: &mut Terminal, key: char) {
     let char_num = key as u32;
     if ctrl_key('q', char_num) {
-        clear_screen();
+        terminal.reset();
         ::std::process::exit(0);
     }
 }
@@ -132,11 +132,11 @@ fn read_a_character() -> Option<char> {
 
 pub fn run() {
     enable_raw_mode();
-    let terminal = get_window_size();
+    let mut terminal = get_window_size();
     loop {
-        refresh_screen(&terminal);
+        terminal.refresh();
         if let Some(character) = read_a_character() {
-            process_keypress(character);
+            process_keypress(&mut terminal, character);
         }
     }
 }

@@ -2,11 +2,11 @@ use errno::{Errno, errno};
 use keycodes::ctrl_key;
 use libc::{BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG,
            ISTRIP, IXON, OPOST, STDIN_FILENO, STDOUT_FILENO, TCSAFLUSH,
-           TIOCGWINSZ, VMIN, VTIME, atexit, c_void, ioctl, read, tcgetattr,
-           tcsetattr, termios, winsize};
+           TIOCGWINSZ, VMIN, VTIME, atexit, c_char, c_void, ioctl, read,
+           sscanf, tcgetattr, tcsetattr, termios, winsize};
 use std::char;
 use std::io::{Write, stdout};
-use terminal::{Terminal, clear_screen, refresh_screen};
+use terminal::Terminal;
 
 #[cfg(target_os = "linux")]
 static mut ORIG_TERMIOS: termios = termios {
@@ -39,7 +39,8 @@ fn get_window_size_ioctl() -> Option<Terminal> {
         ws_ypixel: 0,
     };
     unsafe {
-        if ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut ws) == -1 || ws.ws_col == 0 {
+        if true || ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut ws) == -1 ||
+           ws.ws_col == 0 {
             None
         } else {
             Some(Terminal::new(ws.ws_col as i32, ws.ws_row as i32))
@@ -51,9 +52,37 @@ fn get_window_size_cursor_pos() -> Option<Terminal> {
     if let Ok(12) = stdout().write(b"\x1b[999C\x1b[999B") {
         stdout().flush().unwrap();
         if let Ok(4) = stdout().write(b"\x1b[6n") {
+            stdout().write(b"\r\n").unwrap();
             stdout().flush().unwrap();
-            print!("\r\n");
-            None
+
+            let mut buf = vec![0u8; 32];
+            // let mut buf = vec!['\0'; 32];
+            let mut i = 0;
+
+            while i < buf.len() - 1 {
+                if read(STDIN_FILENO,
+                        &mut buf[i].as_mut_ptr() as *mut c_void,
+                        1) != 1 {
+                    break;
+                }
+                if buf[i] == 'R' as u8 {
+                    break;
+                }
+                i += 1;
+            }
+            buf[i] = '\0' as u8;
+
+            if buf[0] != '\x1b' as u8 || buf[1] != '[' as u8 {
+                None
+            } else {
+                let mut rows = 0;
+                let mut cols = 0;
+                if sscanf(&buf[2], "%d;%d" as *const c_char, rows, cols) != 2 {
+                    None
+                } else {
+                    Some(Terminal::new(rows, cols))
+                }
+            }
         } else {
             None
         }
@@ -105,21 +134,23 @@ fn read_key() -> char {
     char::from(buf[0])
 }
 
-fn process_keypress() {
+fn process_keypress(mut terminal: &mut Terminal) {
     let c = read_key();
 
     if ctrl_key('q', c as u32) {
-        clear_screen();
+        terminal.reset();
+        // clear_screen();
         ::std::process::exit(0);
     }
 }
 
 pub fn run() {
     enable_raw_mode();
-    if let Some(terminal) = get_window_size() {
+    if let Some(mut terminal) = get_window_size() {
         loop {
-            refresh_screen(&terminal);
-            process_keypress();
+            terminal.refresh();
+            // refresh_screen(&terminal);
+            process_keypress(&mut terminal);
         }
     } else {
         panic!("get_window_size didn't work");
