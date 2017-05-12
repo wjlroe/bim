@@ -15,16 +15,55 @@ static config E;
 #define NUM_EVENTS 1
 #define CTRL_KEY(k) ((k)&0x1f)
 
+void clsConsole() {
+    COORD origin = {0, 0};
+    DWORD charsWritten = 0;
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    DWORD sizeOfConsole = 0;
+
+    if (!GetConsoleScreenBufferInfo(stdOut, &csbi)) {
+        return;
+    }
+
+    sizeOfConsole = csbi.dwSize.X * csbi.dwSize.Y;
+
+    if (!FillConsoleOutputCharacter(stdOut, (TCHAR)' ', sizeOfConsole, origin,
+                                    &charsWritten)) {
+        return;
+    }
+
+    if (!GetConsoleScreenBufferInfo(stdOut, &csbi)) {
+        return;
+    }
+
+    if (!FillConsoleOutputAttribute(stdOut, csbi.wAttributes, sizeOfConsole,
+                                    origin, &charsWritten)) {
+        return;
+    }
+
+    SetConsoleCursorPosition(stdOut, origin);
+}
+
 void clearScreen() {
-    DWORD writtenChars;
-    WriteConsole(stdOut, "\x1b[2J", 4, &writtenChars, NULL);
-    WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
+    // DWORD writtenChars;
+    // WriteConsole(stdOut, "\x1b[2J", 4, &writtenChars, NULL);
+    // WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
+
+    clsConsole();
 }
 
 void drawRows() {
     DWORD writtenChars;
-    for (int y = 0; y < E.screenrows; y++) {
-        WriteConsole(stdOut, "~\r\n", 3, &writtenChars, NULL);
+    int numRows = E.screenrows;
+    for (int y = 0; y < numRows; y++) {
+        WriteConsole(stdOut, "~", 1, &writtenChars, NULL);
+
+        if (y < numRows - 1) {
+            WriteConsole(stdOut, "\r\n", 2, &writtenChars, NULL);
+        }
+        // else {
+        //     WriteConsole(stdOut, "-", 1, &writtenChars, NULL);
+        // }
     }
 }
 
@@ -33,8 +72,10 @@ void refreshScreen() {
 
     drawRows();
 
-    DWORD writtenChars;
-    WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
+    // DWORD writtenChars;
+    // WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
+    COORD origin = {0, 0};
+    SetConsoleCursorPosition(stdOut, origin);
 }
 
 void die(const char* s) {
@@ -77,6 +118,7 @@ void enableRawMode() {
         DWORD disable_newline_auto_return = 8;
 
         DWORD rawMode = E.orig_stdout_mode;
+        rawMode &= ~(ENABLE_WRAP_AT_EOL_OUTPUT);
         rawMode |=
             (disable_newline_auto_return | enable_virtual_terminal_processing);
         if (!SetConsoleMode(stdOut, rawMode)) {
