@@ -1,40 +1,70 @@
 #include <windows.h>
 #include <iostream>
 
+typedef struct config {
+    DWORD orig_stdin_mode;
+    DWORD orig_stdout_mode;
+    int screenrows;
+    int screencols;
+} config;
+
 static HANDLE stdIn;
 static HANDLE stdOut;
-static DWORD ORIG_INPUT_MODE;
-static DWORD ORIG_OUTPUT_MODE;
+static config E;
 
 #define NUM_EVENTS 1
 #define CTRL_KEY(k) ((k)&0x1f)
 
+void clearScreen() {
+    DWORD writtenChars;
+    WriteConsole(stdOut, "\x1b[2J", 4, &writtenChars, NULL);
+    WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
+}
+
+void drawRows() {
+    DWORD writtenChars;
+    for (int y = 0; y < E.screenrows; y++) {
+        WriteConsole(stdOut, "~\r\n", 3, &writtenChars, NULL);
+    }
+}
+
+void refreshScreen() {
+    clearScreen();
+
+    drawRows();
+
+    DWORD writtenChars;
+    WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
+}
+
 void die(const char* s) {
+    clearScreen();
+
     perror(s);
     exit(1);
 }
 
 void disableRawMode() {
-    SetConsoleMode(stdIn, ORIG_INPUT_MODE);
-    SetConsoleMode(stdOut, ORIG_OUTPUT_MODE);
+    SetConsoleMode(stdIn, E.orig_stdin_mode);
+    SetConsoleMode(stdOut, E.orig_stdout_mode);
 }
 
 void enableRawMode() {
     stdIn = GetStdHandle(STD_INPUT_HANDLE);
     stdOut = GetStdHandle(STD_OUTPUT_HANDLE);
 
-    if (!GetConsoleMode(stdIn, &ORIG_INPUT_MODE)) {
+    if (!GetConsoleMode(stdIn, &E.orig_stdin_mode)) {
         die("failed to get stdin mode");
     }
 
-    if (!GetConsoleMode(stdOut, &ORIG_OUTPUT_MODE)) {
+    if (!GetConsoleMode(stdOut, &E.orig_stdout_mode)) {
         die("failed to get stdout mode");
     }
 
     atexit(disableRawMode);
 
     {
-        DWORD rawMode = ORIG_INPUT_MODE;
+        DWORD rawMode = E.orig_stdin_mode;
         rawMode &=
             ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT);
         if (!SetConsoleMode(stdIn, rawMode)) {
@@ -46,13 +76,25 @@ void enableRawMode() {
         DWORD enable_virtual_terminal_processing = 4;
         DWORD disable_newline_auto_return = 8;
 
-        DWORD rawMode = ORIG_OUTPUT_MODE;
+        DWORD rawMode = E.orig_stdout_mode;
         rawMode |=
             (disable_newline_auto_return | enable_virtual_terminal_processing);
         if (!SetConsoleMode(stdOut, rawMode)) {
             die("failed to set stdout mode");
         }
     }
+}
+
+int getWindowSize(int* rows, int* cols) {
+    // TODO: how to initialize to zero values without
+    // writing all the fields
+    CONSOLE_SCREEN_BUFFER_INFO info = {0};
+    if (!GetConsoleScreenBufferInfo(stdOut, &info) || info.dwSize.X == 0) {
+        return -1;
+    }
+    *rows = info.dwSize.X;
+    *cols = info.dwSize.Y;
+    return 0;
 }
 
 char readKey() {
@@ -85,18 +127,20 @@ void processKeyPress() {
     char c = readKey();
 
     if (c == CTRL_KEY('q')) {
+        clearScreen();
         exit(0);
     }
 }
 
-void refreshScreen() {
-    DWORD writtenChars;
-    WriteConsole(stdOut, "\x1b[2J", 4, &writtenChars, NULL);
-    WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
+void initEditor() {
+    if (getWindowSize(&E.screenrows, &E.screencols) == -1) {
+        die("could not get window size");
+    }
 }
 
 int main(int argc, char* argv[]) {
     enableRawMode();
+    initEditor();
 
     while (1) {
         refreshScreen();
