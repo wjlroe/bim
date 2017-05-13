@@ -86,12 +86,29 @@ void gotoOrigin() {
     ansiSetCursorOrigin();
 }
 
+void win32ShowHideCursor(bool hide) {
+    CONSOLE_CURSOR_INFO info;
+    if (!GetConsoleCursorInfo(stdOut, &info)) {
+        return;
+    }
+
+    info.bVisible = !hide;
+
+    if (!SetConsoleCursorInfo(stdOut, &info)) {
+        return;
+    }
+}
+
+void showHideCursor(bool hide) { win32ShowHideCursor(hide); }
+
 void refreshScreen() {
+    showHideCursor(true);
     clearScreen();
 
     drawRows();
 
     gotoOrigin();
+    showHideCursor(false);
 }
 
 void die(const char* s) {
