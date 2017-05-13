@@ -5,7 +5,9 @@ use libc::{BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG,
            TIOCGWINSZ, VMIN, VTIME, atexit, c_char, c_void, ioctl, read,
            sscanf, tcgetattr, tcsetattr, termios, winsize};
 use std::char;
+use std::ffi::CString;
 use std::io::{Write, stdout};
+use std::process::exit;
 use terminal::Terminal;
 
 #[cfg(target_os = "linux")]
@@ -39,8 +41,7 @@ fn get_window_size_ioctl() -> Option<Terminal> {
         ws_ypixel: 0,
     };
     unsafe {
-        if true || ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut ws) == -1 ||
-           ws.ws_col == 0 {
+        if ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut ws) == -1 || ws.ws_col == 0 {
             None
         } else {
             Some(Terminal::new(ws.ws_col as i32, ws.ws_row as i32))
@@ -56,14 +57,15 @@ fn get_window_size_cursor_pos() -> Option<Terminal> {
             stdout().flush().unwrap();
 
             let mut buf = vec![0u8; 32];
-            // let mut buf = vec!['\0'; 32];
             let mut i = 0;
 
             while i < buf.len() - 1 {
-                if read(STDIN_FILENO,
-                        &mut buf[i].as_mut_ptr() as *mut c_void,
-                        1) != 1 {
-                    break;
+                unsafe {
+                    if read(STDIN_FILENO,
+                            buf[i..].as_mut_ptr() as *mut c_void,
+                            1) != 1 {
+                        break;
+                    }
                 }
                 if buf[i] == 'R' as u8 {
                     break;
@@ -77,10 +79,16 @@ fn get_window_size_cursor_pos() -> Option<Terminal> {
             } else {
                 let mut rows = 0;
                 let mut cols = 0;
-                if sscanf(&buf[2], "%d;%d" as *const c_char, rows, cols) != 2 {
-                    None
-                } else {
-                    Some(Terminal::new(rows, cols))
+                let format = CString::new("%d;%d").unwrap();
+                unsafe {
+                    if sscanf(buf[2..].as_ptr() as *const c_char,
+                              format.as_ptr(),
+                              &mut rows,
+                              &mut cols) != 2 {
+                        None
+                    } else {
+                        Some(Terminal::new(rows, cols))
+                    }
                 }
             }
         } else {
@@ -139,8 +147,7 @@ fn process_keypress(mut terminal: &mut Terminal) {
 
     if ctrl_key('q', c as u32) {
         terminal.reset();
-        // clear_screen();
-        ::std::process::exit(0);
+        exit(0);
     }
 }
 
@@ -149,7 +156,6 @@ pub fn run() {
     if let Some(mut terminal) = get_window_size() {
         loop {
             terminal.refresh();
-            // refresh_screen(&terminal);
             process_keypress(&mut terminal);
         }
     } else {

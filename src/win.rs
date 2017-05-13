@@ -3,6 +3,7 @@ use kernel32::{GetConsoleMode, GetConsoleScreenBufferInfo, GetStdHandle,
 use keycodes::ctrl_key;
 use libc::atexit;
 use std::char;
+use std::process::exit;
 use terminal::Terminal;
 use winapi::minwindef::DWORD;
 use winapi::winbase::{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, WAIT_OBJECT_0};
@@ -93,7 +94,7 @@ fn process_keypress(mut terminal: &mut Terminal, key: char) {
     let char_num = key as u32;
     if ctrl_key('q', char_num) {
         terminal.reset();
-        ::std::process::exit(0);
+        exit(0);
     }
 }
 
