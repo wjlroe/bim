@@ -32,6 +32,14 @@ impl Terminal {
         self.append_buffer.push_str("\x1b[2J");
     }
 
+    fn hide_cursor(&mut self) {
+        self.append_buffer.push_str("\x1b[?25l");
+    }
+
+    fn show_cursor(&mut self) {
+        self.append_buffer.push_str("\x1b[?25h");
+    }
+
     pub fn reset(&mut self) {
         self.clear();
         self.goto_origin();
@@ -51,11 +59,14 @@ impl Terminal {
     }
 
     pub fn refresh(&mut self) {
+        self.hide_cursor();
         self.reset();
 
         self.draw_rows();
 
         self.goto_origin();
+        self.show_cursor();
+
         self.flush();
     }
 }
