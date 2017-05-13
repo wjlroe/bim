@@ -44,12 +44,16 @@ void clsConsole() {
     SetConsoleCursorPosition(stdOut, origin);
 }
 
-void clearScreen() {
-    // DWORD writtenChars;
-    // WriteConsole(stdOut, "\x1b[2J", 4, &writtenChars, NULL);
-    // WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
+void ansiClearScreen() {
+    DWORD writtenChars;
+    // FIXME: this likely only works on recent Windows 10
+    WriteConsole(stdOut, "\x1b[2J", 4, &writtenChars, NULL);
+    WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
+}
 
-    clsConsole();
+void clearScreen() {
+    ansiClearScreen();
+    // clsConsole();
 }
 
 void drawRows() {
@@ -67,15 +71,27 @@ void drawRows() {
     }
 }
 
+void win32SetCursorOrigin() {
+    COORD origin = {0, 0};
+    SetConsoleCursorPosition(stdOut, origin);
+}
+
+void ansiSetCursorOrigin() {
+    DWORD writtenChars;
+    WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
+}
+
+void gotoOrigin() {
+    // win32SetCursorOrigin();
+    ansiSetCursorOrigin();
+}
+
 void refreshScreen() {
     clearScreen();
 
     drawRows();
 
-    // DWORD writtenChars;
-    // WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
-    COORD origin = {0, 0};
-    SetConsoleCursorPosition(stdOut, origin);
+    gotoOrigin();
 }
 
 void die(const char* s) {
