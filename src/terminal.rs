@@ -18,6 +18,7 @@ impl Terminal {
     fn draw_rows(&mut self) {
         for i in 1..self.rows {
             self.append_buffer.push_str("~");
+            self.clear_line();
             if i < self.rows - 1 {
                 self.append_buffer.push_str("\r\n");
             }
@@ -26,6 +27,10 @@ impl Terminal {
 
     fn goto_origin(&mut self) {
         self.append_buffer.push_str("\x1b[H");
+    }
+
+    fn clear_line(&mut self) {
+        self.append_buffer.push_str("\x1b[K");
     }
 
     fn clear(&mut self) {
@@ -60,7 +65,7 @@ impl Terminal {
 
     pub fn refresh(&mut self) {
         self.hide_cursor();
-        self.reset();
+        self.goto_origin();
 
         self.draw_rows();
 
