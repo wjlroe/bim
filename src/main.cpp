@@ -12,6 +12,37 @@ static HANDLE stdIn;
 static HANDLE stdOut;
 static config E;
 
+typedef struct abuf {
+    char* b;
+    int len;
+} abuf;
+
+#define ABUF_INIT \
+    { NULL, 0 }
+
+void abAppend(abuf* ab, const char* s, int len) {
+    char* newBuffer = (char*)realloc(ab->b, ab->len + len);
+
+    if (newBuffer == NULL) {
+        return;
+    }
+    memcpy(&newBuffer[ab->len], s, len);
+    ab->b = newBuffer;
+    ab->len += len;
+}
+
+void abWrite(abuf* ab) {
+    DWORD writtenChars;
+    WriteConsole(stdOut, ab->b, ab->len, &writtenChars, NULL);
+}
+
+void abFree(abuf* ab) { free(ab->b); }
+
+void abFlush(abuf* ab) {
+    abWrite(ab);
+    abFree(ab);
+}
+
 #define NUM_EVENTS 1
 #define CTRL_KEY(k) ((k)&0x1f)
 
@@ -44,30 +75,25 @@ void clsConsole() {
     SetConsoleCursorPosition(stdOut, origin);
 }
 
-void ansiClearScreen() {
-    DWORD writtenChars;
-    // FIXME: this likely only works on recent Windows 10
-    WriteConsole(stdOut, "\x1b[2J", 4, &writtenChars, NULL);
-    WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
+void ansiClearScreen(abuf* ab) {
+    abAppend(ab, "\x1b[2J", 4);
+    abAppend(ab, "\x1b[H", 3);
 }
 
-void clearScreen() {
-    ansiClearScreen();
+void clearScreen(abuf* ab) {
+    ansiClearScreen(ab);
     // clsConsole();
 }
 
-void drawRows() {
-    DWORD writtenChars;
+void drawRows(abuf* ab) {
     int numRows = E.screenrows;
     for (int y = 0; y < numRows; y++) {
-        WriteConsole(stdOut, "~", 1, &writtenChars, NULL);
+        abAppend(ab, "~", 1);
 
+        abAppend(ab, "\x1b[K", 3);
         if (y < numRows - 1) {
-            WriteConsole(stdOut, "\r\n", 2, &writtenChars, NULL);
+            abAppend(ab, "\r\n", 2);
         }
-        // else {
-        //     WriteConsole(stdOut, "-", 1, &writtenChars, NULL);
-        // }
     }
 }
 
@@ -76,14 +102,11 @@ void win32SetCursorOrigin() {
     SetConsoleCursorPosition(stdOut, origin);
 }
 
-void ansiSetCursorOrigin() {
-    DWORD writtenChars;
-    WriteConsole(stdOut, "\x1b[H", 3, &writtenChars, NULL);
-}
+void ansiSetCursorOrigin(abuf* ab) { abAppend(ab, "\x1b[H", 3); }
 
-void gotoOrigin() {
+void gotoOrigin(abuf* ab) {
     // win32SetCursorOrigin();
-    ansiSetCursorOrigin();
+    ansiSetCursorOrigin(ab);
 }
 
 void win32ShowHideCursor(bool hide) {
@@ -99,20 +122,40 @@ void win32ShowHideCursor(bool hide) {
     }
 }
 
-void showHideCursor(bool hide) { win32ShowHideCursor(hide); }
+void ansiShowHideCursor(abuf* ab, bool hide) {
+    if (hide) {
+        abAppend(ab, "\x1b[?25l", 6);
+    } else {
+        abAppend(ab, "\x1b[?25h", 6);
+    }
+}
+
+void showHideCursor(abuf* ab, bool hide) {
+    ansiShowHideCursor(ab, hide);
+    // win32ShowHideCursor(hide);
+}
 
 void refreshScreen() {
-    showHideCursor(true);
-    clearScreen();
+    abuf ab = ABUF_INIT;
 
-    drawRows();
+    showHideCursor(&ab, true);
+    gotoOrigin(&ab);
 
-    gotoOrigin();
-    showHideCursor(false);
+    drawRows(&ab);
+
+    gotoOrigin(&ab);
+    showHideCursor(&ab, false);
+
+    abWrite(&ab);
+
+    abFree(&ab);
 }
 
 void die(const char* s) {
-    clearScreen();
+    abuf ab = ABUF_INIT;
+    clearScreen(&ab);
+    abWrite(&ab);
+    abFree(&ab);
 
     perror(s);
     exit(1);
@@ -202,7 +245,10 @@ void processKeyPress() {
     char c = readKey();
 
     if (c == CTRL_KEY('q')) {
-        clearScreen();
+        abuf ab = ABUF_INIT;
+        clearScreen(&ab);
+        abWrite(&ab);
+        abFree(&ab);
         exit(0);
     }
 }
