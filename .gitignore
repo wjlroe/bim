@@ -8,3 +8,4 @@ build/
 .vs/
 *.dll
 *.exe
+*.VC.*
