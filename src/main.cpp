@@ -290,30 +290,71 @@ int getWindowSize(int* rows, int* cols) {
     return 0;
 }
 
-char readKey() {
-    char character = '\0';
+int read(HANDLE handle, void* buf, size_t count) {
+    char* charBuf = (char*)buf;
+    size_t readSoFar = 0;
+    INPUT_RECORD* inputs = (INPUT_RECORD*)malloc(sizeof(INPUT_RECORD) * count);
+    while (readSoFar < count) {
+        DWORD waiting = WaitForSingleObject(handle, 1000);
 
-    DWORD waiting = WaitForSingleObject(stdIn, 1000);
-    if (waiting == WAIT_OBJECT_0) {
-        INPUT_RECORD input[1];
-        DWORD numEventsRead;
-        if (!ReadConsoleInput(stdIn, input, NUM_EVENTS, &numEventsRead)) {
-            die("failed to ReadConsoleInput");
-        }
+        if (waiting == WAIT_OBJECT_0) {
+            DWORD numEventsRead;
+            PINPUT_RECORD input = &inputs[readSoFar];
+            if (!ReadConsoleInput(handle, input, 1, &numEventsRead)) {
+                return -1;
+            }
 
-        if (numEventsRead == 1) {
-            switch (input[0].EventType) {
-                case KEY_EVENT: {
-                    KEY_EVENT_RECORD record = input[0].Event.KeyEvent;
-                    if (record.bKeyDown) {
-                        character = record.uChar.AsciiChar;
-                    }
-                } break;
+            if (numEventsRead == 1) {
+                switch (input->EventType) {
+                    case KEY_EVENT: {
+                        KEY_EVENT_RECORD record = input->Event.KeyEvent;
+                        if (record.bKeyDown) {
+                            charBuf[readSoFar++] = record.uChar.AsciiChar;
+                        }
+                    } break;
+                }
             }
         }
     }
+    return readSoFar;
+}
 
-    return character;
+char readKey() {
+    char character = '\0';
+
+    int bytesRead;
+    bytesRead = read(stdIn, &character, 1);
+    if (bytesRead == -1) {
+        die("failed to read from stdIn");
+    }
+
+    if (character == '\x1b') {
+        char seq[3];
+
+        if (read(stdIn, &seq[0], 1) != 1) {
+            return '\x1b';
+        }
+        if (read(stdIn, &seq[1], 1) != 1) {
+            return '\x1b';
+        }
+
+        if (seq[0] == '[') {
+            switch (seq[1]) {
+                case 'A':
+                    return 'w';
+                case 'B':
+                    return 's';
+                case 'C':
+                    return 'd';
+                case 'D':
+                    return 'a';
+            }
+        }
+
+        return '\x1b';
+    } else {
+        return character;
+    }
 }
 
 void moveCursor(char key) {
