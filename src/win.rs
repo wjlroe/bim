@@ -49,9 +49,9 @@ fn get_window_size() -> Terminal {
             },
         };
         if GetConsoleScreenBufferInfo(handle, &mut info) != 0 {
-            let x = info.dwSize.X as i32;
-            let y = info.dwSize.Y as i32;
-            Terminal::new(x, y)
+            let x = info.srWindow.Right - info.srWindow.Left + 1;
+            let y = info.srWindow.Bottom - info.srWindow.Top + 1;
+            Terminal::new(x as i32, y as i32)
         } else {
             panic!("GetConsoleScreenBufferInfo failed to get window size!");
         }
