@@ -5,6 +5,8 @@ const BIM_VERSION: &str = "0.0.1";
 pub struct Terminal {
     pub cols: i32,
     pub rows: i32,
+    pub cursor_x: i32,
+    pub cursor_y: i32,
     pub append_buffer: String,
 }
 
@@ -13,6 +15,8 @@ impl Terminal {
         Terminal {
             cols,
             rows,
+            cursor_x: 0,
+            cursor_y: 0,
             append_buffer: String::new(),
         }
     }
@@ -62,6 +66,11 @@ impl Terminal {
         self.append_buffer.push_str("\x1b[?25h");
     }
 
+    fn move_cursor(&mut self) {
+        let ansi = format!("\x1b[{};{}H", self.cursor_y + 1, self.cursor_x + 1);
+        self.append_buffer.push_str(&ansi);
+    }
+
     pub fn reset(&mut self) {
         self.clear();
         self.goto_origin();
@@ -86,7 +95,8 @@ impl Terminal {
 
         self.draw_rows();
 
-        self.goto_origin();
+        self.move_cursor();
+
         self.show_cursor();
 
         self.flush();
