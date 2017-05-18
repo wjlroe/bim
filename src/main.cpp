@@ -4,6 +4,7 @@
 typedef struct config {
     DWORD orig_stdin_mode;
     DWORD orig_stdout_mode;
+    int cx, cy;
     int screenrows;
     int screencols;
 } config;
@@ -155,6 +156,12 @@ void showHideCursor(abuf* ab, bool hide) {
     // win32ShowHideCursor(hide);
 }
 
+void resetCursor(abuf* ab) {
+    char buf[32];
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy + 1, E.cx + 1);
+    abAppend(ab, buf, strlen(buf));
+}
+
 void refreshScreen() {
     abuf ab = ABUF_INIT;
 
@@ -163,7 +170,8 @@ void refreshScreen() {
 
     drawRows(&ab);
 
-    gotoOrigin(&ab);
+    resetCursor(&ab);
+
     showHideCursor(&ab, false);
 
     abWrite(&ab);
@@ -308,19 +316,47 @@ char readKey() {
     return character;
 }
 
+void moveCursor(char key) {
+    switch (key) {
+        case 'a': {
+            E.cx--;
+        } break;
+        case 'd': {
+            E.cx++;
+        } break;
+        case 'w': {
+            E.cy--;
+        } break;
+        case 's': {
+            E.cy++;
+        } break;
+    }
+}
+
 void processKeyPress() {
     char c = readKey();
 
-    if (c == CTRL_KEY('q')) {
-        abuf ab = ABUF_INIT;
-        clearScreen(&ab);
-        abWrite(&ab);
-        abFree(&ab);
-        exit(0);
+    switch (c) {
+        case CTRL_KEY('q'): {
+            abuf ab = ABUF_INIT;
+            clearScreen(&ab);
+            abWrite(&ab);
+            abFree(&ab);
+            exit(0);
+        } break;
+        case 'w':
+        case 's':
+        case 'a':
+        case 'd': {
+            moveCursor(c);
+        } break;
     }
 }
 
 void initEditor() {
+    E.cx = 0;
+    E.cy = 0;
+
     if (getWindowSize(&E.screenrows, &E.screencols) == -1) {
         die("could not get window size");
     }
