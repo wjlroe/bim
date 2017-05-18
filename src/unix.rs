@@ -148,6 +148,8 @@ fn process_keypress(mut terminal: &mut Terminal) {
     if ctrl_key('q', c as u32) {
         terminal.reset();
         exit(0);
+    } else {
+        terminal.move_cursor(c);
     }
 }
 

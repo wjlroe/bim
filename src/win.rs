@@ -95,6 +95,8 @@ fn process_keypress(mut terminal: &mut Terminal, key: char) {
     if ctrl_key('q', char_num) {
         terminal.reset();
         exit(0);
+    } else {
+        terminal.move_cursor(key);
     }
 }
 

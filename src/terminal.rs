@@ -66,7 +66,7 @@ impl Terminal {
         self.append_buffer.push_str("\x1b[?25h");
     }
 
-    fn move_cursor(&mut self) {
+    fn reset_cursor(&mut self) {
         let ansi = format!("\x1b[{};{}H", self.cursor_y + 1, self.cursor_x + 1);
         self.append_buffer.push_str(&ansi);
     }
@@ -95,10 +95,20 @@ impl Terminal {
 
         self.draw_rows();
 
-        self.move_cursor();
+        self.reset_cursor();
 
         self.show_cursor();
 
         self.flush();
+    }
+
+    pub fn move_cursor(&mut self, key: char) {
+        match key {
+            'w' => self.cursor_y -= 1,
+            's' => self.cursor_y += 1,
+            'a' => self.cursor_x -= 1,
+            'd' => self.cursor_x += 1,
+            _ => {}
+        }
     }
 }
