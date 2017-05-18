@@ -1,5 +1,7 @@
 use std::io::{Write, stdout};
 
+const BIM_VERSION: &str = "0.0.1";
+
 pub struct Terminal {
     pub cols: i32,
     pub rows: i32,
@@ -17,7 +19,22 @@ impl Terminal {
 
     fn draw_rows(&mut self) {
         for i in 1..self.rows {
-            self.append_buffer.push_str("~");
+            if i == self.rows / 3 {
+                let mut welcome = format!("bim editor - version {}",
+                                          BIM_VERSION);
+                welcome.truncate(self.cols as usize);
+                let mut padding = (self.cols - welcome.len() as i32) / 2;
+                if padding > 0 {
+                    self.append_buffer.push_str("~");
+                    padding -= 1;
+                }
+                // TODO: can we pad with spaces easier?
+                let padding_str = format!("{:1$}", "", padding as usize);
+                self.append_buffer.push_str(&padding_str);
+                self.append_buffer.push_str(&welcome);
+            } else {
+                self.append_buffer.push_str("~");
+            }
             self.clear_line();
             if i < self.rows - 1 {
                 self.append_buffer.push_str("\r\n");
