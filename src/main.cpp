@@ -43,6 +43,7 @@ void abFlush(abuf* ab) {
     abFree(ab);
 }
 
+#define KILO_VERSION "0.0.1"
 #define NUM_EVENTS 1
 #define CTRL_KEY(k) ((k)&0x1f)
 
@@ -88,7 +89,26 @@ void clearScreen(abuf* ab) {
 void drawRows(abuf* ab) {
     int numRows = E.screenrows;
     for (int y = 0; y < numRows; y++) {
-        abAppend(ab, "~", 1);
+        if (y == numRows / 3) {
+            char welcome[80];
+            int welcomelen =
+                snprintf(welcome, sizeof(welcome), "Kilo editor -- version %s",
+                         KILO_VERSION);
+            if (welcomelen > E.screencols) {
+                welcomelen = E.screencols;
+            }
+            int padding = (E.screencols - welcomelen) / 2;
+            if (padding) {
+                abAppend(ab, "~", 1);
+                padding--;
+            }
+            while (padding--) {
+                abAppend(ab, " ", 1);
+            }
+            abAppend(ab, welcome, welcomelen);
+        } else {
+            abAppend(ab, "~", 1);
+        }
 
         abAppend(ab, "\x1b[K", 3);
         if (y < numRows - 1) {
@@ -203,15 +223,62 @@ void enableRawMode() {
     }
 }
 
+int ansiGetWindowSize(int* rows, int* cols) {
+    DWORD CharsWritten;
+    WriteConsole(stdOut, "\x1b[999C\x1b[999B", 12, &CharsWritten, NULL);
+    if (CharsWritten != 12) {
+        return -1;
+    }
+
+    char buf[32];
+    unsigned int i = 0;
+
+    WriteConsole(stdOut, "\x1b[6n", 4, &CharsWritten, NULL);
+    if (CharsWritten != 4) {
+        return -1;
+    }
+
+    while (i < sizeof(buf) - 1) {
+        DWORD CharsRead;
+        ReadConsole(stdIn, &buf[i], 1, &CharsRead, NULL);
+        if (CharsRead != 1) {
+            break;
+        }
+        if (buf[i] == 'R') {
+            break;
+        }
+        ++i;
+    }
+
+    buf[i] = '\0';
+
+    if (buf[0] != '\x1b' || buf[1] != '[') {
+        return -1;
+    }
+    if (sscanf(&buf[2], "%d;%d", rows, cols) != 2) {
+        return -1;
+    }
+
+    return 0;
+}
+
 int getWindowSize(int* rows, int* cols) {
+    int ansiRows;
+    int ansiCols;
+    ansiGetWindowSize(&ansiRows, &ansiCols);
+
     // TODO: how to initialize to zero values without
     // writing all the fields
     CONSOLE_SCREEN_BUFFER_INFO info = {0};
     if (!GetConsoleScreenBufferInfo(stdOut, &info) || info.dwSize.X == 0) {
         return -1;
     }
-    *rows = info.dwSize.X;
-    *cols = info.dwSize.Y;
+    *rows = info.srWindow.Bottom - info.srWindow.Top + 1;
+    *cols = info.srWindow.Right - info.srWindow.Left + 1;
+
+    if ((*rows != ansiRows) || (*cols != ansiCols)) {
+        return 0;
+    }
     return 0;
 }
 
