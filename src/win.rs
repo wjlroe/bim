@@ -10,6 +10,7 @@ use winapi::winbase::{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, WAIT_OBJECT_0};
 use winapi::wincon::{CONSOLE_SCREEN_BUFFER_INFO, COORD, ENABLE_ECHO_INPUT,
                      ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT, INPUT_RECORD,
                      KEY_EVENT, SMALL_RECT};
+use winapi::winuser::{VK_DOWN, VK_LEFT, VK_RIGHT, VK_UP};
 
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING: DWORD = 0x0004;
 const DISABLE_NEWLINE_AUTO_RETURN: DWORD = 0x0008;
@@ -119,9 +120,16 @@ fn read_a_character() -> Option<char> {
                 if events_read > 0 && input_records[0].EventType == KEY_EVENT {
                     let record = input_records[0].KeyEvent();
                     if record.bKeyDown == 0 {
-                        let unicode_char = record.UnicodeChar as u32;
-                        let read_char = char::from_u32(unicode_char);
-                        character = read_char;
+                        character = match record.wVirtualKeyCode as i32 {
+                            VK_UP => Some('w'),
+                            VK_DOWN => Some('s'),
+                            VK_LEFT => Some('a'),
+                            VK_RIGHT => Some('d'),
+                            _ => {
+                                let unicode_char = record.UnicodeChar as u32;
+                                char::from_u32(unicode_char)
+                            }
+                        };
                     }
                 }
             } else {

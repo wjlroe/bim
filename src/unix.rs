@@ -133,13 +133,41 @@ fn enable_raw_mode() {
 
 fn read_key() -> char {
     let mut buf = vec![0u8; 1];
+    let mut character;
+
     unsafe {
         if read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1) == -1 &&
            errno() != Errno(EAGAIN) {
             panic!("read");
         }
+
+        character = char::from(buf[0]);
+
+        if character == '\x1b' {
+            let mut buf = vec![0u8; 3];
+
+            if read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1) == -1 {
+                return '\x1b';
+            }
+
+            if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) ==
+               -1 {
+                return '\x1b';
+            }
+
+            if buf[0] == b'[' {
+                character = match buf[1] {
+                    b'A' => 'w',
+                    b'B' => 's',
+                    b'C' => 'd',
+                    b'D' => 'a',
+                    _ => '\x1b',
+                }
+            }
+        }
     }
-    char::from(buf[0])
+
+    character
 }
 
 fn process_keypress(mut terminal: &mut Terminal) {
@@ -149,7 +177,10 @@ fn process_keypress(mut terminal: &mut Terminal) {
         terminal.reset();
         exit(0);
     } else {
-        terminal.move_cursor(c);
+        match c {
+            'w' | 'a' | 's' | 'd' => terminal.move_cursor(c),
+            _ => {}
+        }
     }
 }
 
