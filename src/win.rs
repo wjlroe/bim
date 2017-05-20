@@ -8,8 +8,9 @@ use terminal::Terminal;
 use winapi::minwindef::DWORD;
 use winapi::winbase::{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, WAIT_OBJECT_0};
 use winapi::wincon::{CONSOLE_SCREEN_BUFFER_INFO, COORD, ENABLE_ECHO_INPUT,
-                     ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT, INPUT_RECORD,
-                     KEY_EVENT, SMALL_RECT};
+                     ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
+                     ENABLE_WRAP_AT_EOL_OUTPUT, INPUT_RECORD, KEY_EVENT,
+                     SMALL_RECT};
 use winapi::winuser::{VK_DOWN, VK_LEFT, VK_RIGHT, VK_UP};
 
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING: DWORD = 0x0004;
@@ -80,6 +81,7 @@ fn enable_raw_mode() {
         if GetConsoleMode(handle, &mut ORIG_OUTPUT_CONSOLE_MODE) != 0 {
             atexit(disable_raw_output_mode);
             let mut raw = ORIG_OUTPUT_CONSOLE_MODE.clone();
+            raw &= !(ENABLE_WRAP_AT_EOL_OUTPUT);
             raw |= DISABLE_NEWLINE_AUTO_RETURN |
                    ENABLE_VIRTUAL_TERMINAL_PROCESSING;
             if SetConsoleMode(handle, raw) == 0 {
