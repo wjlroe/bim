@@ -304,14 +304,18 @@ int read(HANDLE handle, void* buf, size_t count) {
                 return -1;
             }
 
-            if (numEventsRead == 1) {
-                switch (input->EventType) {
-                    case KEY_EVENT: {
-                        KEY_EVENT_RECORD record = input->Event.KeyEvent;
-                        if (record.bKeyDown) {
-                            charBuf[readSoFar++] = record.uChar.AsciiChar;
-                        }
-                    } break;
+            if ((numEventsRead == 1) && (input->EventType == KEY_EVENT)) {
+                KEY_EVENT_RECORD record = input->Event.KeyEvent;
+                if (record.bKeyDown) {
+                    CHAR key = '\0';
+                    switch (record.wVirtualKeyCode) {
+                    case VK_UP: key = 'w'; break;
+                    case VK_DOWN: key = 's'; break;
+                    case VK_LEFT: key = 'a'; break;
+                    case VK_RIGHT: key = 'd'; break;
+                    default: key = record.uChar.AsciiChar; break;
+                    }
+                    charBuf[readSoFar++] = key;
                 }
             }
         }
@@ -328,33 +332,7 @@ char readKey() {
         die("failed to read from stdIn");
     }
 
-    if (character == '\x1b') {
-        char seq[3];
-
-        if (read(stdIn, &seq[0], 1) != 1) {
-            return '\x1b';
-        }
-        if (read(stdIn, &seq[1], 1) != 1) {
-            return '\x1b';
-        }
-
-        if (seq[0] == '[') {
-            switch (seq[1]) {
-                case 'A':
-                    return 'w';
-                case 'B':
-                    return 's';
-                case 'C':
-                    return 'd';
-                case 'D':
-                    return 'a';
-            }
-        }
-
-        return '\x1b';
-    } else {
-        return character;
-    }
+    return character;
 }
 
 void moveCursor(char key) {
