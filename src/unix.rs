@@ -136,8 +136,8 @@ fn read_key() -> char {
     let mut character;
 
     unsafe {
-        if read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1) == -1 &&
-           errno() != Errno(EAGAIN) {
+        let bytes_read = read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1);
+        if bytes_read == -1 && errno() != Errno(EAGAIN) {
             panic!("read");
         }
 
