@@ -99,8 +99,10 @@ fn get_window_size_cursor_pos() -> Option<Terminal> {
     }
 }
 
-fn get_window_size() -> Option<Terminal> {
-    get_window_size_ioctl().or_else(get_window_size_cursor_pos)
+fn get_window_size() -> Terminal {
+    get_window_size_ioctl()
+        .or_else(get_window_size_cursor_pos)
+        .unwrap()
 }
 
 extern "C" fn disable_raw_mode() {
@@ -186,12 +188,9 @@ fn process_keypress(mut terminal: &mut Terminal) {
 
 pub fn run() {
     enable_raw_mode();
-    if let Some(mut terminal) = get_window_size() {
-        loop {
-            terminal.refresh();
-            process_keypress(&mut terminal);
-        }
-    } else {
-        panic!("get_window_size didn't work");
+    let mut terminal = get_window_size();
+    loop {
+        terminal.refresh();
+        process_keypress(&mut terminal);
     }
 }
