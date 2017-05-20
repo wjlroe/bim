@@ -119,7 +119,7 @@ fn read_a_character() -> Option<char> {
                                  input_records.as_mut_ptr(),
                                  1,
                                  &mut events_read) != 0 {
-                if events_read > 0 && input_records[0].EventType == KEY_EVENT {
+                if events_read == 1 && input_records[0].EventType == KEY_EVENT {
                     let record = input_records[0].KeyEvent();
                     if record.bKeyDown == 0 {
                         character = match record.wVirtualKeyCode as i32 {
