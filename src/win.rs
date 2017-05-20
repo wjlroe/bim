@@ -91,13 +91,15 @@ fn enable_raw_mode() {
     }
 }
 
-fn process_keypress(mut terminal: &mut Terminal, key: char) {
-    let char_num = key as u32;
-    if ctrl_key('q', char_num) {
-        terminal.reset();
-        exit(0);
-    } else {
-        terminal.move_cursor(key);
+fn process_keypress(mut terminal: &mut Terminal) {
+    if let Some(key) = read_a_character() {
+        let char_num = key as u32;
+        if ctrl_key('q', char_num) {
+            terminal.reset();
+            exit(0);
+        } else {
+            terminal.move_cursor(key);
+        }
     }
 }
 
@@ -146,8 +148,6 @@ pub fn run() {
     let mut terminal = get_window_size();
     loop {
         terminal.refresh();
-        if let Some(character) = read_a_character() {
-            process_keypress(&mut terminal, character);
-        }
+        process_keypress(&mut terminal);
     }
 }
