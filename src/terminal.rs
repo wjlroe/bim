@@ -104,10 +104,26 @@ impl Terminal {
 
     pub fn move_cursor(&mut self, key: char) {
         match key {
-            'w' => self.cursor_y -= 1,
-            's' => self.cursor_y += 1,
-            'a' => self.cursor_x -= 1,
-            'd' => self.cursor_x += 1,
+            'w' => {
+                if self.cursor_y != 0 {
+                    self.cursor_y -= 1;
+                }
+            }
+            's' => {
+                if self.cursor_y != self.rows - 1 {
+                    self.cursor_y += 1;
+                }
+            }
+            'a' => {
+                if self.cursor_x != 0 {
+                    self.cursor_x -= 1;
+                }
+            }
+            'd' => {
+                if self.cursor_x != self.cols - 1 {
+                    self.cursor_x += 1;
+                }
+            }
             _ => {}
         }
     }
