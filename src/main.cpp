@@ -309,11 +309,21 @@ int read(HANDLE handle, void* buf, size_t count) {
                 if (record.bKeyDown) {
                     CHAR key = '\0';
                     switch (record.wVirtualKeyCode) {
-                    case VK_UP: key = 'w'; break;
-                    case VK_DOWN: key = 's'; break;
-                    case VK_LEFT: key = 'a'; break;
-                    case VK_RIGHT: key = 'd'; break;
-                    default: key = record.uChar.AsciiChar; break;
+                        case VK_UP:
+                            key = 'w';
+                            break;
+                        case VK_DOWN:
+                            key = 's';
+                            break;
+                        case VK_LEFT:
+                            key = 'a';
+                            break;
+                        case VK_RIGHT:
+                            key = 'd';
+                            break;
+                        default:
+                            key = record.uChar.AsciiChar;
+                            break;
                     }
                     charBuf[readSoFar++] = key;
                 }
@@ -338,16 +348,24 @@ char readKey() {
 void moveCursor(char key) {
     switch (key) {
         case 'a': {
-            E.cx--;
+            if (E.cx != 0) {
+                E.cx--;
+            }
         } break;
         case 'd': {
-            E.cx++;
+            if (E.cx != E.screencols - 1) {
+                E.cx++;
+            }
         } break;
         case 'w': {
-            E.cy--;
+            if (E.cy != 0) {
+                E.cy--;
+            }
         } break;
         case 's': {
-            E.cy++;
+            if (E.cy != E.screenrows - 1) {
+                E.cy++;
+            }
         } break;
     }
 }
