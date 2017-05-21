@@ -1,5 +1,5 @@
 use errno::{Errno, errno};
-use keycodes::ctrl_key;
+use keycodes::{Key, ctrl_key};
 use libc::{BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG,
            ISTRIP, IXON, OPOST, STDIN_FILENO, STDOUT_FILENO, TCSAFLUSH,
            TIOCGWINSZ, VMIN, VTIME, atexit, c_char, c_void, ioctl, read,
@@ -133,7 +133,7 @@ fn enable_raw_mode() {
     }
 }
 
-fn read_key() -> char {
+fn read_key() -> Key {
     let mut buf = vec![0u8; 1];
     let mut character;
 
@@ -149,12 +149,12 @@ fn read_key() -> char {
             let mut buf = vec![0u8; 3];
 
             if read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1) == -1 {
-                return '\x1b';
+                return Key::Other('\x1b');
             }
 
             if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) ==
                -1 {
-                return '\x1b';
+                return Key::Other('\x1b');
             }
 
             if buf[0] == b'[' {
@@ -169,19 +169,27 @@ fn read_key() -> char {
         }
     }
 
-    character
+    match character {
+        'w' => Key::ArrowUp,
+        'a' => Key::ArrowLeft,
+        's' => Key::ArrowDown,
+        'd' => Key::ArrowRight,
+        _ => Key::Other(character),
+    }
 }
 
 fn process_keypress(mut terminal: &mut Terminal) {
-    let c = read_key();
+    use keycodes::Key::*;
 
-    if ctrl_key('q', c as u32) {
-        terminal.reset();
-        exit(0);
-    } else {
-        match c {
-            'w' | 'a' | 's' | 'd' => terminal.move_cursor(c),
-            _ => {}
+    match read_key() {
+        c @ ArrowLeft | c @ ArrowRight | c @ ArrowUp | c @ ArrowDown => {
+            terminal.move_cursor(c)
+        }
+        Other(c) => {
+            if ctrl_key('q', c as u32) {
+                terminal.reset();
+                exit(0);
+            }
         }
     }
 }

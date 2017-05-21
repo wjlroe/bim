@@ -1,6 +1,6 @@
 use kernel32::{GetConsoleMode, GetConsoleScreenBufferInfo, GetStdHandle,
                ReadConsoleInputA, SetConsoleMode, WaitForSingleObjectEx};
-use keycodes::ctrl_key;
+use keycodes::{Key, ctrl_key};
 use libc::atexit;
 use std::char;
 use std::process::exit;
@@ -95,17 +95,23 @@ fn enable_raw_mode() {
 
 fn process_keypress(mut terminal: &mut Terminal) {
     if let Some(key) = read_a_character() {
-        let char_num = key as u32;
-        if ctrl_key('q', char_num) {
-            terminal.reset();
-            exit(0);
-        } else {
-            terminal.move_cursor(key);
+        use keycodes::Key::*;
+
+        match key {
+            ArrowUp | ArrowDown | ArrowLeft | ArrowRight => {
+                terminal.move_cursor(key)
+            }
+            Other(c) => {
+                if ctrl_key('q', c as u32) {
+                    terminal.reset();
+                    exit(0);
+                }
+            }
         }
     }
 }
 
-fn read_a_character() -> Option<char> {
+fn read_a_character() -> Option<Key> {
     let mut character = None;
     unsafe {
         let handle = GetStdHandle(STD_INPUT_HANDLE);
@@ -125,13 +131,13 @@ fn read_a_character() -> Option<char> {
                     let record = input_records[0].KeyEvent();
                     if record.bKeyDown == 0 {
                         character = match record.wVirtualKeyCode as i32 {
-                            VK_UP => Some('w'),
-                            VK_DOWN => Some('s'),
-                            VK_LEFT => Some('a'),
-                            VK_RIGHT => Some('d'),
+                            VK_UP => Some(Key::ArrowUp),
+                            VK_DOWN => Some(Key::ArrowDown),
+                            VK_LEFT => Some(Key::ArrowLeft),
+                            VK_RIGHT => Some(Key::ArrowRight),
                             _ => {
                                 let unicode_char = record.UnicodeChar as u32;
-                                char::from_u32(unicode_char)
+                                char::from_u32(unicode_char).map(Key::Other)
                             }
                         };
                     }

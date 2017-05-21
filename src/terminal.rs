@@ -1,3 +1,4 @@
+use keycodes::Key;
 use std::io::{Write, stdout};
 
 const BIM_VERSION: &str = "0.0.1";
@@ -102,24 +103,24 @@ impl Terminal {
         self.flush();
     }
 
-    pub fn move_cursor(&mut self, key: char) {
+    pub fn move_cursor(&mut self, key: Key) {
         match key {
-            'w' => {
+            Key::ArrowUp => {
                 if self.cursor_y != 0 {
                     self.cursor_y -= 1;
                 }
             }
-            's' => {
+            Key::ArrowDown => {
                 if self.cursor_y != self.rows - 1 {
                     self.cursor_y += 1;
                 }
             }
-            'a' => {
+            Key::ArrowLeft => {
                 if self.cursor_x != 0 {
                     self.cursor_x -= 1;
                 }
             }
-            'd' => {
+            Key::ArrowRight => {
                 if self.cursor_x != self.cols - 1 {
                     self.cursor_x += 1;
                 }
