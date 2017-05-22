@@ -1,4 +1,5 @@
 kilo
+win_size
 kilo-unix.c
 kilo-unix2.c
 .kilo_debug
@@ -10,3 +11,4 @@ build/
 *.dll
 *.exe
 *.VC.*
+*.dSYM
