@@ -158,12 +158,28 @@ fn read_key() -> Key {
             }
 
             if buf[0] == b'[' {
-                character = match buf[1] {
-                    b'A' => 'w',
-                    b'B' => 's',
-                    b'C' => 'd',
-                    b'D' => 'a',
-                    _ => '\x1b',
+                if buf[1] >= b'0' && buf[1] <= b'9' {
+                    if read(STDIN_FILENO,
+                            buf[2..].as_mut_ptr() as *mut c_void,
+                            1) != 1 {
+                        return Key::Other('\x1b');
+                    }
+                    if buf[2] == b'~' {
+                        match buf[1] {
+                            b'5' => return Key::PageUp,
+                            b'6' => return Key::PageDown,
+                            _ => return Key::Other('\x1b'),
+                        }
+
+                    }
+                } else {
+                    character = match buf[1] {
+                        b'A' => 'w',
+                        b'B' => 's',
+                        b'C' => 'd',
+                        b'D' => 'a',
+                        _ => '\x1b',
+                    }
                 }
             }
         }
@@ -181,9 +197,16 @@ fn read_key() -> Key {
 fn process_keypress(mut terminal: &mut Terminal) {
     use keycodes::Key::*;
 
-    match read_key() {
-        c @ ArrowLeft | c @ ArrowRight | c @ ArrowUp | c @ ArrowDown => {
-            terminal.move_cursor(c)
+    let key = read_key();
+    match key {
+        ArrowLeft | ArrowRight | ArrowUp | ArrowDown => {
+            terminal.move_cursor(key)
+        }
+        PageUp | PageDown => {
+            let up_or_down = if key == PageUp { ArrowUp } else { ArrowDown };
+            for _ in 0..terminal.rows {
+                terminal.move_cursor(up_or_down);
+            }
         }
         Other(c) => {
             if ctrl_key('q', c as u32) {

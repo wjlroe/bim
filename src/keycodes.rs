@@ -4,6 +4,8 @@ pub enum Key {
     ArrowRight,
     ArrowUp,
     ArrowDown,
+    PageUp,
+    PageDown,
     Other(char),
 }
 

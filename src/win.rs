@@ -11,7 +11,7 @@ use winapi::wincon::{CONSOLE_SCREEN_BUFFER_INFO, COORD, ENABLE_ECHO_INPUT,
                      ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
                      ENABLE_WRAP_AT_EOL_OUTPUT, INPUT_RECORD, KEY_EVENT,
                      SMALL_RECT};
-use winapi::winuser::{VK_DOWN, VK_LEFT, VK_RIGHT, VK_UP};
+use winapi::winuser::{VK_DOWN, VK_LEFT, VK_NEXT, VK_PRIOR, VK_RIGHT, VK_UP};
 
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING: DWORD = 0x0004;
 const DISABLE_NEWLINE_AUTO_RETURN: DWORD = 0x0008;
@@ -101,6 +101,13 @@ fn process_keypress(mut terminal: &mut Terminal) {
             ArrowUp | ArrowDown | ArrowLeft | ArrowRight => {
                 terminal.move_cursor(key)
             }
+            PageUp | PageDown => {
+                let up_or_down =
+                    if key == PageUp { ArrowUp } else { ArrowDown };
+                for _ in 0..terminal.rows {
+                    terminal.move_cursor(up_or_down);
+                }
+            }
             Other(c) => {
                 if ctrl_key('q', c as u32) {
                     terminal.reset();
@@ -135,6 +142,8 @@ fn read_a_character() -> Option<Key> {
                             VK_DOWN => Some(Key::ArrowDown),
                             VK_LEFT => Some(Key::ArrowLeft),
                             VK_RIGHT => Some(Key::ArrowRight),
+                            VK_PRIOR => Some(Key::PageUp),
+                            VK_NEXT => Some(Key::PageDown),
                             _ => {
                                 let unicode_char = record.UnicodeChar as u32;
                                 char::from_u32(unicode_char).map(Key::Other)
