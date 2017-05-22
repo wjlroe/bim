@@ -1,5 +1,6 @@
-use keycodes::Key;
+use keycodes::{Key, ctrl_key};
 use std::io::{Write, stdout};
+use std::process::exit;
 
 const BIM_VERSION: &str = "0.0.1";
 
@@ -126,6 +127,29 @@ impl Terminal {
                 }
             }
             _ => {}
+        }
+    }
+
+    pub fn process_key(&mut self, key: Key) {
+        use keycodes::Key::*;
+
+        match key {
+            ArrowLeft | ArrowRight | ArrowUp | ArrowDown => {
+                self.move_cursor(key)
+            }
+            PageUp | PageDown => {
+                let up_or_down =
+                    if key == PageUp { ArrowUp } else { ArrowDown };
+                for _ in 0..self.rows {
+                    self.move_cursor(up_or_down);
+                }
+            }
+            Other(c) => {
+                if ctrl_key('q', c as u32) {
+                    self.reset();
+                    exit(0);
+                }
+            }
         }
     }
 }

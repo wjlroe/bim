@@ -1,9 +1,8 @@
 use kernel32::{GetConsoleMode, GetConsoleScreenBufferInfo, GetStdHandle,
                ReadConsoleInputA, SetConsoleMode, WaitForSingleObjectEx};
-use keycodes::{Key, ctrl_key};
+use keycodes::Key;
 use libc::atexit;
 use std::char;
-use std::process::exit;
 use terminal::Terminal;
 use winapi::minwindef::DWORD;
 use winapi::winbase::{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, WAIT_OBJECT_0};
@@ -95,26 +94,7 @@ fn enable_raw_mode() {
 
 fn process_keypress(mut terminal: &mut Terminal) {
     if let Some(key) = read_a_character() {
-        use keycodes::Key::*;
-
-        match key {
-            ArrowUp | ArrowDown | ArrowLeft | ArrowRight => {
-                terminal.move_cursor(key)
-            }
-            PageUp | PageDown => {
-                let up_or_down =
-                    if key == PageUp { ArrowUp } else { ArrowDown };
-                for _ in 0..terminal.rows {
-                    terminal.move_cursor(up_or_down);
-                }
-            }
-            Other(c) => {
-                if ctrl_key('q', c as u32) {
-                    terminal.reset();
-                    exit(0);
-                }
-            }
-        }
+        terminal.process_key(key);
     }
 }
 

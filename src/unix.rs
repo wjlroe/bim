@@ -1,5 +1,5 @@
 use errno::{Errno, errno};
-use keycodes::{Key, ctrl_key};
+use keycodes::Key;
 use libc::{BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG,
            ISTRIP, IXON, OPOST, STDIN_FILENO, STDOUT_FILENO, TCSAFLUSH,
            TIOCGWINSZ, VMIN, VTIME, atexit, c_char, c_void, ioctl, read,
@@ -7,7 +7,6 @@ use libc::{BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG,
 use std::char;
 use std::ffi::CString;
 use std::io::{Write, stdout};
-use std::process::exit;
 use terminal::Terminal;
 
 #[cfg(target_os = "linux")]
@@ -195,26 +194,8 @@ fn read_key() -> Key {
 }
 
 fn process_keypress(mut terminal: &mut Terminal) {
-    use keycodes::Key::*;
-
     let key = read_key();
-    match key {
-        ArrowLeft | ArrowRight | ArrowUp | ArrowDown => {
-            terminal.move_cursor(key)
-        }
-        PageUp | PageDown => {
-            let up_or_down = if key == PageUp { ArrowUp } else { ArrowDown };
-            for _ in 0..terminal.rows {
-                terminal.move_cursor(up_or_down);
-            }
-        }
-        Other(c) => {
-            if ctrl_key('q', c as u32) {
-                terminal.reset();
-                exit(0);
-            }
-        }
-    }
+    terminal.process_key(key);
 }
 
 pub fn run() {
