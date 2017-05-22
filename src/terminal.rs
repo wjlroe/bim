@@ -24,7 +24,7 @@ impl Terminal {
     }
 
     fn draw_rows(&mut self) {
-        for i in 1..self.rows {
+        for i in 0..self.rows {
             if i == self.rows / 3 {
                 let mut welcome = format!("bim editor - version {}",
                                           BIM_VERSION);
