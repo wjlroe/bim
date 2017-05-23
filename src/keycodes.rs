@@ -6,6 +6,8 @@ pub enum Key {
     ArrowDown,
     PageUp,
     PageDown,
+    Home,
+    End,
     Other(char),
 }
 

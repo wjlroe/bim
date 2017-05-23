@@ -144,6 +144,12 @@ impl Terminal {
                     self.move_cursor(up_or_down);
                 }
             }
+            Home => {
+                self.cursor_x = 0;
+            }
+            End => {
+                self.cursor_x = self.cols - 1;
+            }
             Other(c) => {
                 if ctrl_key('q', c as u32) {
                     self.reset();

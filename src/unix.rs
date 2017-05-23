@@ -134,7 +134,7 @@ fn enable_raw_mode() {
 
 fn read_key() -> Key {
     let mut buf = vec![0u8; 1];
-    let mut character;
+    let character;
 
     unsafe {
         let bytes_read = read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1);
@@ -165,20 +165,32 @@ fn read_key() -> Key {
                     }
                     if buf[2] == b'~' {
                         match buf[1] {
+                            b'1' => return Key::Home,
+                            b'4' => return Key::End,
                             b'5' => return Key::PageUp,
                             b'6' => return Key::PageDown,
+                            b'7' => return Key::Home,
+                            b'8' => return Key::End,
                             _ => return Key::Other('\x1b'),
                         }
 
                     }
                 } else {
-                    character = match buf[1] {
-                        b'A' => 'w',
-                        b'B' => 's',
-                        b'C' => 'd',
-                        b'D' => 'a',
-                        _ => '\x1b',
+                    match buf[1] {
+                        b'A' => return Key::ArrowUp,
+                        b'B' => return Key::ArrowDown,
+                        b'C' => return Key::ArrowRight,
+                        b'D' => return Key::ArrowLeft,
+                        b'H' => return Key::Home,
+                        b'F' => return Key::End,
+                        _ => return Key::Other('\x1b'),
                     }
+                }
+            } else if buf[0] == b'O' {
+                match buf[1] {
+                    b'H' => return Key::Home,
+                    b'F' => return Key::End,
+                    _ => return Key::Other('\x1b'),
                 }
             }
         }
