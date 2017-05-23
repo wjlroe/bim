@@ -8,6 +8,7 @@ pub enum Key {
     PageDown,
     Home,
     End,
+    Delete,
     Other(char),
 }
 

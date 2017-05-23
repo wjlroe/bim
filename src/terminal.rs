@@ -150,6 +150,7 @@ impl Terminal {
             End => {
                 self.cursor_x = self.cols - 1;
             }
+            Delete => {}
             Other(c) => {
                 if ctrl_key('q', c as u32) {
                     self.reset();

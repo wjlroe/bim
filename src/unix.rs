@@ -166,6 +166,7 @@ fn read_key() -> Key {
                     if buf[2] == b'~' {
                         match buf[1] {
                             b'1' => return Key::Home,
+                            b'3' => return Key::Delete,
                             b'4' => return Key::End,
                             b'5' => return Key::PageUp,
                             b'6' => return Key::PageDown,

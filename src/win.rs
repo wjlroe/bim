@@ -10,8 +10,8 @@ use winapi::wincon::{CONSOLE_SCREEN_BUFFER_INFO, COORD, ENABLE_ECHO_INPUT,
                      ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
                      ENABLE_WRAP_AT_EOL_OUTPUT, INPUT_RECORD, KEY_EVENT,
                      SMALL_RECT};
-use winapi::winuser::{VK_DOWN, VK_END, VK_HOME, VK_LEFT, VK_NEXT, VK_PRIOR,
-                      VK_RIGHT, VK_UP};
+use winapi::winuser::{VK_DELETE, VK_DOWN, VK_END, VK_HOME, VK_LEFT, VK_NEXT,
+                      VK_PRIOR, VK_RIGHT, VK_UP};
 
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING: DWORD = 0x0004;
 const DISABLE_NEWLINE_AUTO_RETURN: DWORD = 0x0008;
@@ -127,6 +127,7 @@ fn read_a_character() -> Option<Key> {
                             VK_NEXT => Some(Key::PageDown),
                             VK_HOME => Some(Key::Home),
                             VK_END => Some(Key::End),
+                            VK_DELETE => Some(Key::Delete),
                             _ => {
                                 let unicode_char = record.UnicodeChar as u32;
                                 char::from_u32(unicode_char).map(Key::Other)
