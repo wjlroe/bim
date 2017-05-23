@@ -147,6 +147,7 @@ fn read_a_character() -> Option<Key> {
 pub fn run() {
     enable_raw_mode();
     let mut terminal = get_window_size();
+    terminal.init();
     loop {
         terminal.refresh();
         process_keypress(&mut terminal);

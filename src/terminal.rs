@@ -10,6 +10,8 @@ pub struct Terminal {
     pub cursor_x: i32,
     pub cursor_y: i32,
     pub append_buffer: String,
+    pub row: String,
+    pub numrows: i32,
 }
 
 impl Terminal {
@@ -20,28 +22,38 @@ impl Terminal {
             cursor_x: 0,
             cursor_y: 0,
             append_buffer: String::new(),
+            row: String::new(),
+            numrows: 0,
         }
     }
 
     fn draw_rows(&mut self) {
         for i in 0..self.rows {
-            if i == self.rows / 3 {
-                let mut welcome = format!("bim editor - version {}",
-                                          BIM_VERSION);
-                welcome.truncate(self.cols as usize);
-                let mut padding = (self.cols - welcome.len() as i32) / 2;
-                if padding > 0 {
+            if i >= self.numrows {
+                if i == self.rows / 3 {
+                    let mut welcome = format!("bim editor - version {}",
+                                              BIM_VERSION);
+                    welcome.truncate(self.cols as usize);
+                    let mut padding = (self.cols - welcome.len() as i32) / 2;
+                    if padding > 0 {
+                        self.append_buffer.push_str("~");
+                        padding -= 1;
+                    }
+                    // TODO: can we pad with spaces easier?
+                    let padding_str = format!("{:1$}", "", padding as usize);
+                    self.append_buffer.push_str(&padding_str);
+                    self.append_buffer.push_str(&welcome);
+                } else {
                     self.append_buffer.push_str("~");
-                    padding -= 1;
                 }
-                // TODO: can we pad with spaces easier?
-                let padding_str = format!("{:1$}", "", padding as usize);
-                self.append_buffer.push_str(&padding_str);
-                self.append_buffer.push_str(&welcome);
             } else {
-                self.append_buffer.push_str("~");
+                let mut row = self.row.clone();
+                row.truncate(self.cols as usize);
+                self.append_buffer.push_str(&row);
             }
+
             self.clear_line();
+
             if i < self.rows - 1 {
                 self.append_buffer.push_str("\r\n");
             }
@@ -158,5 +170,15 @@ impl Terminal {
                 }
             }
         }
+    }
+
+    fn open(&mut self) {
+        self.numrows = 1;
+        self.row.clear();
+        self.row.push_str("Hello, world!");
+    }
+
+    pub fn init(&mut self) {
+        self.open();
     }
 }
