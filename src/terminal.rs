@@ -12,8 +12,7 @@ pub struct Terminal {
     pub cursor_x: i32,
     pub cursor_y: i32,
     pub append_buffer: String,
-    pub row: String,
-    pub numrows: i32,
+    pub rows: Vec<String>,
 }
 
 impl Terminal {
@@ -24,8 +23,7 @@ impl Terminal {
             cursor_x: 0,
             cursor_y: 0,
             append_buffer: String::new(),
-            row: String::new(),
-            numrows: 0,
+            rows: Vec::new(),
         }
     }
 
@@ -37,9 +35,10 @@ impl Terminal {
     }
 
     fn draw_rows(&mut self) {
+        let numrows = self.rows.len() as i32;
         for i in 0..self.screen_rows {
-            if i >= self.numrows {
-                if self.numrows == 0 && i == self.screen_rows / 3 {
+            if i >= numrows {
+                if numrows == 0 && i == self.screen_rows / 3 {
                     let mut welcome = format!("bim editor - version {}",
                                               BIM_VERSION);
                     welcome.truncate(self.screen_cols as usize);
@@ -57,7 +56,7 @@ impl Terminal {
                     self.append_buffer.push_str("~");
                 }
             } else {
-                let mut row = self.row.clone();
+                let mut row = self.rows[i as usize].clone();
                 row.truncate(self.screen_cols as usize);
                 self.append_buffer.push_str(&row);
             }
@@ -185,16 +184,10 @@ impl Terminal {
     fn open(&mut self, filename: String) {
         match File::open(filename) {
             Ok(f) => {
-                let mut reader = BufReader::new(f);
-                let mut buffer = String::new();
-                let _ = reader.read_line(&mut buffer);
-                self.numrows = 1;
-                self.row.clear();
-                self.row
-                    .push_str(buffer.trim_right_matches(|c| {
-                                                            c == '\r' ||
-                                                            c == '\n'
-                                                        }));
+                self.rows.clear();
+                for line in BufReader::new(f).lines() {
+                    self.rows.push(line.unwrap());
+                }
             }
             Err(e) => self.die(e.description()),
         }
