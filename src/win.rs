@@ -144,10 +144,10 @@ fn read_a_character() -> Option<Key> {
     character
 }
 
-pub fn run() {
+pub fn run(filename_arg: Option<String>) {
     enable_raw_mode();
     let mut terminal = get_window_size();
-    terminal.init();
+    terminal.init(filename_arg);
     loop {
         terminal.refresh();
         process_keypress(&mut terminal);

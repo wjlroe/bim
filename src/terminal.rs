@@ -1,5 +1,7 @@
 use keycodes::{Key, ctrl_key};
-use std::io::{Write, stdout};
+use std::error::Error;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Write, stdout};
 use std::process::exit;
 
 const BIM_VERSION: &str = "0.0.1";
@@ -25,6 +27,13 @@ impl Terminal {
             row: String::new(),
             numrows: 0,
         }
+    }
+
+    fn die(&mut self, message: &str) {
+        self.reset();
+
+        println!("Error: {}", message);
+        exit(1);
     }
 
     fn draw_rows(&mut self) {
@@ -172,13 +181,27 @@ impl Terminal {
         }
     }
 
-    fn open(&mut self) {
-        self.numrows = 1;
-        self.row.clear();
-        self.row.push_str("Hello, world!");
+    fn open(&mut self, filename: String) {
+        match File::open(filename) {
+            Ok(f) => {
+                let mut reader = BufReader::new(f);
+                let mut buffer = String::new();
+                let _ = reader.read_line(&mut buffer);
+                self.numrows = 1;
+                self.row.clear();
+                self.row
+                    .push_str(buffer.trim_right_matches(|c| {
+                                                            c == '\r' ||
+                                                            c == '\n'
+                                                        }));
+            }
+            Err(e) => self.die(e.description()),
+        }
     }
 
-    pub fn init(&mut self) {
-        self.open();
+    pub fn init(&mut self, filename_arg: Option<String>) {
+        if let Some(filename) = filename_arg {
+            self.open(filename);
+        }
     }
 }
