@@ -39,7 +39,7 @@ impl Terminal {
     fn draw_rows(&mut self) {
         for i in 0..self.rows {
             if i >= self.numrows {
-                if i == self.rows / 3 {
+                if self.numrows == 0 && i == self.rows / 3 {
                     let mut welcome = format!("bim editor - version {}",
                                               BIM_VERSION);
                     welcome.truncate(self.cols as usize);
