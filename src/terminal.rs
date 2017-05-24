@@ -7,8 +7,8 @@ use std::process::exit;
 const BIM_VERSION: &str = "0.0.1";
 
 pub struct Terminal {
-    pub cols: i32,
-    pub rows: i32,
+    pub screen_cols: i32,
+    pub screen_rows: i32,
     pub cursor_x: i32,
     pub cursor_y: i32,
     pub append_buffer: String,
@@ -17,10 +17,10 @@ pub struct Terminal {
 }
 
 impl Terminal {
-    pub fn new(cols: i32, rows: i32) -> Self {
+    pub fn new(screen_cols: i32, screen_rows: i32) -> Self {
         Terminal {
-            cols,
-            rows,
+            screen_cols,
+            screen_rows,
             cursor_x: 0,
             cursor_y: 0,
             append_buffer: String::new(),
@@ -37,13 +37,14 @@ impl Terminal {
     }
 
     fn draw_rows(&mut self) {
-        for i in 0..self.rows {
+        for i in 0..self.screen_rows {
             if i >= self.numrows {
-                if self.numrows == 0 && i == self.rows / 3 {
+                if self.numrows == 0 && i == self.screen_rows / 3 {
                     let mut welcome = format!("bim editor - version {}",
                                               BIM_VERSION);
-                    welcome.truncate(self.cols as usize);
-                    let mut padding = (self.cols - welcome.len() as i32) / 2;
+                    welcome.truncate(self.screen_cols as usize);
+                    let mut padding =
+                        (self.screen_cols - welcome.len() as i32) / 2;
                     if padding > 0 {
                         self.append_buffer.push_str("~");
                         padding -= 1;
@@ -57,13 +58,13 @@ impl Terminal {
                 }
             } else {
                 let mut row = self.row.clone();
-                row.truncate(self.cols as usize);
+                row.truncate(self.screen_cols as usize);
                 self.append_buffer.push_str(&row);
             }
 
             self.clear_line();
 
-            if i < self.rows - 1 {
+            if i < self.screen_rows - 1 {
                 self.append_buffer.push_str("\r\n");
             }
         }
@@ -133,7 +134,7 @@ impl Terminal {
                 }
             }
             Key::ArrowDown => {
-                if self.cursor_y != self.rows - 1 {
+                if self.cursor_y != self.screen_rows - 1 {
                     self.cursor_y += 1;
                 }
             }
@@ -143,7 +144,7 @@ impl Terminal {
                 }
             }
             Key::ArrowRight => {
-                if self.cursor_x != self.cols - 1 {
+                if self.cursor_x != self.screen_cols - 1 {
                     self.cursor_x += 1;
                 }
             }
@@ -161,7 +162,7 @@ impl Terminal {
             PageUp | PageDown => {
                 let up_or_down =
                     if key == PageUp { ArrowUp } else { ArrowDown };
-                for _ in 0..self.rows {
+                for _ in 0..self.screen_rows {
                     self.move_cursor(up_or_down);
                 }
             }
@@ -169,7 +170,7 @@ impl Terminal {
                 self.cursor_x = 0;
             }
             End => {
-                self.cursor_x = self.cols - 1;
+                self.cursor_x = self.screen_cols - 1;
             }
             Delete => {}
             Other(c) => {
