@@ -13,6 +13,7 @@ pub struct Terminal {
     pub cursor_y: i32,
     pub append_buffer: String,
     pub rows: Vec<String>,
+    row_offset: i32,
 }
 
 impl Terminal {
@@ -24,6 +25,7 @@ impl Terminal {
             cursor_y: 0,
             append_buffer: String::new(),
             rows: Vec::new(),
+            row_offset: 0,
         }
     }
 
@@ -37,7 +39,8 @@ impl Terminal {
     fn draw_rows(&mut self) {
         let numrows = self.rows.len() as i32;
         for i in 0..self.screen_rows {
-            if i >= numrows {
+            let filerow = i + self.row_offset;
+            if filerow >= numrows {
                 if numrows == 0 && i == self.screen_rows / 3 {
                     let mut welcome = format!("bim editor - version {}",
                                               BIM_VERSION);
@@ -56,7 +59,7 @@ impl Terminal {
                     self.append_buffer.push_str("~");
                 }
             } else {
-                let mut row = self.rows[i as usize].clone();
+                let mut row = self.rows[filerow as usize].clone();
                 row.truncate(self.screen_cols as usize);
                 self.append_buffer.push_str(&row);
             }
@@ -90,7 +93,9 @@ impl Terminal {
     }
 
     fn reset_cursor(&mut self) {
-        let ansi = format!("\x1b[{};{}H", self.cursor_y + 1, self.cursor_x + 1);
+        let ansi = format!("\x1b[{};{}H",
+                           self.cursor_y - self.row_offset + 1,
+                           self.cursor_x + 1);
         self.append_buffer.push_str(&ansi);
     }
 
@@ -112,7 +117,19 @@ impl Terminal {
         self.append_buffer.clear();
     }
 
+    fn scroll(&mut self) {
+        if self.cursor_y < self.row_offset {
+            self.row_offset = self.cursor_y;
+        }
+
+        if self.cursor_y >= self.row_offset + self.screen_rows {
+            self.row_offset = self.cursor_y - self.screen_rows + 1;
+        }
+    }
+
     pub fn refresh(&mut self) {
+        self.scroll();
+
         self.hide_cursor();
         self.goto_origin();
 
@@ -133,7 +150,7 @@ impl Terminal {
                 }
             }
             Key::ArrowDown => {
-                if self.cursor_y != self.screen_rows - 1 {
+                if self.cursor_y < self.rows.len() as i32 {
                     self.cursor_y += 1;
                 }
             }
