@@ -156,6 +156,8 @@ impl Terminal {
     }
 
     pub fn move_cursor(&mut self, key: Key) {
+        let current_row = self.rows.get(self.cursor_y as usize);
+
         match key {
             Key::ArrowUp => {
                 if self.cursor_y != 0 {
@@ -173,7 +175,11 @@ impl Terminal {
                 }
             }
             Key::ArrowRight => {
-                self.cursor_x += 1;
+                if let Some(row) = current_row {
+                    if self.cursor_x < row.len() as i32 {
+                        self.cursor_x += 1;
+                    }
+                }
             }
             _ => {}
         }
