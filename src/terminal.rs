@@ -14,6 +14,7 @@ pub struct Terminal {
     pub append_buffer: String,
     pub rows: Vec<String>,
     row_offset: i32,
+    col_offset: i32,
 }
 
 impl Terminal {
@@ -26,6 +27,7 @@ impl Terminal {
             append_buffer: String::new(),
             rows: Vec::new(),
             row_offset: 0,
+            col_offset: 0,
         }
     }
 
@@ -59,9 +61,12 @@ impl Terminal {
                     self.append_buffer.push_str("~");
                 }
             } else {
-                let mut row = self.rows[filerow as usize].clone();
-                row.truncate(self.screen_cols as usize);
-                self.append_buffer.push_str(&row);
+                let onscreen_row = self.rows[filerow as usize]
+                    .chars()
+                    .skip(self.col_offset as usize)
+                    .take(self.screen_cols as usize)
+                    .collect::<String>();
+                self.append_buffer.push_str(onscreen_row.as_str());
             }
 
             self.clear_line();
@@ -94,8 +99,8 @@ impl Terminal {
 
     fn reset_cursor(&mut self) {
         let ansi = format!("\x1b[{};{}H",
-                           self.cursor_y - self.row_offset + 1,
-                           self.cursor_x + 1);
+                           (self.cursor_y - self.row_offset) + 1,
+                           (self.cursor_x - self.col_offset) + 1);
         self.append_buffer.push_str(&ansi);
     }
 
@@ -124,6 +129,14 @@ impl Terminal {
 
         if self.cursor_y >= self.row_offset + self.screen_rows {
             self.row_offset = self.cursor_y - self.screen_rows + 1;
+        }
+
+        if self.cursor_x < self.col_offset {
+            self.col_offset = self.cursor_x;
+        }
+
+        if self.cursor_x >= self.col_offset + self.screen_cols {
+            self.col_offset = self.cursor_x - self.screen_cols + 1;
         }
     }
 
@@ -160,9 +173,7 @@ impl Terminal {
                 }
             }
             Key::ArrowRight => {
-                if self.cursor_x != self.screen_cols - 1 {
-                    self.cursor_x += 1;
-                }
+                self.cursor_x += 1;
             }
             _ => {}
         }
