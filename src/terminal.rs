@@ -183,6 +183,15 @@ impl Terminal {
             }
             _ => {}
         }
+
+        let rowlen = match self.rows.get(self.cursor_y as usize) {
+            Some(row) => row.len(),
+            _ => 0,
+        };
+
+        if self.cursor_x > rowlen as i32 {
+            self.cursor_x = rowlen as i32;
+        }
     }
 
     pub fn process_key(&mut self, key: Key) {
