@@ -182,6 +182,9 @@ impl Terminal {
                 if let Some(row) = current_row {
                     if self.cursor_x < row.len() as i32 {
                         self.cursor_x += 1;
+                    } else if self.cursor_x == row.len() as i32 {
+                        self.cursor_y += 1;
+                        self.cursor_x = 0;
                     }
                 }
             }
