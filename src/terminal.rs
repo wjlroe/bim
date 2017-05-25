@@ -172,6 +172,10 @@ impl Terminal {
             Key::ArrowLeft => {
                 if self.cursor_x != 0 {
                     self.cursor_x -= 1;
+                } else if self.cursor_y > 0 {
+                    self.cursor_y -= 1;
+                    self.cursor_x = self.rows[self.cursor_y as usize].len() as
+                                    i32;
                 }
             }
             Key::ArrowRight => {
