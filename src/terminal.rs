@@ -41,6 +41,21 @@ impl Row {
         row.rsize = rsize;
         row
     }
+
+    fn text_cursor_to_render(&self, cidx: i32) -> i32 {
+        let tab_stop = TAB_STOP as i32;
+        let mut ridx: i32 = 0;
+        for (i, source_char) in self.chars.chars().enumerate() {
+            if i == cidx as usize {
+                break;
+            }
+            if source_char == '\t' {
+                ridx += (tab_stop - 1) - (ridx % tab_stop);
+            }
+            ridx += 1;
+        }
+        ridx
+    }
 }
 
 pub struct Terminal {
@@ -48,6 +63,7 @@ pub struct Terminal {
     pub screen_rows: i32,
     pub cursor_x: i32,
     pub cursor_y: i32,
+    rcursor_x: i32,
     pub append_buffer: String,
     rows: Vec<Row>,
     row_offset: i32,
@@ -61,6 +77,7 @@ impl Terminal {
             screen_rows,
             cursor_x: 0,
             cursor_y: 0,
+            rcursor_x: 0,
             append_buffer: String::new(),
             rows: Vec::new(),
             row_offset: 0,
@@ -138,7 +155,7 @@ impl Terminal {
     fn reset_cursor(&mut self) {
         let ansi = format!("\x1b[{};{}H",
                            (self.cursor_y - self.row_offset) + 1,
-                           (self.cursor_x - self.col_offset) + 1);
+                           (self.rcursor_x - self.col_offset) + 1);
         self.append_buffer.push_str(&ansi);
     }
 
@@ -161,6 +178,12 @@ impl Terminal {
     }
 
     fn scroll(&mut self) {
+        self.rcursor_x = 0;
+        if self.cursor_y < self.rows.len() as i32 {
+            self.rcursor_x = self.rows[self.cursor_y as usize]
+                .text_cursor_to_render(self.cursor_x);
+        }
+
         if self.cursor_y < self.row_offset {
             self.row_offset = self.cursor_y;
         }
@@ -169,12 +192,12 @@ impl Terminal {
             self.row_offset = self.cursor_y - self.screen_rows + 1;
         }
 
-        if self.cursor_x < self.col_offset {
-            self.col_offset = self.cursor_x;
+        if self.rcursor_x < self.col_offset {
+            self.col_offset = self.rcursor_x;
         }
 
-        if self.cursor_x >= self.col_offset + self.screen_cols {
-            self.col_offset = self.cursor_x - self.screen_cols + 1;
+        if self.rcursor_x >= self.col_offset + self.screen_cols {
+            self.col_offset = self.rcursor_x - self.screen_cols + 1;
         }
     }
 
@@ -212,15 +235,15 @@ impl Terminal {
                     self.cursor_x -= 1;
                 } else if self.cursor_y > 0 {
                     self.cursor_y -= 1;
-                    self.cursor_x = self.rows[self.cursor_y as usize].rsize as
+                    self.cursor_x = self.rows[self.cursor_y as usize].size as
                                     i32;
                 }
             }
             Key::ArrowRight => {
                 if let Some(row) = current_row {
-                    if self.cursor_x < row.rsize as i32 {
+                    if self.cursor_x < row.size as i32 {
                         self.cursor_x += 1;
-                    } else if self.cursor_x == row.rsize as i32 {
+                    } else if self.cursor_x == row.size as i32 {
                         self.cursor_y += 1;
                         self.cursor_x = 0;
                     }
@@ -230,7 +253,7 @@ impl Terminal {
         }
 
         let rowlen = match self.rows.get(self.cursor_y as usize) {
-            Some(row) => row.rsize,
+            Some(row) => row.size,
             _ => 0,
         };
 
