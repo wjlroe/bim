@@ -290,7 +290,10 @@ impl Terminal {
                 self.cursor_x = 0;
             }
             End => {
-                self.cursor_x = self.screen_cols - 1;
+                if self.cursor_y < self.rows.len() as i32 {
+                    self.cursor_x = self.rows[self.cursor_y as usize].size as
+                                    i32;
+                }
             }
             Delete => {}
             Other(c) => {
