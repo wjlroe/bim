@@ -5,6 +5,43 @@ use std::io::{BufRead, BufReader, Write, stdout};
 use std::process::exit;
 
 const BIM_VERSION: &str = "0.0.1";
+const TAB_STOP: usize = 8;
+
+struct Row {
+    chars: String,
+    size: usize,
+    render: String,
+    rsize: usize,
+}
+
+impl Row {
+    fn new(text: &str) -> Self {
+        let mut row = Row {
+            chars: String::new(),
+            size: 0,
+            render: String::new(),
+            rsize: 0,
+        };
+        row.chars.push_str(text);
+        row.size = text.len();
+        let mut rsize = 0;
+        for source_char in text.chars() {
+            if source_char == '\t' {
+                row.render.push(' ');
+                rsize += 1;
+                while rsize % TAB_STOP != 0 {
+                    row.render.push(' ');
+                    rsize += 1;
+                }
+            } else {
+                row.render.push(source_char);
+                rsize += 1;
+            }
+        }
+        row.rsize = rsize;
+        row
+    }
+}
 
 pub struct Terminal {
     pub screen_cols: i32,
@@ -12,7 +49,7 @@ pub struct Terminal {
     pub cursor_x: i32,
     pub cursor_y: i32,
     pub append_buffer: String,
-    pub rows: Vec<String>,
+    rows: Vec<Row>,
     row_offset: i32,
     col_offset: i32,
 }
@@ -62,6 +99,7 @@ impl Terminal {
                 }
             } else {
                 let onscreen_row = self.rows[filerow as usize]
+                    .render
                     .chars()
                     .skip(self.col_offset as usize)
                     .take(self.screen_cols as usize)
@@ -174,15 +212,15 @@ impl Terminal {
                     self.cursor_x -= 1;
                 } else if self.cursor_y > 0 {
                     self.cursor_y -= 1;
-                    self.cursor_x = self.rows[self.cursor_y as usize].len() as
+                    self.cursor_x = self.rows[self.cursor_y as usize].rsize as
                                     i32;
                 }
             }
             Key::ArrowRight => {
                 if let Some(row) = current_row {
-                    if self.cursor_x < row.len() as i32 {
+                    if self.cursor_x < row.rsize as i32 {
                         self.cursor_x += 1;
-                    } else if self.cursor_x == row.len() as i32 {
+                    } else if self.cursor_x == row.rsize as i32 {
                         self.cursor_y += 1;
                         self.cursor_x = 0;
                     }
@@ -192,7 +230,7 @@ impl Terminal {
         }
 
         let rowlen = match self.rows.get(self.cursor_y as usize) {
-            Some(row) => row.len(),
+            Some(row) => row.rsize,
             _ => 0,
         };
 
@@ -236,7 +274,8 @@ impl Terminal {
             Ok(f) => {
                 self.rows.clear();
                 for line in BufReader::new(f).lines() {
-                    self.rows.push(line.unwrap());
+                    let row = Row::new(&line.unwrap());
+                    self.rows.push(row);
                 }
             }
             Err(e) => self.die(e.description()),
