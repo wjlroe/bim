@@ -272,6 +272,16 @@ impl Terminal {
             PageUp | PageDown => {
                 let up_or_down =
                     if key == PageUp { ArrowUp } else { ArrowDown };
+
+                if up_or_down == ArrowUp {
+                    self.cursor_y = self.row_offset;
+                } else {
+                    self.cursor_y = self.row_offset + self.screen_rows - 1;
+                    if self.cursor_y > self.rows.len() as i32 {
+                        self.cursor_y = self.rows.len() as i32;
+                    }
+                }
+
                 for _ in 0..self.screen_rows {
                     self.move_cursor(up_or_down);
                 }
