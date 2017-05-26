@@ -68,6 +68,7 @@ pub struct Terminal {
     rows: Vec<Row>,
     row_offset: i32,
     col_offset: i32,
+    filename: Option<String>,
 }
 
 impl Terminal {
@@ -82,6 +83,7 @@ impl Terminal {
             rows: Vec::new(),
             row_offset: 0,
             col_offset: 0,
+            filename: None,
         }
     }
 
@@ -126,10 +128,27 @@ impl Terminal {
 
             self.clear_line();
 
-            if i < self.screen_rows - 1 {
-                self.append_buffer.push_str("\r\n");
-            }
+            self.append_buffer.push_str("\r\n");
         }
+    }
+
+    fn draw_status_bar(&mut self) {
+        self.append_buffer.push_str("\x1b[7m");
+        let filename = self.filename
+            .clone()
+            .unwrap_or(String::from("[No Name]"));
+        let mut status =
+            format!("{0:.20} - {1} lines", filename, self.rows.len());
+        let rstatus = format!("{}/{}", self.cursor_y + 1, self.rows.len());
+        status.truncate(self.screen_cols as usize);
+        self.append_buffer.push_str(&status);
+        let remaining = self.screen_cols - status.len() as i32 -
+                        rstatus.len() as i32;
+        for _ in 0..remaining {
+            self.append_buffer.push(' ');
+        }
+        self.append_buffer.push_str(&rstatus);
+        self.append_buffer.push_str("\x1b[m");
     }
 
     fn goto_origin(&mut self) {
@@ -208,6 +227,7 @@ impl Terminal {
         self.goto_origin();
 
         self.draw_rows();
+        self.draw_status_bar();
 
         self.reset_cursor();
 
@@ -306,8 +326,9 @@ impl Terminal {
     }
 
     fn open(&mut self, filename: String) {
-        match File::open(filename) {
+        match File::open(&filename) {
             Ok(f) => {
+                self.filename = Some(filename);
                 self.rows.clear();
                 for line in BufReader::new(f).lines() {
                     let row = Row::new(&line.unwrap());
@@ -322,5 +343,7 @@ impl Terminal {
         if let Some(filename) = filename_arg {
             self.open(filename);
         }
+
+        self.screen_rows -= 1;
     }
 }
