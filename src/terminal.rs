@@ -25,22 +25,27 @@ impl Row {
         };
         row.chars.push_str(text);
         row.size = text.len();
+        row.update_render();
+        row
+    }
+
+    fn update_render(&mut self) {
+        self.render.clear();
         let mut rsize = 0;
-        for source_char in text.chars() {
+        for source_char in self.chars.chars() {
             if source_char == '\t' {
-                row.render.push(' ');
+                self.render.push(' ');
                 rsize += 1;
                 while rsize % TAB_STOP != 0 {
-                    row.render.push(' ');
+                    self.render.push(' ');
                     rsize += 1;
                 }
             } else {
-                row.render.push(source_char);
+                self.render.push(source_char);
                 rsize += 1;
             }
         }
-        row.rsize = rsize;
-        row
+        self.rsize = rsize;
     }
 
     fn text_cursor_to_render(&self, cidx: i32) -> i32 {
@@ -56,6 +61,13 @@ impl Row {
             ridx += 1;
         }
         ridx
+    }
+
+    fn insert_char(&mut self, at: usize, character: char) {
+        let at = if at > self.size { self.size } else { at };
+        self.chars.insert(at, character);
+        self.size += 1;
+        self.update_render();
     }
 }
 
@@ -312,6 +324,15 @@ impl Terminal {
         }
     }
 
+    fn insert_char(&mut self, character: char) {
+        if self.cursor_y == self.rows.len() as i32 {
+            self.rows.push(Row::new(""));
+        }
+        self.rows[self.cursor_y as usize].insert_char(self.cursor_x as usize,
+                                                      character);
+        self.cursor_x += 1;
+    }
+
     pub fn process_key(&mut self, key: Key) {
         use keycodes::Key::*;
 
@@ -350,6 +371,8 @@ impl Terminal {
                 if ctrl_key('q', c as u32) {
                     self.reset();
                     exit(0);
+                } else {
+                    self.insert_char(c);
                 }
             }
         }
