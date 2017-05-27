@@ -148,12 +148,12 @@ fn read_key() -> Key {
             let mut buf = vec![0u8; 3];
 
             if read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1) == -1 {
-                return Key::Other('\x1b');
+                return Key::Escape;
             }
 
             if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) ==
                -1 {
-                return Key::Other('\x1b');
+                return Key::Escape;
             }
 
             if buf[0] == b'[' {
@@ -161,7 +161,7 @@ fn read_key() -> Key {
                     if read(STDIN_FILENO,
                             buf[2..].as_mut_ptr() as *mut c_void,
                             1) != 1 {
-                        return Key::Other('\x1b');
+                        return Key::Escape;
                     }
                     if buf[2] == b'~' {
                         match buf[1] {
@@ -172,7 +172,7 @@ fn read_key() -> Key {
                             b'6' => return Key::PageDown,
                             b'7' => return Key::Home,
                             b'8' => return Key::End,
-                            _ => return Key::Other('\x1b'),
+                            _ => return Key::Escape,
                         }
 
                     }
@@ -184,14 +184,14 @@ fn read_key() -> Key {
                         b'D' => return Key::ArrowLeft,
                         b'H' => return Key::Home,
                         b'F' => return Key::End,
-                        _ => return Key::Other('\x1b'),
+                        _ => return Key::Escape,
                     }
                 }
             } else if buf[0] == b'O' {
                 match buf[1] {
                     b'H' => return Key::Home,
                     b'F' => return Key::End,
-                    _ => return Key::Other('\x1b'),
+                    _ => return Key::Escape,
                 }
             }
         }
@@ -202,6 +202,8 @@ fn read_key() -> Key {
         'a' => Key::ArrowLeft,
         's' => Key::ArrowDown,
         'd' => Key::ArrowRight,
+        '\r' => Key::Return,
+        '\u{7f}' => Key::Backspace,
         _ => Key::Other(character),
     }
 }

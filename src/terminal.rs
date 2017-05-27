@@ -390,11 +390,12 @@ impl Terminal {
                                     i32;
                 }
             }
-            Delete => {}
+            Delete | Return | Backspace | Escape => {}
             Other(c) => {
                 if ctrl_key('q', c as u32) {
                     self.reset();
                     exit(0);
+                } else if ctrl_key('h', c as u32) || ctrl_key('l', c as u32) {
                 } else {
                     self.insert_char(c);
                 }

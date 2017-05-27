@@ -9,6 +9,9 @@ pub enum Key {
     Home,
     End,
     Delete,
+    Return,
+    Backspace,
+    Escape,
     Other(char),
 }
 

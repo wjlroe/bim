@@ -10,8 +10,6 @@ use winapi::wincon::{CONSOLE_SCREEN_BUFFER_INFO, COORD, ENABLE_ECHO_INPUT,
                      ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
                      ENABLE_WRAP_AT_EOL_OUTPUT, INPUT_RECORD, KEY_EVENT,
                      SMALL_RECT};
-use winapi::winuser::{VK_DELETE, VK_DOWN, VK_END, VK_HOME, VK_LEFT, VK_NEXT,
-                      VK_PRIOR, VK_RIGHT, VK_UP};
 
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING: DWORD = 0x0004;
 const DISABLE_NEWLINE_AUTO_RETURN: DWORD = 0x0008;
@@ -100,6 +98,8 @@ fn process_keypress(mut terminal: &mut Terminal) {
 }
 
 fn read_a_character() -> Option<Key> {
+    use winapi::winuser::*;
+
     let mut character = None;
     unsafe {
         let handle = GetStdHandle(STD_INPUT_HANDLE);
@@ -128,6 +128,26 @@ fn read_a_character() -> Option<Key> {
                             VK_HOME => Some(Key::Home),
                             VK_END => Some(Key::End),
                             VK_DELETE => Some(Key::Delete),
+                            VK_BACK => Some(Key::Backspace),
+                            VK_RETURN => Some(Key::Return),
+                            VK_ESCAPE => Some(Key::Escape),
+                            // escape is no-op
+                            VK_CONTROL => Some(Key::Escape),
+                            VK_INSERT => Some(Key::Escape),
+                            VK_SHIFT => Some(Key::Escape),
+                            VK_LSHIFT => Some(Key::Escape),
+                            VK_RSHIFT => Some(Key::Escape),
+                            VK_MENU => Some(Key::Escape),
+                            VK_CAPITAL => Some(Key::Escape),
+                            VK_PAUSE => Some(Key::Escape),
+                            VK_CLEAR => Some(Key::Escape),
+                            VK_LWIN => Some(Key::Escape),
+                            VK_APPS => Some(Key::Escape),
+                            VK_SLEEP => Some(Key::Escape),
+                            VK_SCROLL => Some(Key::Escape),
+                            VK_VOLUME_MUTE => Some(Key::Escape),
+                            VK_VOLUME_DOWN => Some(Key::Escape),
+                            VK_VOLUME_UP => Some(Key::Escape),
                             _ => {
                                 let unicode_char = record.UnicodeChar as u32;
                                 char::from_u32(unicode_char).map(Key::Other)
