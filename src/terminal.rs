@@ -3,6 +3,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write, stdout};
 use std::process::exit;
+use std::time::{Duration, Instant};
 
 const BIM_VERSION: &str = "0.0.1";
 const TAB_STOP: usize = 8;
@@ -58,6 +59,20 @@ impl Row {
     }
 }
 
+struct Status {
+    message: String,
+    time: Instant,
+}
+
+impl Status {
+    fn new(message: String) -> Self {
+        Status {
+            message,
+            time: Instant::now(),
+        }
+    }
+}
+
 pub struct Terminal {
     pub screen_cols: i32,
     pub screen_rows: i32,
@@ -69,6 +84,7 @@ pub struct Terminal {
     row_offset: i32,
     col_offset: i32,
     filename: Option<String>,
+    status: Option<Status>,
 }
 
 impl Terminal {
@@ -84,6 +100,7 @@ impl Terminal {
             row_offset: 0,
             col_offset: 0,
             filename: None,
+            status: None,
         }
     }
 
@@ -149,6 +166,18 @@ impl Terminal {
         }
         self.append_buffer.push_str(&rstatus);
         self.append_buffer.push_str("\x1b[m");
+        self.append_buffer.push_str("\r\n");
+    }
+
+    fn draw_message_bar(&mut self) {
+        self.clear_line();
+        if let Some(ref status) = self.status {
+            if status.time.elapsed() < Duration::from_secs(5) {
+                let mut msg = status.message.clone();
+                msg.truncate(self.screen_cols as usize);
+                self.append_buffer.push_str(&msg);
+            }
+        }
     }
 
     fn goto_origin(&mut self) {
@@ -228,6 +257,7 @@ impl Terminal {
 
         self.draw_rows();
         self.draw_status_bar();
+        self.draw_message_bar();
 
         self.reset_cursor();
 
@@ -325,6 +355,11 @@ impl Terminal {
         }
     }
 
+    fn set_status_message(&mut self, message: String) {
+        let status = Status::new(message);
+        self.status = Some(status);
+    }
+
     fn open(&mut self, filename: String) {
         match File::open(&filename) {
             Ok(f) => {
@@ -344,6 +379,8 @@ impl Terminal {
             self.open(filename);
         }
 
-        self.screen_rows -= 1;
+        self.set_status_message(String::from("HELP: Ctrl-Q = quit"));
+
+        self.screen_rows -= 2;
     }
 }
