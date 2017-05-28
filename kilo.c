@@ -1152,6 +1152,8 @@ void initEditor() {
 }
 
 void editorPrintDebug() {
+  int len;
+  char buf[80];
   char* method = "unknown";
   switch (E.window_size_type) {
     case WS_IOCTL: {
@@ -1163,12 +1165,33 @@ void editorPrintDebug() {
     default: { method = "unknown"; } break;
   }
 
+  struct abuf ab = ABUF_INIT;
+
+  len = snprintf(buf, sizeof(buf), "rows: %d\r\n", E.screenrows);
+  abAppend(&ab, buf, len);
+  len = snprintf(buf, sizeof(buf), "cols: %d\r\n", E.screencols);
+  abAppend(&ab, buf, len);
+  len = snprintf(buf, sizeof(buf), "method: %s\r\n", method);
+  abAppend(&ab, buf, len);
+
   write(STDOUT_FILENO, "\x1b[2J", 4);
   write(STDOUT_FILENO, "\x1b[H", 3);
+  write(STDOUT_FILENO, ab.b, ab.len);
 
-  printf("rows: %d\r\n", E.screenrows);
-  printf("cols: %d\r\n", E.screencols);
-  printf("method: %s\r\n", method);
+  int fd = open(".kilo_debug", O_TRUNC | O_RDWR | O_CREAT, 0644);
+  if (fd != -1) {
+    if (write(fd, ab.b, ab.len) == ab.len) {
+      close(fd);
+    }
+    close(fd);
+  } else {
+    len = snprintf(buf, sizeof(buf),
+                   "couldn't open .kilo_debug for writing!\r\n");
+    write(STDERR_FILENO, buf, len);
+  }
+
+  abFree(&ab);
+
   exit(0);
 }
 
