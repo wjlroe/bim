@@ -1,8 +1,7 @@
 kilo
 win_size
-kilo-unix.c
-kilo-unix2.c
 .kilo_debug
+kilo-*.c
 target
 target-unix
 build/
