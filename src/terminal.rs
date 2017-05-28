@@ -1,4 +1,5 @@
 use keycodes::{Key, ctrl_key};
+use std::cmp::Ordering;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write, stdout};
@@ -8,6 +9,7 @@ use std::time::{Duration, Instant};
 const BIM_VERSION: &str = "0.0.1";
 const TAB_STOP: usize = 8;
 
+#[derive(PartialEq, Eq)]
 struct Row {
     chars: String,
     size: usize,
@@ -91,6 +93,7 @@ fn test_row_insert_char() {
     assert_eq!("_a zline of text_", row.chars);
 }
 
+#[derive(PartialEq, Eq)]
 struct Status {
     message: String,
     time: Instant,
@@ -105,6 +108,7 @@ impl Status {
     }
 }
 
+#[derive(Eq, PartialEq)]
 pub struct Terminal {
     pub screen_cols: i32,
     pub screen_rows: i32,
@@ -426,4 +430,38 @@ impl Terminal {
 
         self.screen_rows -= 2;
     }
+}
+
+impl Ord for Terminal {
+    fn cmp(&self, other: &Terminal) -> Ordering {
+        self.screen_rows
+            .cmp(&other.screen_rows)
+            .then(self.screen_cols.cmp(&other.screen_cols))
+    }
+}
+
+impl PartialOrd for Terminal {
+    fn partial_cmp(&self, other: &Terminal) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[test]
+fn test_terminal_ordering() {
+    use std::cmp::Ordering::*;
+
+    let term1 = Terminal::new(1, 1);
+    assert_eq!(Equal, term1.cmp(&term1));
+    let term2 = Terminal::new(2, 1);
+    assert_eq!(Less, term1.cmp(&term2));
+    assert_eq!(Greater, term2.cmp(&term1));
+    let term3 = Terminal::new(1, 2);
+    assert_eq!(Less, term1.cmp(&term3));
+    assert_eq!(Greater, term3.cmp(&term1));
+
+    let none_term: Option<Terminal> = None;
+    let some_term1 = Some(term1);
+    assert_eq!(Equal, some_term1.cmp(&some_term1));
+    assert_eq!(Less, none_term.cmp(&some_term1));
+    assert_eq!(Greater, some_term1.cmp(&none_term));
 }
