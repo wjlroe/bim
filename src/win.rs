@@ -117,7 +117,7 @@ fn read_a_character() -> Option<Key> {
                                  &mut events_read) != 0 {
                 if events_read == 1 && input_records[0].EventType == KEY_EVENT {
                     let record = input_records[0].KeyEvent();
-                    if record.bKeyDown == 0 {
+                    if record.bKeyDown == 1 {
                         character = match record.wVirtualKeyCode as i32 {
                             VK_UP => Some(Key::ArrowUp),
                             VK_DOWN => Some(Key::ArrowDown),
