@@ -67,6 +67,11 @@ typedef struct erow {
   int hl_open_comment;
 } erow;
 
+enum windowSizeType {
+  WS_IOCTL,
+  WS_CURSOR,
+};
+
 struct editorConfig {
   int cx, cy;
   int rx;
@@ -82,6 +87,7 @@ struct editorConfig {
   time_t statusmsg_time;
   struct editorSyntax* syntax;
   struct termios orig_termios;
+  int window_size_type;
 };
 
 struct editorConfig E;
@@ -248,8 +254,10 @@ int getWindowSize(int* rows, int* cols) {
     if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) {
       return -1;
     }
+    E.window_size_type = WS_CURSOR;
     return getCursorPosition(rows, cols);
   } else {
+    E.window_size_type = WS_IOCTL;
     *cols = ws.ws_col;
     *rows = ws.ws_row;
     return 0;
@@ -1131,11 +1139,36 @@ void initEditor() {
   E.screenrows -= 2;
 }
 
+void editorPrintDebug() {
+  char* method = "unknown";
+  switch (E.window_size_type) {
+    case WS_IOCTL: {
+      method = "ioctl";
+    } break;
+    case WS_CURSOR: {
+      method = "cursor";
+    } break;
+    default: { method = "unknown"; } break;
+  }
+
+  write(STDOUT_FILENO, "\x1b[2J", 4);
+  write(STDOUT_FILENO, "\x1b[H", 3);
+
+  printf("rows: %d\r\n", E.screenrows);
+  printf("cols: %d\r\n", E.screencols);
+  printf("method: %s\r\n", method);
+  exit(0);
+}
+
 int main(int argc, char* argv[]) {
   enableRawMode();
   initEditor();
   if (argc >= 2) {
-    editorOpen(argv[1]);
+    if (strncmp(argv[1], "--debug", 7) == 0) {
+      editorPrintDebug();
+    } else {
+      editorOpen(argv[1]);
+    }
   }
 
   editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find");
