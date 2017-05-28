@@ -810,27 +810,39 @@ void editorScroll() {
   }
 }
 
+void editorCenterMsg(struct abuf* ab, char* msg, int len) {
+  if (len > E.screencols) {
+    len = E.screencols;
+  }
+  int padding = (E.screencols - len) / 2;
+  if (padding) {
+    abAppend(ab, "~", 1);
+    padding--;
+  }
+  while (padding--) {
+    abAppend(ab, " ", 1);
+  }
+  abAppend(ab, msg, len);
+}
+
+void editorWelcomeMsg(struct abuf* ab) {
+  char welcome[80];
+  int welcomelen = snprintf(welcome, sizeof(welcome),
+                            "Kilo editor -- version %s", KILO_VERSION);
+  editorCenterMsg(ab, welcome, welcomelen);
+}
+
 void editorDrawRows(struct abuf* ab) {
   int y;
   for (y = 0; y < E.screenrows; y++) {
     int filerow = y + E.rowoff;
     if (filerow >= E.numrows) {
-      if (E.numrows == 0 && y == E.screenrows / 3) {
-        char welcome[80];
-        int welcomelen = snprintf(welcome, sizeof(welcome),
-                                  "Kilo editor -- version %s", KILO_VERSION);
-        if (welcomelen > E.screencols) {
-          welcomelen = E.screencols;
-        }
-        int padding = (E.screencols - welcomelen) / 2;
-        if (padding) {
+      if (E.numrows == 0) {
+        if (y == E.screenrows / 3) {
+          editorWelcomeMsg(ab);
+        } else {
           abAppend(ab, "~", 1);
-          padding--;
         }
-        while (padding--) {
-          abAppend(ab, " ", 1);
-        }
-        abAppend(ab, welcome, welcomelen);
       } else {
         abAppend(ab, "~", 1);
       }
