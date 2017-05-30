@@ -187,9 +187,8 @@ impl Terminal {
 
     fn draw_status_bar(&mut self) {
         self.append_buffer.push_str("\x1b[7m");
-        let filename = self.filename
-            .clone()
-            .unwrap_or(String::from("[No Name]"));
+        let filename =
+            self.filename.clone().unwrap_or(String::from("[No Name]"));
         let mut status =
             format!("{0:.20} - {1} lines", filename, self.rows.len());
         let rstatus = format!("{}/{}", self.cursor_y + 1, self.rows.len());
@@ -352,8 +351,8 @@ impl Terminal {
         if self.cursor_y == self.rows.len() as i32 {
             self.rows.push(Row::new(""));
         }
-        self.rows[self.cursor_y as usize].insert_char(self.cursor_x as usize,
-                                                      character);
+        self.rows[self.cursor_y as usize]
+            .insert_char(self.cursor_x as usize, character);
         self.cursor_x += 1;
     }
 
