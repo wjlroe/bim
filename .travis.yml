@@ -17,7 +17,7 @@ before_script:
   - rustup install stable
   - ./.travis/install.sh
   - export PATH="$PATH:$HOME/.cargo/bin"
-  - which rustfmt || cargo install rustfmt
+  - ./scripts/prepare_ci.sh
 script:
   - make
   - ./.travis/test.sh

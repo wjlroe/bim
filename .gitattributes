@@ -17,3 +17,4 @@
 *.jpg binary
 
 .env text eol=lf
+scripts/prepare_ci.sh eol=lf
