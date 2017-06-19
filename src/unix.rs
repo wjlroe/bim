@@ -60,9 +60,12 @@ fn get_window_size_cursor_pos() -> Option<Terminal> {
 
             while i < buf.len() - 1 {
                 unsafe {
-                    if read(STDIN_FILENO,
-                            buf[i..].as_mut_ptr() as *mut c_void,
-                            1) != 1 {
+                    if read(
+                        STDIN_FILENO,
+                        buf[i..].as_mut_ptr() as *mut c_void,
+                        1,
+                    ) != 1
+                    {
                         break;
                     }
                 }
@@ -80,10 +83,13 @@ fn get_window_size_cursor_pos() -> Option<Terminal> {
                 let mut cols = 0;
                 let format = CString::new("%d;%d").unwrap();
                 unsafe {
-                    if sscanf(buf[2..].as_ptr() as *const c_char,
-                              format.as_ptr(),
-                              &mut rows,
-                              &mut cols) != 2 {
+                    if sscanf(
+                        buf[2..].as_ptr() as *const c_char,
+                        format.as_ptr(),
+                        &mut rows,
+                        &mut cols,
+                    ) != 2
+                    {
                         None
                     } else {
                         Some(Terminal::new(rows, cols))
@@ -152,15 +158,19 @@ fn read_key() -> Key {
             }
 
             if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) ==
-               -1 {
+                -1
+            {
                 return Key::Escape;
             }
 
             if buf[0] == b'[' {
                 if buf[1] >= b'0' && buf[1] <= b'9' {
-                    if read(STDIN_FILENO,
-                            buf[2..].as_mut_ptr() as *mut c_void,
-                            1) != 1 {
+                    if read(
+                        STDIN_FILENO,
+                        buf[2..].as_mut_ptr() as *mut c_void,
+                        1,
+                    ) != 1
+                    {
                         return Key::Escape;
                     }
                     if buf[2] == b'~' {

@@ -84,15 +84,19 @@ fn process_keypress() {
             }
 
             if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) ==
-               -1 {
+                -1
+            {
                 return;
             }
 
             if buf[0] == b'[' {
                 if buf[1] >= b'0' && buf[1] <= b'9' {
-                    if read(STDIN_FILENO,
-                            buf[2..].as_mut_ptr() as *mut c_void,
-                            1) != 1 {
+                    if read(
+                        STDIN_FILENO,
+                        buf[2..].as_mut_ptr() as *mut c_void,
+                        1,
+                    ) != 1
+                    {
                         return;
                     }
                     if buf[2] == b'~' {

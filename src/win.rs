@@ -65,7 +65,7 @@ fn enable_raw_mode() {
             atexit(disable_raw_input_mode);
             let mut raw = ORIG_INPUT_CONSOLE_MODE.clone();
             raw &= !(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT |
-                     ENABLE_PROCESSED_INPUT);
+                         ENABLE_PROCESSED_INPUT);
             if SetConsoleMode(handle, raw) == 0 {
                 panic!("setting console input mode failed!");
             }
@@ -81,7 +81,7 @@ fn enable_raw_mode() {
             let mut raw = ORIG_OUTPUT_CONSOLE_MODE.clone();
             raw &= !(ENABLE_WRAP_AT_EOL_OUTPUT);
             raw |= DISABLE_NEWLINE_AUTO_RETURN |
-                   ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+                ENABLE_VIRTUAL_TERMINAL_PROCESSING;
             if SetConsoleMode(handle, raw) == 0 {
                 panic!("setting console output mode failed!");
             }
@@ -111,10 +111,13 @@ fn read_a_character() -> Option<Key> {
             };
             let mut input_records = [empty_record];
             let mut events_read = 0;
-            if ReadConsoleInputA(handle,
-                                 input_records.as_mut_ptr(),
-                                 1,
-                                 &mut events_read) != 0 {
+            if ReadConsoleInputA(
+                handle,
+                input_records.as_mut_ptr(),
+                1,
+                &mut events_read,
+            ) != 0
+            {
                 if events_read == 1 && input_records[0].EventType == KEY_EVENT {
                     let record = input_records[0].KeyEvent();
                     if record.bKeyDown == 1 {

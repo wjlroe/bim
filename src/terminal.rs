@@ -153,8 +153,8 @@ impl Terminal {
             let filerow = i + self.row_offset;
             if filerow >= numrows {
                 if numrows == 0 && i == self.screen_rows / 3 {
-                    let mut welcome = format!("bim editor - version {}",
-                                              BIM_VERSION);
+                    let mut welcome =
+                        format!("bim editor - version {}", BIM_VERSION);
                     welcome.truncate(self.screen_cols as usize);
                     let mut padding =
                         (self.screen_cols - welcome.len() as i32) / 2;
@@ -195,7 +195,7 @@ impl Terminal {
         status.truncate(self.screen_cols as usize);
         self.append_buffer.push_str(&status);
         let remaining = self.screen_cols - status.len() as i32 -
-                        rstatus.len() as i32;
+            rstatus.len() as i32;
         for _ in 0..remaining {
             self.append_buffer.push(' ');
         }
@@ -236,9 +236,11 @@ impl Terminal {
     }
 
     fn reset_cursor(&mut self) {
-        let ansi = format!("\x1b[{};{}H",
-                           (self.cursor_y - self.row_offset) + 1,
-                           (self.rcursor_x - self.col_offset) + 1);
+        let ansi = format!(
+            "\x1b[{};{}H",
+            (self.cursor_y - self.row_offset) + 1,
+            (self.rcursor_x - self.col_offset) + 1
+        );
         self.append_buffer.push_str(&ansi);
     }
 
@@ -321,7 +323,7 @@ impl Terminal {
                 } else if self.cursor_y > 0 {
                     self.cursor_y -= 1;
                     self.cursor_x = self.rows[self.cursor_y as usize].size as
-                                    i32;
+                        i32;
                 }
             }
             Key::ArrowRight => {
@@ -351,8 +353,10 @@ impl Terminal {
         if self.cursor_y == self.rows.len() as i32 {
             self.rows.push(Row::new(""));
         }
-        self.rows[self.cursor_y as usize]
-            .insert_char(self.cursor_x as usize, character);
+        self.rows[self.cursor_y as usize].insert_char(
+            self.cursor_x as usize,
+            character,
+        );
         self.cursor_x += 1;
     }
 
@@ -386,7 +390,7 @@ impl Terminal {
             End => {
                 if self.cursor_y < self.rows.len() as i32 {
                     self.cursor_x = self.rows[self.cursor_y as usize].size as
-                                    i32;
+                        i32;
                 }
             }
             Delete | Return | Backspace | Escape => {}
@@ -434,9 +438,9 @@ impl Terminal {
 
 impl Ord for Terminal {
     fn cmp(&self, other: &Terminal) -> Ordering {
-        self.screen_rows
-            .cmp(&other.screen_rows)
-            .then(self.screen_cols.cmp(&other.screen_cols))
+        self.screen_rows.cmp(&other.screen_rows).then(
+            self.screen_cols.cmp(&other.screen_cols),
+        )
     }
 }
 
