@@ -1,3 +1,4 @@
+#![windows_subsystem = "console"]
 extern crate kilo;
 
 use std::env;
