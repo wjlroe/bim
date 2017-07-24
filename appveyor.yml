@@ -33,6 +33,7 @@ install:
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
   - rustc -Vv
   - cargo -V
+  - where grep
 
 # TODO This is the "test phase", tweak it as you see fit
 test_script:
