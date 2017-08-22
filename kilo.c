@@ -19,6 +19,7 @@
 #define KILO_TAB_STOP 8
 #define KILO_QUIT_TIMES 3
 #define CTRL_KEY(k) ((k)&0x1f)
+#define UI_ROWS 2
 
 #define HL_HIGHLIGHT_NUMBERS (1 << 0)
 #define HL_HIGHLIGHT_STRINGS (1 << 1)
@@ -1148,7 +1149,7 @@ void initEditor() {
   if (getWindowSize(&E.screenrows, &E.screencols) == -1) {
     die("getWindowSize");
   }
-  E.screenrows -= 2;
+  E.screenrows -= UI_ROWS;
 }
 
 void editorPrintDebug() {
@@ -1167,7 +1168,7 @@ void editorPrintDebug() {
 
   struct abuf ab = ABUF_INIT;
 
-  len = snprintf(buf, sizeof(buf), "rows: %d\r\n", E.screenrows);
+  len = snprintf(buf, sizeof(buf), "rows: %d\r\n", E.screenrows + UI_ROWS);
   abAppend(&ab, buf, len);
   len = snprintf(buf, sizeof(buf), "cols: %d\r\n", E.screencols);
   abAppend(&ab, buf, len);
