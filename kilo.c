@@ -19,6 +19,7 @@
 #define KILO_TAB_STOP 8
 #define KILO_QUIT_TIMES 3
 #define CTRL_KEY(k) ((k)&0x1f)
+#define UI_ROWS 2
 
 #define HL_HIGHLIGHT_NUMBERS (1 << 0)
 #define HL_HIGHLIGHT_STRINGS (1 << 1)
@@ -67,6 +68,11 @@ typedef struct erow {
   int hl_open_comment;
 } erow;
 
+enum windowSizeType {
+  WS_IOCTL,
+  WS_CURSOR,
+};
+
 struct editorConfig {
   int cx, cy;
   int rx;
@@ -82,6 +88,7 @@ struct editorConfig {
   time_t statusmsg_time;
   struct editorSyntax* syntax;
   struct termios orig_termios;
+  int window_size_type;
 };
 
 struct editorConfig E;
@@ -248,8 +255,10 @@ int getWindowSize(int* rows, int* cols) {
     if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) {
       return -1;
     }
+    E.window_size_type = WS_CURSOR;
     return getCursorPosition(rows, cols);
   } else {
+    E.window_size_type = WS_IOCTL;
     *cols = ws.ws_col;
     *rows = ws.ws_row;
     return 0;
@@ -802,27 +811,39 @@ void editorScroll() {
   }
 }
 
+void editorCenterMsg(struct abuf* ab, char* msg, int len) {
+  if (len > E.screencols) {
+    len = E.screencols;
+  }
+  int padding = (E.screencols - len) / 2;
+  if (padding) {
+    abAppend(ab, "~", 1);
+    padding--;
+  }
+  while (padding--) {
+    abAppend(ab, " ", 1);
+  }
+  abAppend(ab, msg, len);
+}
+
+void editorWelcomeMsg(struct abuf* ab) {
+  char welcome[80];
+  int welcomelen = snprintf(welcome, sizeof(welcome),
+                            "Kilo editor -- version %s", KILO_VERSION);
+  editorCenterMsg(ab, welcome, welcomelen);
+}
+
 void editorDrawRows(struct abuf* ab) {
   int y;
   for (y = 0; y < E.screenrows; y++) {
     int filerow = y + E.rowoff;
     if (filerow >= E.numrows) {
-      if (E.numrows == 0 && y == E.screenrows / 3) {
-        char welcome[80];
-        int welcomelen = snprintf(welcome, sizeof(welcome),
-                                  "Kilo editor -- version %s", KILO_VERSION);
-        if (welcomelen > E.screencols) {
-          welcomelen = E.screencols;
-        }
-        int padding = (E.screencols - welcomelen) / 2;
-        if (padding) {
+      if (E.numrows == 0) {
+        if (y == E.screenrows / 3) {
+          editorWelcomeMsg(ab);
+        } else {
           abAppend(ab, "~", 1);
-          padding--;
         }
-        while (padding--) {
-          abAppend(ab, " ", 1);
-        }
-        abAppend(ab, welcome, welcomelen);
       } else {
         abAppend(ab, "~", 1);
       }
@@ -1128,14 +1149,62 @@ void initEditor() {
   if (getWindowSize(&E.screenrows, &E.screencols) == -1) {
     die("getWindowSize");
   }
-  E.screenrows -= 2;
+  E.screenrows -= UI_ROWS;
+}
+
+void editorPrintDebug() {
+  int len;
+  char buf[80];
+  char* method = "unknown";
+  switch (E.window_size_type) {
+    case WS_IOCTL: {
+      method = "ioctl";
+    } break;
+    case WS_CURSOR: {
+      method = "cursor";
+    } break;
+    default: { method = "unknown"; } break;
+  }
+
+  struct abuf ab = ABUF_INIT;
+
+  len = snprintf(buf, sizeof(buf), "rows: %d\r\n", E.screenrows + UI_ROWS);
+  abAppend(&ab, buf, len);
+  len = snprintf(buf, sizeof(buf), "cols: %d\r\n", E.screencols);
+  abAppend(&ab, buf, len);
+  len = snprintf(buf, sizeof(buf), "method: %s\r\n", method);
+  abAppend(&ab, buf, len);
+
+  write(STDOUT_FILENO, "\x1b[2J", 4);
+  write(STDOUT_FILENO, "\x1b[H", 3);
+  write(STDOUT_FILENO, ab.b, ab.len);
+
+  int fd = open(".kilo_debug", O_TRUNC | O_RDWR | O_CREAT, 0644);
+  if (fd != -1) {
+    if (write(fd, ab.b, ab.len) == ab.len) {
+      close(fd);
+    }
+    close(fd);
+  } else {
+    len = snprintf(buf, sizeof(buf),
+                   "couldn't open .kilo_debug for writing!\r\n");
+    write(STDERR_FILENO, buf, len);
+  }
+
+  abFree(&ab);
+
+  exit(0);
 }
 
 int main(int argc, char* argv[]) {
   enableRawMode();
   initEditor();
   if (argc >= 2) {
-    editorOpen(argv[1]);
+    if (strncmp(argv[1], "--debug", 7) == 0) {
+      editorPrintDebug();
+    } else {
+      editorOpen(argv[1]);
+    }
   }
 
   editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find");

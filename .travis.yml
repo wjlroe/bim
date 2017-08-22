@@ -1,0 +1,23 @@
+language: c
+
+os:
+  - linux
+  - osx
+
+compiler:
+  - clang
+  - gcc
+
+addons:
+  apt:
+    sources:
+      - sourceline: 'ppa:duggan/bats'
+    packages:
+      - bats
+      - xterm
+
+before_script: ./.travis/install.sh
+
+script:
+  - make
+  - ./.travis/test.sh
