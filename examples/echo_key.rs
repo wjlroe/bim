@@ -4,11 +4,11 @@ extern crate errno;
 extern crate libc;
 
 #[cfg(unix)]
-use errno::{Errno, errno};
+use errno::{errno, Errno};
 #[cfg(unix)]
-use libc::{BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG,
-           ISTRIP, IXON, OPOST, STDIN_FILENO, TCSAFLUSH, VMIN, VTIME, atexit,
-           c_void, read, tcgetattr, tcsetattr, termios};
+use libc::{atexit, c_void, read, tcgetattr, tcsetattr, termios, CS8, BRKINT,
+           EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON,
+           OPOST, STDIN_FILENO, TCSAFLUSH, VMIN, VTIME};
 
 #[cfg(target_os = "linux")]
 static mut ORIG_TERMIOS: termios = termios {
@@ -83,8 +83,7 @@ fn process_keypress() {
                 return;
             }
 
-            if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) ==
-                -1
+            if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) == -1
             {
                 return;
             }

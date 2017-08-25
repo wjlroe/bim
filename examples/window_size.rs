@@ -7,7 +7,7 @@ extern crate libc;
 
 #[cfg(unix)]
 fn main() {
-    use libc::{STDOUT_FILENO, TIOCGWINSZ, ioctl, winsize};
+    use libc::{ioctl, winsize, STDOUT_FILENO, TIOCGWINSZ};
 
     let mut ws = winsize {
         ws_row: 0,
