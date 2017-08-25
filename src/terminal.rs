@@ -1,8 +1,9 @@
 use keycodes::{ctrl_key, Key};
 use std::cmp::Ordering;
+use std::default::Default;
 use std::error::Error;
 use std::fs::File;
-use std::io::{stdout, BufRead, BufReader, Write};
+use std::io::{stdout, BufRead, BufReader, BufWriter, Write};
 use std::process::exit;
 use std::time::{Duration, Instant};
 
@@ -10,7 +11,7 @@ const BIM_VERSION: &str = "0.0.1";
 const TAB_STOP: usize = 8;
 const UI_ROWS: i32 = 2;
 
-#[derive(PartialEq, Eq)]
+#[derive(Default, PartialEq, Eq)]
 struct Row {
     chars: String,
     size: usize,
@@ -26,10 +27,19 @@ impl Row {
             render: String::new(),
             rsize: 0,
         };
-        row.chars.push_str(text);
-        row.size = text.len();
-        row.update_render();
+        row.set_text(text);
         row
+    }
+
+    fn set_text(&mut self, text: &str) {
+        self.chars.clear();
+        self.chars.push_str(text);
+        self.update();
+    }
+
+    fn update(&mut self) {
+        self.size = self.chars.len();
+        self.update_render();
     }
 
     fn update_render(&mut self) {
@@ -43,6 +53,8 @@ impl Row {
                     self.render.push(' ');
                     rsize += 1;
                 }
+            } else if source_char == '\n' || source_char == '\r' {
+                continue;
             } else {
                 self.render.push(source_char);
                 rsize += 1;
@@ -92,6 +104,26 @@ fn test_row_insert_char() {
     assert_eq!(17, row.size);
     assert_eq!(17, row.rsize);
     assert_eq!("_a zline of text_", row.chars);
+}
+
+#[test]
+fn test_row_update() {
+    let mut row = Row::default();
+
+    assert_eq!(0, row.size);
+    assert_eq!(0, row.rsize);
+
+    row.set_text("a row\n");
+    row.update();
+
+    assert_eq!(6, row.size);
+    assert_eq!(5, row.rsize);
+
+    row.set_text("another row\r\n");
+    row.update();
+
+    assert_eq!(13, row.size);
+    assert_eq!(11, row.rsize);
 }
 
 #[derive(PartialEq, Eq)]
@@ -385,6 +417,8 @@ impl Terminal {
                 self.reset();
                 exit(0);
             } else if ctrl_key('h', c as u32) || ctrl_key('l', c as u32) {
+            } else if ctrl_key('s', c as u32) {
+                self.save_file();
             } else {
                 self.insert_char(c);
             },
@@ -401,9 +435,17 @@ impl Terminal {
             Ok(f) => {
                 self.filename = Some(filename.to_string());
                 self.rows.clear();
-                for line in BufReader::new(f).lines() {
-                    let row = Row::new(&line.unwrap());
-                    self.rows.push(row);
+                let mut reader = BufReader::new(f);
+                loop {
+                    let mut row = Row::default();
+                    let line = reader.read_line(&mut row.chars);
+                    match line {
+                        Ok(bytes_read) if bytes_read > 0 => {
+                            row.update();
+                            self.rows.push(row);
+                        }
+                        _ => break,
+                    }
                 }
             }
             Err(e) => self.die(e.description()),
@@ -411,7 +453,9 @@ impl Terminal {
     }
 
     pub fn init(&mut self) {
-        self.set_status_message(String::from("HELP: Ctrl-Q = quit"));
+        self.set_status_message(
+            String::from("HELP: Ctrl-S = save | Ctrl-Q = quit"),
+        );
 
         self.screen_rows -= UI_ROWS;
     }
@@ -423,6 +467,29 @@ impl Terminal {
         buffer.write(&format!("cols: {}\r\n", self.screen_cols).into_bytes())?;
         buffer.flush()?;
         Ok(())
+    }
+
+    fn internal_save_file(&self) -> Result<usize, Box<Error>> {
+        let mut bytes_saved: usize = 0;
+        if let Some(ref filename) = self.filename {
+            let mut buffer = BufWriter::new(File::create(filename)?);
+            for line in &self.rows {
+                bytes_saved += buffer.write(line.chars.as_bytes())?;
+            }
+            buffer.flush()?;
+        }
+        Ok(bytes_saved)
+    }
+
+    pub fn save_file(&mut self) {
+        match self.internal_save_file() {
+            Ok(bytes_saved) => self.set_status_message(
+                format!("{} bytes written to disk", bytes_saved),
+            ),
+            Err(err) => {
+                self.set_status_message(format!("Can't save! Error: {:?}", err))
+            }
+        }
     }
 }
 
