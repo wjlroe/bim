@@ -1,12 +1,12 @@
-use errno::{Errno, errno};
+use errno::{errno, Errno};
 use keycodes::Key;
-use libc::{BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG,
-           ISTRIP, IXON, OPOST, STDIN_FILENO, STDOUT_FILENO, TCSAFLUSH,
-           TIOCGWINSZ, VMIN, VTIME, atexit, c_char, c_void, ioctl, read,
-           sscanf, tcgetattr, tcsetattr, termios, winsize};
+use libc::{atexit, c_char, c_void, ioctl, read, sscanf, tcgetattr, tcsetattr,
+           termios, winsize, CS8, BRKINT, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN,
+           INPCK, ISIG, ISTRIP, IXON, OPOST, STDIN_FILENO, STDOUT_FILENO,
+           TCSAFLUSH, TIOCGWINSZ, VMIN, VTIME};
 use std::char;
 use std::ffi::CString;
-use std::io::{Write, stdout};
+use std::io::{stdout, Write};
 use terminal::Terminal;
 
 #[cfg(target_os = "linux")]
@@ -104,7 +104,7 @@ fn get_window_size_cursor_pos() -> Option<Terminal> {
     }
 }
 
-fn get_window_size() -> Terminal {
+pub fn get_window_size() -> Terminal {
     get_window_size_ioctl()
         .or_else(get_window_size_cursor_pos)
         .unwrap()
@@ -118,7 +118,7 @@ extern "C" fn disable_raw_mode() {
     }
 }
 
-fn enable_raw_mode() {
+pub fn enable_raw_mode() {
     unsafe {
         if tcgetattr(STDIN_FILENO, &mut ORIG_TERMIOS) == -1 {
             panic!("tcgetattr");
@@ -157,8 +157,7 @@ fn read_key() -> Key {
                 return Key::Escape;
             }
 
-            if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) ==
-                -1
+            if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) == -1
             {
                 return Key::Escape;
             }
@@ -184,7 +183,6 @@ fn read_key() -> Key {
                             b'8' => return Key::End,
                             _ => return Key::Escape,
                         }
-
                     }
                 } else {
                     match buf[1] {
@@ -218,17 +216,7 @@ fn read_key() -> Key {
     }
 }
 
-fn process_keypress(mut terminal: &mut Terminal) {
+pub fn process_keypress(mut terminal: &mut Terminal) {
     let key = read_key();
     terminal.process_key(key);
-}
-
-pub fn run(filename_arg: Option<String>) {
-    enable_raw_mode();
-    let mut terminal = get_window_size();
-    terminal.init(filename_arg);
-    loop {
-        terminal.refresh();
-        process_keypress(&mut terminal);
-    }
 }

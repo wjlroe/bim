@@ -5,7 +5,7 @@ use libc::atexit;
 use std::char;
 use terminal::Terminal;
 use winapi::minwindef::DWORD;
-use winapi::winbase::{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, WAIT_OBJECT_0};
+use winapi::winbase::{WAIT_OBJECT_0, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
 use winapi::wincon::{CONSOLE_SCREEN_BUFFER_INFO, COORD, ENABLE_ECHO_INPUT,
                      ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
                      ENABLE_WRAP_AT_EOL_OUTPUT, INPUT_RECORD, KEY_EVENT,
@@ -33,7 +33,7 @@ extern "C" fn disable_raw_output_mode() {
     }
 }
 
-fn get_window_size() -> Terminal {
+pub fn get_window_size() -> Terminal {
     unsafe {
         let handle = GetStdHandle(STD_OUTPUT_HANDLE);
         let mut info = CONSOLE_SCREEN_BUFFER_INFO {
@@ -58,14 +58,14 @@ fn get_window_size() -> Terminal {
     }
 }
 
-fn enable_raw_mode() {
+pub fn enable_raw_mode() {
     unsafe {
         let handle = GetStdHandle(STD_INPUT_HANDLE);
         if GetConsoleMode(handle, &mut ORIG_INPUT_CONSOLE_MODE) != 0 {
             atexit(disable_raw_input_mode);
             let mut raw = ORIG_INPUT_CONSOLE_MODE.clone();
             raw &= !(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT |
-                         ENABLE_PROCESSED_INPUT);
+                ENABLE_PROCESSED_INPUT);
             if SetConsoleMode(handle, raw) == 0 {
                 panic!("setting console input mode failed!");
             }
@@ -91,7 +91,7 @@ fn enable_raw_mode() {
     }
 }
 
-fn process_keypress(mut terminal: &mut Terminal) {
+pub fn process_keypress(mut terminal: &mut Terminal) {
     if let Some(key) = read_a_character() {
         terminal.process_key(key);
     }
@@ -165,14 +165,4 @@ fn read_a_character() -> Option<Key> {
     }
 
     character
-}
-
-pub fn run(filename_arg: Option<String>) {
-    enable_raw_mode();
-    let mut terminal = get_window_size();
-    terminal.init(filename_arg);
-    loop {
-        terminal.refresh();
-        process_keypress(&mut terminal);
-    }
 }

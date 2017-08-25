@@ -1,13 +1,14 @@
-use keycodes::{Key, ctrl_key};
+use keycodes::{ctrl_key, Key};
 use std::cmp::Ordering;
 use std::error::Error;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write, stdout};
+use std::io::{stdout, BufRead, BufReader, Write};
 use std::process::exit;
 use std::time::{Duration, Instant};
 
 const BIM_VERSION: &str = "0.0.1";
 const TAB_STOP: usize = 8;
+const UI_ROWS: i32 = 2;
 
 #[derive(PartialEq, Eq)]
 struct Row {
@@ -194,8 +195,8 @@ impl Terminal {
         let rstatus = format!("{}/{}", self.cursor_y + 1, self.rows.len());
         status.truncate(self.screen_cols as usize);
         self.append_buffer.push_str(&status);
-        let remaining = self.screen_cols - status.len() as i32 -
-            rstatus.len() as i32;
+        let remaining =
+            self.screen_cols - status.len() as i32 - rstatus.len() as i32;
         for _ in 0..remaining {
             self.append_buffer.push(' ');
         }
@@ -307,35 +308,26 @@ impl Terminal {
         let current_row = self.rows.get(self.cursor_y as usize);
 
         match key {
-            Key::ArrowUp => {
-                if self.cursor_y != 0 {
-                    self.cursor_y -= 1;
-                }
-            }
-            Key::ArrowDown => {
-                if self.cursor_y < self.rows.len() as i32 {
+            Key::ArrowUp => if self.cursor_y != 0 {
+                self.cursor_y -= 1;
+            },
+            Key::ArrowDown => if self.cursor_y < self.rows.len() as i32 {
+                self.cursor_y += 1;
+            },
+            Key::ArrowLeft => if self.cursor_x != 0 {
+                self.cursor_x -= 1;
+            } else if self.cursor_y > 0 {
+                self.cursor_y -= 1;
+                self.cursor_x = self.rows[self.cursor_y as usize].size as i32;
+            },
+            Key::ArrowRight => if let Some(row) = current_row {
+                if self.cursor_x < row.size as i32 {
+                    self.cursor_x += 1;
+                } else if self.cursor_x == row.size as i32 {
                     self.cursor_y += 1;
+                    self.cursor_x = 0;
                 }
-            }
-            Key::ArrowLeft => {
-                if self.cursor_x != 0 {
-                    self.cursor_x -= 1;
-                } else if self.cursor_y > 0 {
-                    self.cursor_y -= 1;
-                    self.cursor_x = self.rows[self.cursor_y as usize].size as
-                        i32;
-                }
-            }
-            Key::ArrowRight => {
-                if let Some(row) = current_row {
-                    if self.cursor_x < row.size as i32 {
-                        self.cursor_x += 1;
-                    } else if self.cursor_x == row.size as i32 {
-                        self.cursor_y += 1;
-                        self.cursor_x = 0;
-                    }
-                }
-            }
+            },
             _ => {}
         }
 
@@ -353,10 +345,8 @@ impl Terminal {
         if self.cursor_y == self.rows.len() as i32 {
             self.rows.push(Row::new(""));
         }
-        self.rows[self.cursor_y as usize].insert_char(
-            self.cursor_x as usize,
-            character,
-        );
+        self.rows[self.cursor_y as usize]
+            .insert_char(self.cursor_x as usize, character);
         self.cursor_x += 1;
     }
 
@@ -387,22 +377,17 @@ impl Terminal {
             Home => {
                 self.cursor_x = 0;
             }
-            End => {
-                if self.cursor_y < self.rows.len() as i32 {
-                    self.cursor_x = self.rows[self.cursor_y as usize].size as
-                        i32;
-                }
-            }
+            End => if self.cursor_y < self.rows.len() as i32 {
+                self.cursor_x = self.rows[self.cursor_y as usize].size as i32;
+            },
             Delete | Return | Backspace | Escape => {}
-            Other(c) => {
-                if ctrl_key('q', c as u32) {
-                    self.reset();
-                    exit(0);
-                } else if ctrl_key('h', c as u32) || ctrl_key('l', c as u32) {
-                } else {
-                    self.insert_char(c);
-                }
-            }
+            Other(c) => if ctrl_key('q', c as u32) {
+                self.reset();
+                exit(0);
+            } else if ctrl_key('h', c as u32) || ctrl_key('l', c as u32) {
+            } else {
+                self.insert_char(c);
+            },
         }
     }
 
@@ -411,10 +396,10 @@ impl Terminal {
         self.status = Some(status);
     }
 
-    fn open(&mut self, filename: String) {
-        match File::open(&filename) {
+    pub fn open(&mut self, filename: &str) {
+        match File::open(filename) {
             Ok(f) => {
-                self.filename = Some(filename);
+                self.filename = Some(filename.to_string());
                 self.rows.clear();
                 for line in BufReader::new(f).lines() {
                     let row = Row::new(&line.unwrap());
@@ -425,22 +410,27 @@ impl Terminal {
         }
     }
 
-    pub fn init(&mut self, filename_arg: Option<String>) {
-        if let Some(filename) = filename_arg {
-            self.open(filename);
-        }
-
+    pub fn init(&mut self) {
         self.set_status_message(String::from("HELP: Ctrl-Q = quit"));
 
-        self.screen_rows -= 2;
+        self.screen_rows -= UI_ROWS;
+    }
+
+    pub fn log_debug(&self) -> Result<(), Box<Error>> {
+        let mut buffer = File::create(".kilo_debug")?;
+        buffer.write(&format!("rows: {}\r\n", self.screen_rows + UI_ROWS)
+            .into_bytes())?;
+        buffer.write(&format!("cols: {}\r\n", self.screen_cols).into_bytes())?;
+        buffer.flush()?;
+        Ok(())
     }
 }
 
 impl Ord for Terminal {
     fn cmp(&self, other: &Terminal) -> Ordering {
-        self.screen_rows.cmp(&other.screen_rows).then(
-            self.screen_cols.cmp(&other.screen_cols),
-        )
+        self.screen_rows
+            .cmp(&other.screen_rows)
+            .then(self.screen_cols.cmp(&other.screen_cols))
     }
 }
 

@@ -4,7 +4,7 @@ extern crate libc;
 mod unix;
 
 #[cfg(unix)]
-pub use unix::run;
+pub use unix::{enable_raw_mode, get_window_size, process_keypress};
 #[cfg(unix)]
 extern crate errno;
 
@@ -17,7 +17,8 @@ extern crate winapi;
 mod win;
 
 #[cfg(windows)]
-pub use win::run;
+pub use win::{enable_raw_mode, get_window_size, process_keypress};
 
 mod keycodes;
-mod terminal;
+pub mod config;
+pub mod terminal;
