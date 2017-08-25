@@ -6,7 +6,12 @@
     -   id: check-merge-conflict
     -   id: check-symlinks
     -   id: end-of-file-fixer
--   repo: git://github.com/doublify/pre-commit-rust
-    sha: master
+-   repo: local
     hooks:
-    -   id: fmt
+    -   id: rustfmt
+        name: rustfmt
+        description: Format files with rustfmt.
+        entry: rustup run nightly rustfmt
+        language: system
+        files: \.rs$
+        args: ['--write-mode=overwrite']
