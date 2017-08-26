@@ -153,6 +153,7 @@ pub struct Terminal {
     row_offset: i32,
     col_offset: i32,
     filename: Option<String>,
+    dirty: i32,
     status: Option<Status>,
 }
 
@@ -169,6 +170,7 @@ impl Terminal {
             row_offset: 0,
             col_offset: 0,
             filename: None,
+            dirty: 0,
             status: None,
         }
     }
@@ -222,8 +224,17 @@ impl Terminal {
         self.append_buffer.push_str("\x1b[7m");
         let filename =
             self.filename.clone().unwrap_or(String::from("[No Name]"));
-        let mut status =
-            format!("{0:.20} - {1} lines", filename, self.rows.len());
+        let file_status = if self.dirty.is_positive() {
+            "(modified)"
+        } else {
+            ""
+        };
+        let mut status = format!(
+            "{0:.20} - {1} lines {2}",
+            filename,
+            self.rows.len(),
+            file_status
+        );
         let rstatus = format!("{}/{}", self.cursor_y + 1, self.rows.len());
         status.truncate(self.screen_cols as usize);
         self.append_buffer.push_str(&status);
@@ -380,6 +391,7 @@ impl Terminal {
         self.rows[self.cursor_y as usize]
             .insert_char(self.cursor_x as usize, character);
         self.cursor_x += 1;
+        self.dirty += 1;
     }
 
     pub fn process_key(&mut self, key: Key) {
@@ -483,9 +495,12 @@ impl Terminal {
 
     pub fn save_file(&mut self) {
         match self.internal_save_file() {
-            Ok(bytes_saved) => self.set_status_message(
-                format!("{} bytes written to disk", bytes_saved),
-            ),
+            Ok(bytes_saved) => {
+                self.dirty = 0;
+                self.set_status_message(
+                    format!("{} bytes written to disk", bytes_saved),
+                );
+            }
             Err(err) => {
                 self.set_status_message(format!("Can't save! Error: {:?}", err))
             }
