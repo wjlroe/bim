@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 const BIM_VERSION: &str = "0.0.1";
 const TAB_STOP: usize = 8;
 const UI_ROWS: i32 = 2;
+const BIM_QUIT_TIMES: i8 = 3;
 
 #[derive(Default, PartialEq, Eq)]
 struct Row {
@@ -154,6 +155,7 @@ pub struct Terminal {
     col_offset: i32,
     filename: Option<String>,
     dirty: i32,
+    quit_times: i8,
     status: Option<Status>,
 }
 
@@ -171,6 +173,7 @@ impl Terminal {
             col_offset: 0,
             filename: None,
             dirty: 0,
+            quit_times: BIM_QUIT_TIMES,
             status: None,
         }
     }
@@ -426,8 +429,21 @@ impl Terminal {
             },
             Delete | Return | Backspace | Escape => {}
             Other(c) => if ctrl_key('q', c as u32) {
-                self.reset();
-                exit(0);
+                if self.dirty.is_positive() && self.quit_times.is_positive() {
+                    let quit_times = self.quit_times;
+                    self.set_status_message(format!(
+                        "{} {} {} {}",
+                        "WARNING! File has unsaved changes.",
+                        "Press Ctrl-Q",
+                        quit_times,
+                        "more times to quit."
+                    ));
+                    self.quit_times -= 1;
+                    return;
+                } else {
+                    self.reset();
+                    exit(0);
+                }
             } else if ctrl_key('h', c as u32) || ctrl_key('l', c as u32) {
             } else if ctrl_key('s', c as u32) {
                 self.save_file();
@@ -435,6 +451,7 @@ impl Terminal {
                 self.insert_char(c);
             },
         }
+        self.quit_times = BIM_QUIT_TIMES;
     }
 
     fn set_status_message(&mut self, message: String) {
