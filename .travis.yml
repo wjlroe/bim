@@ -18,9 +18,10 @@ before_script:
   - ./.travis/install.sh
   - export PATH="$PATH:$HOME/.cargo/bin"
   - curl http://pre-commit.com/install-local.py | python
-  - ./scripts/prepare_ci.sh
+  - rustup install nightly
+  - rustup run nightly cargo install -f rustfmt-nightly
 script:
-  - rustfmt --version
+  - rustup run nightly rustfmt --version
   - pre-commit run --all-files
   - make
   - ./.travis/test.sh
