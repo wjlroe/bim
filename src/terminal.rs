@@ -39,7 +39,14 @@ impl Row {
     }
 
     fn update(&mut self) {
-        self.size = self.chars.len();
+        let mut string_end = self.chars.len();
+        while string_end > 0 &&
+            (self.chars.chars().nth(string_end - 1).unwrap() == '\n' ||
+                self.chars.chars().nth(string_end - 1).unwrap() == '\r')
+        {
+            string_end -= 1;
+        }
+        self.size = string_end;
         self.update_render();
     }
 
@@ -85,24 +92,30 @@ impl Row {
         self.size += 1;
         self.update_render();
     }
+
+    fn delete_char(&mut self, at: usize) {
+        let at = if at >= self.size { self.size - 1 } else { at };
+        self.chars.remove(at);
+        self.update();
+    }
 }
 
 #[test]
 fn test_row_insert_char() {
     let mut row = Row::new("a line of text\r\n");
-    assert_eq!(16, row.size);
+    assert_eq!(14, row.size);
     assert_eq!(14, row.rsize);
     assert_eq!(row.chars.trim(), row.render);
     row.insert_char(2, 'z');
-    assert_eq!(17, row.size);
+    assert_eq!(15, row.size);
     assert_eq!(15, row.rsize);
     assert_eq!("a zline of text\r\n", row.chars);
     row.insert_char(0, '_');
-    assert_eq!(18, row.size);
+    assert_eq!(16, row.size);
     assert_eq!(16, row.rsize);
     assert_eq!("_a zline of text\r\n", row.chars);
     row.insert_char(16, '_');
-    assert_eq!(19, row.size);
+    assert_eq!(17, row.size);
     assert_eq!(17, row.rsize);
     assert_eq!("_a zline of text_\r\n", row.chars);
 }
@@ -110,6 +123,7 @@ fn test_row_insert_char() {
 #[test]
 fn test_row_update() {
     let mut row = Row::default();
+    row.update();
 
     assert_eq!(0, row.size);
     assert_eq!(0, row.rsize);
@@ -117,14 +131,31 @@ fn test_row_update() {
     row.set_text("a row\n");
     row.update();
 
-    assert_eq!(6, row.size);
+    assert_eq!(5, row.size);
     assert_eq!(5, row.rsize);
 
     row.set_text("another row\r\n");
     row.update();
 
-    assert_eq!(13, row.size);
+    assert_eq!(11, row.size);
     assert_eq!(11, row.rsize);
+}
+
+#[test]
+fn test_row_delete_char() {
+    let mut row = Row::new("this is a nice row\r\n");
+    assert_eq!(18, row.size);
+    assert_eq!("this is a nice row", row.render);
+
+    row.delete_char(0);
+    assert_eq!("his is a nice row\r\n", row.chars);
+    assert_eq!(17, row.size);
+    assert_eq!("his is a nice row", row.render);
+
+    row.delete_char(17);
+    assert_eq!("his is a nice ro\r\n", row.chars);
+    assert_eq!(16, row.size);
+    assert_eq!("his is a nice ro", row.render);
 }
 
 #[derive(PartialEq, Eq)]
@@ -397,6 +428,16 @@ impl Terminal {
         self.dirty += 1;
     }
 
+    fn delete_char(&mut self) {
+        let numrows = self.rows.len() as i32;
+        if self.cursor_y < numrows && self.cursor_x > 0 {
+            self.rows[self.cursor_y as usize]
+                .delete_char((self.cursor_x - 1) as usize);
+            self.cursor_x -= 1;
+            self.dirty += 1;
+        }
+    }
+
     pub fn process_key(&mut self, key: Key) {
         use keycodes::Key::*;
 
@@ -427,7 +468,13 @@ impl Terminal {
             End => if self.cursor_y < self.rows.len() as i32 {
                 self.cursor_x = self.rows[self.cursor_y as usize].size as i32;
             },
-            Delete | Return | Backspace | Escape => {}
+            Delete | Backspace => {
+                if key == Delete {
+                    self.move_cursor(ArrowRight);
+                }
+                self.delete_char();
+            }
+            Return | Escape => {}
             Other(c) => if ctrl_key('q', c as u32) {
                 if self.dirty.is_positive() && self.quit_times.is_positive() {
                     let quit_times = self.quit_times;
@@ -444,7 +491,9 @@ impl Terminal {
                     self.reset();
                     exit(0);
                 }
-            } else if ctrl_key('h', c as u32) || ctrl_key('l', c as u32) {
+            } else if ctrl_key('h', c as u32) {
+                self.delete_char();
+            } else if ctrl_key('l', c as u32) {
             } else if ctrl_key('s', c as u32) {
                 self.save_file();
             } else {
