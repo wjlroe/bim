@@ -88,22 +88,22 @@ impl Row {
 
 #[test]
 fn test_row_insert_char() {
-    let mut row = Row::new("a line of text");
-    assert_eq!(14, row.size);
-    assert_eq!(14, row.rsize);
-    assert_eq!(row.chars, row.render);
-    row.insert_char(2, 'z');
-    assert_eq!(15, row.size);
-    assert_eq!(15, row.rsize);
-    assert_eq!("a zline of text", row.chars);
-    row.insert_char(0, '_');
+    let mut row = Row::new("a line of text\r\n");
     assert_eq!(16, row.size);
-    assert_eq!(16, row.rsize);
-    assert_eq!("_a zline of text", row.chars);
-    row.insert_char(16, '_');
+    assert_eq!(14, row.rsize);
+    assert_eq!(row.chars.trim(), row.render);
+    row.insert_char(2, 'z');
     assert_eq!(17, row.size);
+    assert_eq!(15, row.rsize);
+    assert_eq!("a zline of text\r\n", row.chars);
+    row.insert_char(0, '_');
+    assert_eq!(18, row.size);
+    assert_eq!(16, row.rsize);
+    assert_eq!("_a zline of text\r\n", row.chars);
+    row.insert_char(16, '_');
+    assert_eq!(19, row.size);
     assert_eq!(17, row.rsize);
-    assert_eq!("_a zline of text_", row.chars);
+    assert_eq!("_a zline of text_\r\n", row.chars);
 }
 
 #[test]
