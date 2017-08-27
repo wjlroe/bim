@@ -1,6 +1,5 @@
 use keycodes::{ctrl_key, Key};
 use std::cmp::Ordering;
-use std::default::Default;
 use std::error::Error;
 use std::fs::File;
 use std::io::{stdout, BufRead, BufReader, BufWriter, Write};
@@ -12,7 +11,7 @@ const TAB_STOP: usize = 8;
 const UI_ROWS: i32 = 2;
 const BIM_QUIT_TIMES: i8 = 3;
 
-#[derive(Default, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 struct Row {
     chars: String,
     size: usize,
@@ -93,6 +92,12 @@ impl Row {
         self.update_render();
     }
 
+    fn append_text(&mut self, text: &str) {
+        self.chars.truncate(self.size);
+        self.chars.push_str(text);
+        self.update();
+    }
+
     fn delete_char(&mut self, at: usize) {
         let at = if at >= self.size { self.size - 1 } else { at };
         self.chars.remove(at);
@@ -121,21 +126,17 @@ fn test_row_insert_char() {
 }
 
 #[test]
-fn test_row_update() {
-    let mut row = Row::default();
-    row.update();
-
+fn test_row_set_text() {
+    let mut row = Row::new("");
     assert_eq!(0, row.size);
     assert_eq!(0, row.rsize);
 
     row.set_text("a row\n");
-    row.update();
 
     assert_eq!(5, row.size);
     assert_eq!(5, row.rsize);
 
     row.set_text("another row\r\n");
-    row.update();
 
     assert_eq!(11, row.size);
     assert_eq!(11, row.rsize);
@@ -156,6 +157,13 @@ fn test_row_delete_char() {
     assert_eq!("his is a nice ro\r\n", row.chars);
     assert_eq!(16, row.size);
     assert_eq!("his is a nice ro", row.render);
+}
+
+#[test]
+fn test_row_append_text() {
+    let mut row = Row::new("this is a line of text.\r\n");
+    row.append_text("another line.\r\n");
+    assert_eq!("this is a line of text.another line.\r\n", row.chars);
 }
 
 #[derive(PartialEq, Eq)]
@@ -428,14 +436,37 @@ impl Terminal {
         self.dirty += 1;
     }
 
+    fn join_row(&mut self, at: usize) {
+        if at > 0 && at < self.rows.len() {
+            let row = self.rows.remove(at);
+            if let Some(previous_row) = self.rows.get_mut(at - 1) {
+                previous_row.append_text(row.chars.as_str());
+            }
+            self.dirty += 1;
+        }
+    }
+
     fn delete_char(&mut self) {
         let numrows = self.rows.len() as i32;
-        if self.cursor_y < numrows && self.cursor_x > 0 {
+        if self.cursor_y >= numrows {
+            return;
+        }
+        if self.cursor_x > 0 {
             self.rows[self.cursor_y as usize]
                 .delete_char((self.cursor_x - 1) as usize);
             self.cursor_x -= 1;
             self.dirty += 1;
+        } else if self.cursor_y > 0 && self.cursor_x == 0 {
+            let at = self.cursor_y as usize;
+            self.cursor_x = self.rows[at - 1].size as i32;
+            self.join_row(at);
+            self.cursor_y -= 1;
         }
+    }
+
+    fn append_row(&mut self, text: &str) {
+        let row = Row::new(text);
+        self.rows.push(row);
     }
 
     pub fn process_key(&mut self, key: Key) {
@@ -515,12 +546,11 @@ impl Terminal {
                 self.rows.clear();
                 let mut reader = BufReader::new(f);
                 loop {
-                    let mut row = Row::default();
-                    let line = reader.read_line(&mut row.chars);
-                    match line {
+                    let mut line = String::new();
+                    let read_info = reader.read_line(&mut line);
+                    match read_info {
                         Ok(bytes_read) if bytes_read > 0 => {
-                            row.update();
-                            self.rows.push(row);
+                            self.append_row(&line);
                         }
                         _ => break,
                     }
@@ -572,6 +602,51 @@ impl Terminal {
             }
         }
     }
+}
+
+#[test]
+fn test_join_row() {
+    let mut terminal = Terminal::new(10, 10);
+
+    terminal.append_row("this is the first line. \r\n");
+    terminal.append_row("this is the second line.\r\n");
+    assert_eq!(2, terminal.rows.len());
+
+    terminal.join_row(1);
+    assert_eq!(1, terminal.dirty);
+    assert_eq!(1, terminal.rows.len());
+    let first_row = terminal.rows.get(0).clone().unwrap();
+    assert_eq!(
+        "this is the first line. this is the second line.\r\n",
+        first_row.chars
+    );
+}
+
+#[test]
+fn test_backspace_to_join_lines() {
+    let mut terminal = Terminal::new(10, 10);
+
+    terminal.append_row("this is the first line. \r\n");
+    terminal.append_row("this is second line.\r\n");
+    assert_eq!(0, terminal.cursor_x);
+    assert_eq!(0, terminal.cursor_y);
+    assert_eq!(2, terminal.rows.len());
+
+    terminal.process_key(Key::Backspace);
+    assert_eq!(0, terminal.cursor_x);
+    assert_eq!(0, terminal.cursor_y);
+    assert_eq!(2, terminal.rows.len());
+
+    terminal.move_cursor(Key::ArrowDown);
+    assert_eq!(0, terminal.cursor_x);
+    assert_eq!(1, terminal.cursor_y);
+    assert_eq!(2, terminal.rows.len());
+
+    terminal.process_key(Key::Backspace);
+
+    assert_eq!(1, terminal.rows.len());
+    assert_eq!(0, terminal.cursor_y);
+    assert_eq!(24, terminal.cursor_x);
 }
 
 impl Ord for Terminal {
