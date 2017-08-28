@@ -21,4 +21,5 @@ pub use win::{enable_raw_mode, get_window_size, process_keypress};
 
 mod keycodes;
 pub mod config;
+pub mod row;
 pub mod terminal;
