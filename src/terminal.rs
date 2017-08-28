@@ -103,6 +103,10 @@ impl Row {
         self.chars.remove(at);
         self.update();
     }
+
+    fn newline(&self) -> String {
+        String::from(&self.chars[self.size..])
+    }
 }
 
 #[test]
@@ -164,6 +168,14 @@ fn test_row_append_text() {
     let mut row = Row::new("this is a line of text.\r\n");
     row.append_text("another line.\r\n");
     assert_eq!("this is a line of text.another line.\r\n", row.chars);
+}
+
+#[test]
+fn test_newline() {
+    let row = Row::new("this is a line.\r\n");
+    assert_eq!("\r\n", row.newline());
+    let row = Row::new("another line.\n");
+    assert_eq!("\n", row.newline());
 }
 
 #[derive(PartialEq, Eq)]
@@ -464,9 +476,30 @@ impl Terminal {
         }
     }
 
+    fn insert_row(&mut self, at: usize, text: &str) {
+        if at <= self.rows.len() {
+            let row = Row::new(text);
+            self.rows.insert(at, row);
+        }
+    }
+
     fn append_row(&mut self, text: &str) {
-        let row = Row::new(text);
-        self.rows.push(row);
+        let at = self.rows.len();
+        self.insert_row(at, text);
+    }
+
+    fn insert_newline(&mut self, row: usize, col: usize) {
+        let newline = self.rows[row].newline();
+        if col == 0 {
+            self.insert_row(row, &newline);
+        } else {
+            let new_line_text = String::from(&self.rows[row].chars[col..]);
+            self.rows[row].chars.truncate(col);
+            self.rows[row].chars.push_str(&newline);
+            self.rows[row].update();
+            self.insert_row(row + 1, &new_line_text);
+        }
+        self.dirty += 1;
     }
 
     pub fn process_key(&mut self, key: Key) {
@@ -505,7 +538,22 @@ impl Terminal {
                 }
                 self.delete_char();
             }
-            Return | Escape => {}
+            Return => {
+                let row = self.cursor_y as usize;
+                let col = self.cursor_x as usize;
+                self.insert_newline(row, col);
+                self.cursor_y += 1;
+                if self.cursor_x >=
+                    self.rows[self.cursor_y as usize].size as i32
+                {
+                    self.cursor_x =
+                        self.rows[self.cursor_y as usize].size as i32 - 1;
+                    if self.cursor_x < 0 {
+                        self.cursor_x = 0;
+                    }
+                }
+            }
+            Escape => {}
             Other(c) => if ctrl_key('q', c as u32) {
                 if self.dirty.is_positive() && self.quit_times.is_positive() {
                     let quit_times = self.quit_times;
@@ -647,6 +695,70 @@ fn test_backspace_to_join_lines() {
     assert_eq!(1, terminal.rows.len());
     assert_eq!(0, terminal.cursor_y);
     assert_eq!(24, terminal.cursor_x);
+}
+
+#[test]
+fn test_insert_newline() {
+    let mut terminal = Terminal::new(10, 15);
+    terminal.append_row("what a good first line.\r\n");
+    terminal.append_row("not a bad second line\r\n");
+    assert_eq!(2, terminal.rows.len());
+
+    terminal.insert_newline(1, 0);
+
+    assert_eq!(3, terminal.rows.len());
+    assert_eq!(1, terminal.dirty);
+    assert_eq!(
+        vec![
+            "what a good first line.\r\n",
+            "\r\n",
+            "not a bad second line\r\n",
+        ],
+        terminal
+            .rows
+            .iter()
+            .map(|r| r.chars.clone())
+            .collect::<Vec<_>>()
+    );
+
+    terminal.insert_newline(2, 4);
+
+    assert_eq!(4, terminal.rows.len());
+    assert_eq!(2, terminal.dirty);
+    assert_eq!(
+        vec![
+            "what a good first line.\r\n",
+            "\r\n",
+            "not \r\n",
+            "a bad second line\r\n",
+        ],
+        terminal
+            .rows
+            .iter()
+            .map(|r| r.chars.clone())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        vec!["what a good first line.", "", "not ", "a bad second line"],
+        terminal
+            .rows
+            .iter()
+            .map(|r| r.render.clone())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_enter_at_eol() {
+    let mut terminal = Terminal::new(10, 15);
+    terminal.append_row("this is line 1.\r\n");
+    terminal.append_row("this is line 2.\r\n");
+    terminal.process_key(Key::End);
+    terminal.process_key(Key::Return);
+    assert_eq!(3, terminal.rows.len());
+    assert_eq!(0, terminal.cursor_x);
+    terminal.process_key(Key::Return);
+    assert_eq!(4, terminal.rows.len());
 }
 
 impl Ord for Terminal {
