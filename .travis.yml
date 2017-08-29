@@ -12,6 +12,5 @@ before_script:
 script:
   - rustup run nightly rustfmt --version
   - pre-commit run --all-files
-  - cargo fmt -- --write-mode=diff
   - cargo build
   - cargo test
