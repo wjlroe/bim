@@ -1,21 +1,10 @@
-language: c
+language: rust
 os:
   - linux
   - osx
-compiler:
-  - clang
-  - gcc
-addons:
-  apt:
-    sources:
-      - sourceline: 'ppa:duggan/bats'
-    packages:
-      - bats
-      - xterm
+rust: stable
 cache: cargo
 before_script:
-  - rustup install stable
-  - ./.travis/install.sh
   - export PATH="$PATH:$HOME/.cargo/bin"
   - curl http://pre-commit.com/install-local.py | python
   - rustup install nightly
@@ -23,8 +12,6 @@ before_script:
 script:
   - rustup run nightly rustfmt --version
   - pre-commit run --all-files
-  - make
-  - ./.travis/test.sh
   - cargo fmt -- --write-mode=diff
   - cargo build
   - cargo test
