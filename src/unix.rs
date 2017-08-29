@@ -1,3 +1,4 @@
+use editor::Editor;
 use errno::{errno, Errno};
 use keycodes::Key;
 use libc::{atexit, c_char, c_void, ioctl, read, sscanf, tcgetattr, tcsetattr,
@@ -8,6 +9,8 @@ use std::char;
 use std::ffi::CString;
 use std::io::{stdout, Write};
 use terminal::Terminal;
+
+pub struct EditorImpl {}
 
 #[cfg(target_os = "linux")]
 static mut ORIG_TERMIOS: termios = termios {
@@ -104,35 +107,9 @@ fn get_window_size_cursor_pos() -> Option<Terminal> {
     }
 }
 
-pub fn get_window_size() -> Terminal {
-    get_window_size_ioctl()
-        .or_else(get_window_size_cursor_pos)
-        .unwrap()
-}
-
 extern "C" fn disable_raw_mode() {
     unsafe {
         if tcsetattr(STDIN_FILENO, TCSAFLUSH, &ORIG_TERMIOS) == -1 {
-            panic!("tcsetattr");
-        }
-    }
-}
-
-pub fn enable_raw_mode() {
-    unsafe {
-        if tcgetattr(STDIN_FILENO, &mut ORIG_TERMIOS) == -1 {
-            panic!("tcgetattr");
-        }
-        atexit(disable_raw_mode);
-        let mut raw = ORIG_TERMIOS.clone();
-        raw.c_iflag &= !(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-        raw.c_oflag &= !(OPOST);
-        raw.c_cflag |= CS8;
-        raw.c_lflag &= !(ECHO | ICANON | IEXTEN | ISIG);
-        raw.c_cc[VMIN] = 0;
-        raw.c_cc[VTIME] = 1;
-
-        if tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1 {
             panic!("tcsetattr");
         }
     }
@@ -216,7 +193,34 @@ fn read_key() -> Key {
     }
 }
 
-pub fn process_keypress(mut terminal: &mut Terminal) {
-    let key = read_key();
-    terminal.process_key(key);
+impl Editor for EditorImpl {
+    fn enable_raw_mode(&self) {
+        unsafe {
+            if tcgetattr(STDIN_FILENO, &mut ORIG_TERMIOS) == -1 {
+                panic!("tcgetattr");
+            }
+            atexit(disable_raw_mode);
+            let mut raw = ORIG_TERMIOS.clone();
+            raw.c_iflag &= !(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+            raw.c_oflag &= !(OPOST);
+            raw.c_cflag |= CS8;
+            raw.c_lflag &= !(ECHO | ICANON | IEXTEN | ISIG);
+            raw.c_cc[VMIN] = 0;
+            raw.c_cc[VTIME] = 1;
+
+            if tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1 {
+                panic!("tcsetattr");
+            }
+        }
+    }
+
+    fn get_window_size(&self) -> Terminal {
+        get_window_size_ioctl()
+            .or_else(get_window_size_cursor_pos)
+            .unwrap()
+    }
+
+    fn read_a_character(&self) -> Option<Key> {
+        Some(read_key())
+    }
 }

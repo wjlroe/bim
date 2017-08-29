@@ -1,14 +1,17 @@
 #![windows_subsystem = "console"]
 extern crate kilo;
 
+use kilo::EditorImpl;
 use kilo::config::RunConfig;
+use kilo::editor::Editor;
 use std::env;
 
 fn run(run_type: RunConfig) {
     use RunConfig::*;
 
-    kilo::enable_raw_mode();
-    let mut terminal = kilo::get_window_size();
+    let editor = EditorImpl {};
+    editor.enable_raw_mode();
+    let mut terminal = editor.get_window_size();
     terminal.init();
     match run_type {
         RunOpenFile(ref filename) => terminal.open(filename),
@@ -20,7 +23,7 @@ fn run(run_type: RunConfig) {
     } else {
         loop {
             terminal.refresh();
-            kilo::process_keypress(&mut terminal);
+            editor.process_keypress(&mut terminal);
         }
     }
 }

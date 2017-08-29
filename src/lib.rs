@@ -1,10 +1,12 @@
 extern crate libc;
 
+pub mod editor;
+
 #[cfg(unix)]
 mod unix;
 
 #[cfg(unix)]
-pub use unix::{enable_raw_mode, get_window_size, process_keypress};
+pub use unix::EditorImpl;
 #[cfg(unix)]
 extern crate errno;
 
@@ -17,7 +19,7 @@ extern crate winapi;
 mod win;
 
 #[cfg(windows)]
-pub use win::{enable_raw_mode, get_window_size, process_keypress};
+pub use win::EditorImpl;
 
 mod keycodes;
 pub mod config;
