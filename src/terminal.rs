@@ -40,7 +40,7 @@ pub struct Terminal {
     rows: Vec<Row>,
     row_offset: i32,
     col_offset: i32,
-    filename: Option<String>,
+    pub filename: Option<String>,
     dirty: i32,
     quit_times: i8,
     status: Option<Status>,
@@ -421,7 +421,7 @@ impl Terminal {
         }
     }
 
-    fn process_cmd(&mut self, cmd: Cmd) {
+    pub fn process_cmd(&mut self, cmd: Cmd) {
         use commands::Cmd::*;
 
         match cmd {
@@ -469,7 +469,7 @@ impl Terminal {
         self.quit_times = BIM_QUIT_TIMES;
     }
 
-    fn key_to_cmd(&self, key: Key) -> Option<Cmd> {
+    pub fn key_to_cmd(&self, key: Key) -> Option<Cmd> {
         use keycodes::Key::*;
         use commands::Cmd::*;
 
@@ -507,7 +507,7 @@ impl Terminal {
         }
     }
 
-    fn set_status_message(&mut self, message: String) {
+    pub fn set_status_message(&mut self, message: String) {
         let status = Status::new(message);
         self.status = Some(status);
     }
@@ -584,15 +584,19 @@ impl Terminal {
     }
 
     pub fn save_file(&mut self) {
-        match self.internal_save_file() {
-            Ok(bytes_saved) => {
-                self.dirty = 0;
-                self.set_status_message(
-                    format!("{} bytes written to disk", bytes_saved),
-                );
-            }
-            Err(err) => {
-                self.set_status_message(format!("Can't save! Error: {:?}", err))
+        if self.filename.is_some() {
+            match self.internal_save_file() {
+                Ok(bytes_saved) => {
+                    self.dirty = 0;
+                    self.set_status_message(
+                        format!("{} bytes written to disk", bytes_saved),
+                    );
+                }
+                Err(err) => {
+                    self.set_status_message(
+                        format!("Can't save! Error: {:?}", err),
+                    )
+                }
             }
         }
     }
