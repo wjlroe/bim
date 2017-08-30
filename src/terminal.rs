@@ -1,15 +1,18 @@
+use commands::{Cmd, MoveCursor};
 use keycodes::{ctrl_key, Key};
 use row::Row;
 use std::cmp::Ordering;
 use std::error::Error;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{stdout, BufRead, BufReader, BufWriter, Write};
 use std::process::exit;
 use std::time::{Duration, Instant};
+use time::now;
 
 const BIM_VERSION: &str = "0.0.1";
 const UI_ROWS: i32 = 2;
 const BIM_QUIT_TIMES: i8 = 3;
+const BIM_DEBUG_LOG: &str = ".kilo_debug";
 
 #[derive(PartialEq, Eq)]
 struct Status {
@@ -232,37 +235,105 @@ impl Terminal {
         self.flush();
     }
 
-    pub fn move_cursor(&mut self, key: Key) {
-        let current_row = self.rows.get(self.cursor_y as usize);
+    pub fn move_cursor(&mut self, move_cursor: MoveCursor) {
+        use commands::Direction::*;
+        use commands::MoveUnit::*;
 
-        match key {
-            Key::ArrowUp => if self.cursor_y != 0 {
-                self.cursor_y -= 1;
-            },
-            Key::ArrowDown => if self.cursor_y < self.rows.len() as i32 {
-                self.cursor_y += 1;
-            },
-            Key::ArrowLeft => if self.cursor_x != 0 {
-                self.cursor_x -= 1;
-            } else if self.cursor_y > 0 {
-                self.cursor_y -= 1;
-                self.cursor_x = self.rows[self.cursor_y as usize].size as i32;
-            },
-            Key::ArrowRight => if let Some(row) = current_row {
-                if self.cursor_x < row.size as i32 {
-                    self.cursor_x += 1;
-                } else if self.cursor_x == row.size as i32 {
-                    self.cursor_y += 1;
-                    self.cursor_x = 0;
+        match move_cursor {
+            MoveCursor {
+                unit: Rows,
+                direction: Up,
+                amount,
+            } => {
+                self.cursor_y -= amount as i32;
+                // TODO: switch to unsigned, suturating_sub
+                if self.cursor_y < 0 {
+                    self.cursor_y = 0;
                 }
-            },
-            _ => {}
+            }
+            MoveCursor {
+                unit: Rows,
+                direction: Down,
+                amount,
+            } => {
+                self.cursor_y += amount as i32;
+                if self.cursor_y > self.rows.len() as i32 {
+                    self.cursor_y = self.rows.len() as i32;
+                }
+            }
+            MoveCursor {
+                unit: Rows,
+                direction: Left,
+                amount,
+            } => {
+                let mut left_amount = amount as i32;
+                while left_amount > 0 {
+                    if self.cursor_x != 0 {
+                        self.cursor_x -= 1;
+                    } else if self.cursor_y > 0 {
+                        self.cursor_y -= 1;
+                        self.cursor_x =
+                            self.rows[self.cursor_y as usize].size as i32;
+                    } else {
+                        break;
+                    }
+                    left_amount -= 1;
+                }
+            }
+            MoveCursor {
+                unit: Rows,
+                direction: Right,
+                amount,
+            } => {
+                let mut right_amount = amount as i32;
+                while right_amount > 0 {
+                    if let Some(row) = self.rows.get(self.cursor_y as usize) {
+                        if self.cursor_x < row.size as i32 {
+                            self.cursor_x += 1;
+                        } else if self.cursor_x == row.size as i32 {
+                            self.cursor_y += 1;
+                            self.cursor_x = 0;
+                        } else {
+                            break;
+                        }
+                        right_amount -= 1;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            MoveCursor {
+                unit: Pages,
+                direction: Down,
+                amount,
+            } => {
+                let amount = amount * self.screen_rows as usize;
+                self.move_cursor(MoveCursor::down(amount));
+            }
+            MoveCursor {
+                unit: Pages,
+                direction: Up,
+                amount,
+            } => {
+                let amount = amount * self.screen_rows as usize;
+                self.move_cursor(MoveCursor::up(amount));
+            }
+            MoveCursor {
+                unit: Pages,
+                direction: Left,
+                ..
+            } => {}
+            MoveCursor {
+                unit: Pages,
+                direction: Right,
+                ..
+            } => {}
         }
 
-        let rowlen = match self.rows.get(self.cursor_y as usize) {
-            Some(row) => row.size,
-            _ => 0,
-        };
+        let rowlen = self.rows
+            .get(self.cursor_y as usize)
+            .map(|r| r.size)
+            .unwrap_or(0);
 
         if self.cursor_x > rowlen as i32 {
             self.cursor_x = rowlen as i32;
@@ -330,51 +401,32 @@ impl Terminal {
         self.dirty += 1;
     }
 
+    fn insert_newline_and_return(&mut self, row: usize, col: usize) {
+        self.insert_newline(row, col);
+        self.cursor_y += 1;
+        self.cursor_x = 0;
+    }
+
+    pub fn row_end(&self) -> Option<Cmd> {
+        if self.cursor_y < self.rows.len() as i32 {
+            Some(Cmd::JumpCursorX(self.rows[self.cursor_y as usize].size))
+        } else {
+            None
+        }
+    }
+
     pub fn process_key(&mut self, key: Key) {
-        use keycodes::Key::*;
+        if let Some(cmd) = self.key_to_cmd(key) {
+            self.process_cmd(cmd);
+        }
+    }
 
-        match key {
-            ArrowLeft | ArrowRight | ArrowUp | ArrowDown => {
-                self.move_cursor(key)
-            }
-            PageUp | PageDown => {
-                let up_or_down =
-                    if key == PageUp { ArrowUp } else { ArrowDown };
+    fn process_cmd(&mut self, cmd: Cmd) {
+        use commands::Cmd::*;
 
-                if up_or_down == ArrowUp {
-                    self.cursor_y = self.row_offset;
-                } else {
-                    self.cursor_y = self.row_offset + self.screen_rows - 1;
-                    if self.cursor_y > self.rows.len() as i32 {
-                        self.cursor_y = self.rows.len() as i32;
-                    }
-                }
-
-                for _ in 0..self.screen_rows {
-                    self.move_cursor(up_or_down);
-                }
-            }
-            Home => {
-                self.cursor_x = 0;
-            }
-            End => if self.cursor_y < self.rows.len() as i32 {
-                self.cursor_x = self.rows[self.cursor_y as usize].size as i32;
-            },
-            Delete | Backspace => {
-                if key == Delete {
-                    self.move_cursor(ArrowRight);
-                }
-                self.delete_char();
-            }
-            Return => {
-                let row = self.cursor_y as usize;
-                let col = self.cursor_x as usize;
-                self.insert_newline(row, col);
-                self.cursor_y += 1;
-                self.cursor_x = 0;
-            }
-            Escape => {}
-            Other(c) => if ctrl_key('q', c as u32) {
+        match cmd {
+            Move(move_cursor) => self.move_cursor(move_cursor),
+            Quit => {
                 if self.dirty.is_positive() && self.quit_times.is_positive() {
                     let quit_times = self.quit_times;
                     self.set_status_message(format!(
@@ -390,16 +442,69 @@ impl Terminal {
                     self.reset();
                     exit(0);
                 }
-            } else if ctrl_key('h', c as u32) {
-                self.delete_char();
-            } else if ctrl_key('l', c as u32) {
-            } else if ctrl_key('s', c as u32) {
-                self.save_file();
-            } else {
-                self.insert_char(c);
+            }
+            JumpCursorX(new_x) => {
+                if new_x <= self.rows[self.cursor_y as usize].size {
+                    self.cursor_x = new_x as i32;
+                }
+            }
+            JumpCursorY(new_y) => if new_y < self.rows.len() {
+                self.cursor_y = new_y as i32;
             },
+            DeleteCharBackward => self.delete_char(),
+            DeleteCharForward => {
+                self.move_cursor(MoveCursor::right(1));
+                self.delete_char();
+            }
+            InsertNewline(row, col) => {
+                self.insert_newline(row, col);
+            }
+            Linebreak(row, col) => {
+                self.insert_newline_and_return(row, col);
+            }
+            Save => self.save_file(),
+            InsertChar(c) => self.insert_char(c),
         }
+
         self.quit_times = BIM_QUIT_TIMES;
+    }
+
+    fn key_to_cmd(&self, key: Key) -> Option<Cmd> {
+        use keycodes::Key::*;
+        use commands::Cmd::*;
+
+        match key {
+            ArrowLeft => Some(Move(MoveCursor::left(1))),
+            ArrowRight => Some(Move(MoveCursor::right(1))),
+            ArrowUp => Some(Move(MoveCursor::up(1))),
+            ArrowDown => Some(Move(MoveCursor::down(1))),
+            PageUp => Some(Move(MoveCursor::page_up(1))),
+            PageDown => Some(Move(MoveCursor::page_down(1))),
+            Home => Some(JumpCursorX(0)),
+            End => self.row_end(),
+            Delete => Some(DeleteCharForward),
+            Backspace => Some(DeleteCharBackward),
+            Return => {
+                Some(Linebreak(self.cursor_y as usize, self.cursor_x as usize))
+            }
+            Escape => None,
+            Other(c) => {
+                self.debug(format!("other key: {}, {} as u32\n", c, c as u32));
+                if ctrl_key('h', c as u32) {
+                    Some(DeleteCharBackward)
+                } else if ctrl_key('q', c as u32) {
+                    Some(Quit)
+                } else if ctrl_key('s', c as u32) {
+                    Some(Save)
+                } else if ctrl_key('l', c as u32) {
+                    None
+                } else if !c.is_control() {
+                    Some(InsertChar(c))
+                } else {
+                    None
+                }
+            }
+        }
     }
 
     fn set_status_message(&mut self, message: String) {
@@ -429,6 +534,7 @@ impl Terminal {
     }
 
     pub fn init(&mut self) {
+        self.start_debug();
         self.set_status_message(
             String::from("HELP: Ctrl-S = save | Ctrl-Q = quit"),
         );
@@ -436,13 +542,33 @@ impl Terminal {
         self.screen_rows -= UI_ROWS;
     }
 
-    pub fn log_debug(&self) -> Result<(), Box<Error>> {
-        let mut buffer = File::create(".kilo_debug")?;
-        buffer.write(&format!("rows: {}\r\n", self.screen_rows + UI_ROWS)
-            .into_bytes())?;
-        buffer.write(&format!("cols: {}\r\n", self.screen_cols).into_bytes())?;
-        buffer.flush()?;
-        Ok(())
+    fn start_debug(&self) {
+        if let Ok(mut file) = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(BIM_DEBUG_LOG)
+        {
+            let _ =
+                file.write(&format!("bim version {} starting\n", BIM_VERSION)
+                    .into_bytes());
+            let _ = file.flush();
+        }
+    }
+
+    fn debug(&self, text: String) {
+        if let Ok(mut file) =
+            OpenOptions::new().append(true).open(BIM_DEBUG_LOG)
+        {
+            let now = now();
+            let _ = file.write(&format!("{}: ", now.rfc822()).into_bytes());
+            let _ = file.write(&text.into_bytes());
+            let _ = file.flush();
+        }
+    }
+
+    pub fn log_debug(&self) {
+        self.debug(format!("rows: {}\r\n", self.screen_rows + UI_ROWS));
+        self.debug(format!("cols: {}\r\n", self.screen_cols));
     }
 
     fn internal_save_file(&self) -> Result<usize, Box<Error>> {
@@ -505,7 +631,7 @@ fn test_backspace_to_join_lines() {
     assert_eq!(0, terminal.cursor_y);
     assert_eq!(2, terminal.rows.len());
 
-    terminal.move_cursor(Key::ArrowDown);
+    terminal.move_cursor(MoveCursor::down(1));
     assert_eq!(0, terminal.cursor_x);
     assert_eq!(1, terminal.cursor_y);
     assert_eq!(2, terminal.rows.len());
@@ -613,4 +739,64 @@ fn test_terminal_ordering() {
     assert_eq!(Equal, some_term1.cmp(&some_term1));
     assert_eq!(Less, none_term.cmp(&some_term1));
     assert_eq!(Greater, some_term1.cmp(&none_term));
+}
+
+#[test]
+fn test_key_to_cmd() {
+    use commands::Cmd::*;
+
+    let term = Terminal::new(1, 1);
+    assert_eq!(Some(InsertChar('w')), term.key_to_cmd(Key::Other('w')));
+    assert_eq!(Some(Quit), term.key_to_cmd(Key::Other(17 as char)));
+    assert_eq!(
+        Some(Move(MoveCursor::left(1))),
+        term.key_to_cmd(Key::ArrowLeft)
+    );
+    assert_eq!(
+        Some(Move(MoveCursor::right(1))),
+        term.key_to_cmd(Key::ArrowRight)
+    );
+    assert_eq!(Some(Move(MoveCursor::up(1))), term.key_to_cmd(Key::ArrowUp));
+    assert_eq!(
+        Some(Move(MoveCursor::down(1))),
+        term.key_to_cmd(Key::ArrowDown)
+    );
+    assert_eq!(
+        Some(Move(MoveCursor::page_up(1))),
+        term.key_to_cmd(Key::PageUp)
+    );
+    assert_eq!(
+        Some(Move(MoveCursor::page_down(1))),
+        term.key_to_cmd(Key::PageDown)
+    );
+    assert_eq!(Some(JumpCursorX(0)), term.key_to_cmd(Key::Home));
+    assert_eq!(Some(DeleteCharForward), term.key_to_cmd(Key::Delete));
+    assert_eq!(Some(DeleteCharBackward), term.key_to_cmd(Key::Backspace));
+    assert_eq!(Some(Linebreak(0, 0)), term.key_to_cmd(Key::Return));
+    assert_eq!(None, term.key_to_cmd(Key::Escape));
+    assert_eq!(
+        Some(DeleteCharBackward),
+        term.key_to_cmd(Key::Other(8 as char))
+    );
+    assert_eq!(Some(Save), term.key_to_cmd(Key::Other(19 as char)));
+    for c in 0..8u8 {
+        assert_eq!(None, term.key_to_cmd(Key::Other(c as char)));
+    }
+    for c in 9..17u8 {
+        assert_eq!(None, term.key_to_cmd(Key::Other(c as char)));
+    }
+    assert_eq!(None, term.key_to_cmd(Key::Other(18 as char)));
+    for c in 20..32u8 {
+        assert_eq!(None, term.key_to_cmd(Key::Other(c as char)));
+    }
+}
+
+#[test]
+fn test_jump_to_end() {
+    use commands::Cmd::*;
+
+    let mut term = Terminal::new(10, 10);
+    assert_eq!(None, term.key_to_cmd(Key::End));
+    term.append_row("this is a line of text.\r\n");
+    assert_eq!(Some(JumpCursorX(23)), term.key_to_cmd(Key::End));
 }

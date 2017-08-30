@@ -6,6 +6,7 @@ authors = ["William Roe <git@wjlr.org.uk>"]
 [dependencies]
 libc = "*"
 term = "*"
+time = "0.1.38"
 
 [target.'cfg(unix)'.dependencies]
 errno = "*"

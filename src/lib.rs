@@ -1,4 +1,5 @@
 extern crate libc;
+extern crate time;
 
 pub mod editor;
 
@@ -22,6 +23,7 @@ mod win;
 pub use win::EditorImpl;
 
 mod keycodes;
+mod commands;
+mod row;
 pub mod config;
-pub mod row;
-pub mod terminal;
+mod terminal;

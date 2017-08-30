@@ -19,7 +19,7 @@ fn run(run_type: RunConfig) {
     }
 
     if run_type == Debug {
-        let _ = terminal.log_debug();
+        terminal.log_debug();
     } else {
         loop {
             terminal.refresh();

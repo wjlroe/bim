@@ -107,6 +107,7 @@ impl Row {
     }
 
     pub fn onscreen_text(&self, offset: usize, cols: usize) -> String {
+        // FIXME: call rendered_str here and slice it up!
         self.render
             .chars()
             .skip(offset)
@@ -118,6 +119,7 @@ impl Row {
         self.chars.as_str()
     }
 
+    #[allow(dead_code)]
     pub fn rendered_str(&self) -> &str {
         self.render.as_str()
     }
