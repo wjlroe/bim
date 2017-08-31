@@ -1,16 +1,21 @@
 use editor::Editor;
 use kernel32::{GetConsoleMode, GetConsoleScreenBufferInfo, GetStdHandle,
-               ReadConsoleInputA, SetConsoleMode, WaitForSingleObjectEx};
+               ReadConsoleInputA, SetConsoleMode, WaitForSingleObjectEx,
+               WriteConsoleA};
 use keycodes::Key;
 use libc::atexit;
 use std::char;
+use std::panic;
+use std::process::exit;
+use std::ptr;
 use terminal::Terminal;
-use winapi::minwindef::DWORD;
+use winapi::minwindef::{DWORD, LPDWORD};
 use winapi::winbase::{WAIT_OBJECT_0, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
 use winapi::wincon::{CONSOLE_SCREEN_BUFFER_INFO, COORD, ENABLE_ECHO_INPUT,
                      ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
                      ENABLE_WRAP_AT_EOL_OUTPUT, INPUT_RECORD, KEY_EVENT,
                      SMALL_RECT};
+use winapi::winnt::VOID;
 
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING: DWORD = 0x0004;
 const DISABLE_NEWLINE_AUTO_RETURN: DWORD = 0x0008;
@@ -69,6 +74,29 @@ impl Editor for EditorImpl {
                 panic!("getting output console didn't work");
             }
         }
+
+        panic::set_hook(Box::new(|panic_info| {
+            let mut reset_output = format!(
+                "{}{}",
+                "\x1b[2J", // clear screen
+                "\x1b[H"   // goto origin
+            );
+            let len: DWORD = reset_output.len() as DWORD;
+            reset_output.push('\0');
+            let mut bytes_written: DWORD = 0;
+            unsafe {
+                let handle = GetStdHandle(STD_OUTPUT_HANDLE);
+                WriteConsoleA(
+                    handle,
+                    reset_output.as_ptr() as *const VOID,
+                    len,
+                    &mut bytes_written as LPDWORD,
+                    ptr::null_mut(),
+                );
+            }
+            println!("Panic! {:?}", panic_info);
+            exit(1);
+        }));
     }
 
     fn read_a_character(&self) -> Option<Key> {
