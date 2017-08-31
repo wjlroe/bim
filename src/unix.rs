@@ -183,10 +183,6 @@ fn read_key() -> Key {
     }
 
     match character {
-        'w' => Key::ArrowUp,
-        'a' => Key::ArrowLeft,
-        's' => Key::ArrowDown,
-        'd' => Key::ArrowRight,
         '\r' => Key::Return,
         '\u{7f}' => Key::Backspace,
         _ => Key::Other(character),
