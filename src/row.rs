@@ -74,34 +74,42 @@ impl Row {
         ridx
     }
 
+    fn render_cursor_to_byte_position(&self, at: usize) -> usize {
+        self.chars.chars().take(at).map(|c| c.len_utf8()).sum()
+    }
+
     pub fn insert_char(&mut self, at: usize, character: char) {
         let at = if at > self.size { self.size } else { at };
-        let byte_pos = self.chars.chars().take(at).map(|c| c.len_utf8()).sum();
+        let byte_pos = self.render_cursor_to_byte_position(at);
         self.chars.insert(byte_pos, character);
         self.size += 1;
         self.update_render();
     }
 
     pub fn append_text(&mut self, text: &str) {
-        self.chars.truncate(self.size);
+        let byte_pos = self.render_cursor_to_byte_position(self.size);
+        self.chars.truncate(byte_pos);
         self.chars.push_str(text);
         self.update();
     }
 
     pub fn delete_char(&mut self, at: usize) {
         let at = if at >= self.size { self.size - 1 } else { at };
-        self.chars.remove(at);
+        let byte_pos = self.render_cursor_to_byte_position(at);
+        self.chars.remove(byte_pos);
         self.update();
     }
 
     pub fn newline(&self) -> String {
-        String::from(&self.chars[self.size..])
+        let byte_pos = self.render_cursor_to_byte_position(self.size);
+        String::from(&self.chars[byte_pos..])
     }
 
     pub fn truncate(&mut self, at: usize) -> String {
         let newline = self.newline();
-        let new_line_text = String::from(&self.chars[at..]);
-        self.chars.truncate(at);
+        let byte_pos = self.render_cursor_to_byte_position(at);
+        let new_line_text = String::from(&self.chars[byte_pos..]);
+        self.chars.truncate(byte_pos);
         self.chars.push_str(&newline);
         self.update();
         new_line_text
@@ -202,10 +210,22 @@ fn test_delete_char() {
 }
 
 #[test]
+fn test_delete_char_utf8() {
+    let mut row = Row::new("££1.50\r\n");
+    assert_eq!(6, row.size);
+    row.delete_char(1);
+    assert_eq!(5, row.size);
+    assert_eq!("£1.50", row.render);
+}
+
+#[test]
 fn test_append_text() {
     let mut row = Row::new("this is a line of text.\r\n");
     row.append_text("another line.\r\n");
     assert_eq!("this is a line of text.another line.\r\n", row.chars);
+    let mut row = Row::new("££\r\n");
+    row.append_text("word\r\n");
+    assert_eq!("££word\r\n", row.chars);
 }
 
 #[test]
@@ -214,4 +234,16 @@ fn test_newline() {
     assert_eq!("\r\n", row.newline());
     let row = Row::new("another line.\n");
     assert_eq!("\n", row.newline());
+    let row = Row::new("££££\r\n");
+    assert_eq!("\r\n", row.newline());
+}
+
+#[test]
+fn test_truncate() {
+    let mut row = Row::new("first.second.\r\n");
+    row.truncate(6);
+    assert_eq!("first.\r\n", row.chars);
+    let mut row = Row::new("£££££.second.\r\n");
+    row.truncate(6);
+    assert_eq!("£££££.\r\n", row.chars);
 }
