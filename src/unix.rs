@@ -8,8 +8,6 @@ use libc::{atexit, c_char, c_void, ioctl, read, sscanf, tcgetattr, tcsetattr,
 use std::char;
 use std::ffi::CString;
 use std::io::{stdout, Write};
-use std::panic;
-use std::process::exit;
 use terminal::Terminal;
 
 pub struct EditorImpl {}
@@ -115,6 +113,17 @@ extern "C" fn disable_raw_mode() {
             panic!("tcsetattr");
         }
     }
+
+    let mut reset_output = format!(
+        "{}{}",
+        "\x1b[2J", // clear screen
+        "\x1b[H"   // goto origin
+    );
+    let len = reset_output.len();
+    reset_output.push('\0');
+    unsafe {
+        write(STDOUT_FILENO, reset_output.as_ptr() as *const c_void, len);
+    }
 }
 
 fn read_key() -> Key {
@@ -209,23 +218,6 @@ impl Editor for EditorImpl {
             if tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1 {
                 panic!("tcsetattr");
             }
-
-            panic::set_hook(Box::new(|panic_info| {
-                let mut reset_output = format!(
-                    "{}{}",
-                    "\x1b[2J", // clear screen
-                    "\x1b[H"   // goto origin
-                );
-                let len = reset_output.len();
-                reset_output.push('\0');
-                write(
-                    STDOUT_FILENO,
-                    reset_output.as_ptr() as *const c_void,
-                    len,
-                );
-                println!("Panic! {:?}", panic_info);
-                exit(1);
-            }));
         }
     }
 

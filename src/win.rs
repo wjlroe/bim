@@ -5,8 +5,6 @@ use kernel32::{GetConsoleMode, GetConsoleScreenBufferInfo, GetStdHandle,
 use keycodes::Key;
 use libc::atexit;
 use std::char;
-use std::panic;
-use std::process::exit;
 use std::ptr;
 use terminal::Terminal;
 use winapi::minwindef::{DWORD, LPDWORD};
@@ -32,6 +30,25 @@ extern "C" fn disable_raw_input_mode() {
     unsafe {
         let handle = GetStdHandle(STD_INPUT_HANDLE);
         SetConsoleMode(handle, ORIG_INPUT_CONSOLE_MODE);
+    }
+
+    let mut reset_output = format!(
+        "{}{}",
+        "\x1b[2J", // clear screen
+        "\x1b[H"   // goto origin
+    );
+    let len: DWORD = reset_output.len() as DWORD;
+    reset_output.push('\0');
+    let mut bytes_written: DWORD = 0;
+    unsafe {
+        let handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        WriteConsoleA(
+            handle,
+            reset_output.as_ptr() as *const VOID,
+            len,
+            &mut bytes_written as LPDWORD,
+            ptr::null_mut(),
+        );
     }
 }
 
@@ -74,29 +91,6 @@ impl Editor for EditorImpl {
                 panic!("getting output console didn't work");
             }
         }
-
-        panic::set_hook(Box::new(|panic_info| {
-            let mut reset_output = format!(
-                "{}{}",
-                "\x1b[2J", // clear screen
-                "\x1b[H"   // goto origin
-            );
-            let len: DWORD = reset_output.len() as DWORD;
-            reset_output.push('\0');
-            let mut bytes_written: DWORD = 0;
-            unsafe {
-                let handle = GetStdHandle(STD_OUTPUT_HANDLE);
-                WriteConsoleA(
-                    handle,
-                    reset_output.as_ptr() as *const VOID,
-                    len,
-                    &mut bytes_written as LPDWORD,
-                    ptr::null_mut(),
-                );
-            }
-            println!("Panic! {:?}", panic_info);
-            exit(1);
-        }));
     }
 
     fn read_a_character(&self) -> Option<Key> {
