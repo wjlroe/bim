@@ -27,7 +27,7 @@ impl Row {
     }
 
     fn update(&mut self) {
-        let mut string_end = self.chars.len();
+        let mut string_end = self.chars.chars().count();
         while string_end > 0 &&
             (self.chars.chars().nth(string_end - 1).unwrap() == '\n' ||
                 self.chars.chars().nth(string_end - 1).unwrap() == '\r')
@@ -76,7 +76,8 @@ impl Row {
 
     pub fn insert_char(&mut self, at: usize, character: char) {
         let at = if at > self.size { self.size } else { at };
-        self.chars.insert(at, character);
+        let byte_pos = self.chars.chars().take(at).map(|c| c.len_utf8()).sum();
+        self.chars.insert(byte_pos, character);
         self.size += 1;
         self.update_render();
     }
@@ -143,6 +144,27 @@ fn test_insert_char() {
     assert_eq!(17, row.size);
     assert_eq!(17, row.rsize);
     assert_eq!("_a zline of text_\r\n", row.chars);
+    row.insert_char(0, '£');
+    assert_eq!(18, row.size);
+    assert_eq!(18, row.rsize);
+    assert_eq!("£_a zline of text_\r\n", row.chars);
+    row.insert_char(1, '1');
+    assert_eq!(19, row.size);
+    assert_eq!(19, row.rsize);
+    assert_eq!("£1_a zline of text_\r\n", row.chars);
+    row.insert_char(0, '£');
+    row.insert_char(0, '£');
+    assert_eq!("£££1_a zline of text_\r\n", row.chars);
+    row.insert_char(2, '¬');
+    assert_eq!("££¬£1_a zline of text_\r\n", row.chars);
+}
+
+#[test]
+fn test_update() {
+    let mut row = Row::new("£1.50\r\n");
+    row.update();
+    assert_eq!(5, row.size);
+    assert_eq!(5, row.rsize);
 }
 
 #[test]

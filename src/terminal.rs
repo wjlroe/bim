@@ -804,3 +804,18 @@ fn test_jump_to_end() {
     term.append_row("this is a line of text.\r\n");
     assert_eq!(Some(JumpCursorX(23)), term.key_to_cmd(Key::End));
 }
+
+#[test]
+fn test_insert_char() {
+    let mut terminal = Terminal::new(10, 10);
+    terminal.insert_char('£');
+    terminal.insert_char('1');
+    assert_eq!(
+        vec!["£1"],
+        terminal
+            .rows
+            .iter()
+            .map(|r| r.as_str().clone())
+            .collect::<Vec<_>>()
+    );
+}
