@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -93,6 +94,8 @@ struct editorConfig {
 
 struct editorConfig E;
 
+int editorRunning = 1;
+
 char* C_HL_extensions[] = {".c", ".h", ".cpp", NULL};
 char* C_HL_keywords[] = {"switch",    "if",      "while",   "for",    "break",
                          "continue",  "return",  "else",    "struct", "union",
@@ -110,6 +113,7 @@ struct editorSyntax HLDB[] = {
 void editorSetStatusMessage(const char* fmt, ...);
 void editorRefreshScreen();
 char* editorPrompt(char* prompt, void (*callback)(char*, int));
+void handleSignal(int signal);
 
 void clearOut() {
   write(STDOUT_FILENO, "\x1b[2J", 4);
@@ -136,6 +140,15 @@ void enableRawMode() {
   }
   atexit(disableRawMode);
 
+  struct sigaction sa;
+  sa.sa_handler = &handleSignal;
+  sa.sa_flags = SA_RESTART;
+  sigfillset(&sa.sa_mask);
+  sigaction(SIGTERM, &sa, NULL);
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGHUP, &sa, NULL);
+  sigaction(SIGQUIT, &sa, NULL);
+
   struct termios raw = E.orig_termios;
 
   raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
@@ -148,6 +161,12 @@ void enableRawMode() {
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
     die("tcsetattr");
   }
+}
+
+void handleSignal(int signal) {
+  (void)signal;
+  disableRawMode();
+  editorRunning = 0;
 }
 
 int editorReadKey() {
@@ -1212,7 +1231,7 @@ int main(int argc, char* argv[]) {
 
   editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find");
 
-  while (1) {
+  while (editorRunning) {
     editorRefreshScreen();
     editorProcessKeypress();
   }
