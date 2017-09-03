@@ -1,9 +1,9 @@
 #![windows_subsystem = "console"]
-extern crate kilo;
+extern crate bim;
 
-use kilo::EditorImpl;
-use kilo::config::RunConfig;
-use kilo::editor::Editor;
+use bim::EditorImpl;
+use bim::config::RunConfig;
+use bim::editor::Editor;
 use std::env;
 
 fn run(run_type: RunConfig) {

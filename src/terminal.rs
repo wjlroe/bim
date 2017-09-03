@@ -12,7 +12,7 @@ use time::now;
 const BIM_VERSION: &str = "0.0.1";
 const UI_ROWS: i32 = 2;
 const BIM_QUIT_TIMES: i8 = 3;
-const BIM_DEBUG_LOG: &str = ".kilo_debug";
+const BIM_DEBUG_LOG: &str = ".bim_debug";
 
 #[derive(PartialEq, Eq)]
 struct Status {

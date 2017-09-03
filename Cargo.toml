@@ -1,6 +1,6 @@
 [package]
-name = "kilo"
-version = "0.1.0"
+name = "bim"
+version = "0.0.1"
 authors = ["William Roe <git@wjlr.org.uk>"]
 
 [dependencies]
@@ -16,6 +16,6 @@ winapi = "*"
 kernel32-sys = "*"
 
 [[bin]]
-name = "kilo"
+name = "bim"
 doctest = false
 doc = false

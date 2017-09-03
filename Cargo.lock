@@ -1,6 +1,6 @@
 [root]
-name = "kilo"
-version = "0.1.0"
+name = "bim"
+version = "0.0.1"
 dependencies = [
  "errno 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
