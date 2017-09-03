@@ -111,10 +111,13 @@ void editorSetStatusMessage(const char* fmt, ...);
 void editorRefreshScreen();
 char* editorPrompt(char* prompt, void (*callback)(char*, int));
 
-void die(const char* s) {
+void clearOut() {
   write(STDOUT_FILENO, "\x1b[2J", 4);
   write(STDOUT_FILENO, "\x1b[H", 3);
+}
 
+void die(const char* s) {
+  clearOut();
   perror(s);
   exit(1);
 }
@@ -123,6 +126,8 @@ void disableRawMode() {
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1) {
     die("tcsetattr");
   }
+
+  clearOut();
 }
 
 void enableRawMode() {
@@ -1067,8 +1072,7 @@ void editorProcessKeypress() {
         quit_times--;
         return;
       }
-      write(STDOUT_FILENO, "\x1b[2J", 4);
-      write(STDOUT_FILENO, "\x1b[H", 3);
+      clearOut();
       exit(0);
       break;
 
@@ -1175,8 +1179,7 @@ void editorPrintDebug() {
   len = snprintf(buf, sizeof(buf), "method: %s\r\n", method);
   abAppend(&ab, buf, len);
 
-  write(STDOUT_FILENO, "\x1b[2J", 4);
-  write(STDOUT_FILENO, "\x1b[H", 3);
+  clearOut();
   write(STDOUT_FILENO, ab.b, ab.len);
 
   int fd = open(".kilo_debug", O_TRUNC | O_RDWR | O_CREAT, 0644);
