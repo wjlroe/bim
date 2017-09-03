@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Direction {
     Up,
     Down,
@@ -6,13 +6,13 @@ pub enum Direction {
     Right,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MoveUnit {
     Rows,
     Pages,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MoveCursor {
     pub direction: Direction,
     pub unit: MoveUnit,
@@ -69,7 +69,7 @@ impl MoveCursor {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Cmd {
     Move(MoveCursor),
     JumpCursorX(usize),

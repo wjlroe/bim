@@ -1,3 +1,4 @@
+use commands::Cmd;
 use keycodes::{ctrl_key, Key};
 use terminal::Terminal;
 
@@ -43,18 +44,22 @@ pub trait Editor {
         Some(entered_text)
     }
 
-    fn process_keypress(&self, mut terminal: &mut Terminal) {
+    fn preprocess_cmd(&self, mut terminal: &mut Terminal, cmd: Cmd) {
         use commands::Cmd::*;
 
+        if cmd == Save && terminal.filename.is_none() {
+            if let Some(filename) =
+                self.prompt(terminal, "Save as:", "(ESC to cancel)")
+            {
+                terminal.filename = Some(filename);
+            }
+        }
+    }
+
+    fn process_keypress(&self, mut terminal: &mut Terminal) {
         if let Some(key) = self.read_a_character() {
             if let Some(cmd) = terminal.key_to_cmd(key) {
-                if cmd == Save && terminal.filename.is_none() {
-                    if let Some(filename) =
-                        self.prompt(terminal, "Save as:", "(ESC to cancel)")
-                    {
-                        terminal.filename = Some(filename);
-                    }
-                }
+                self.preprocess_cmd(&mut terminal, cmd);
                 terminal.process_cmd(cmd);
             }
         }
