@@ -1,0 +1,21 @@
+[package]
+name = "bim"
+version = "0.0.1"
+authors = ["William Roe <git@wjlr.org.uk>"]
+
+[dependencies]
+libc = "*"
+term = "*"
+time = "0.1.38"
+
+[target.'cfg(unix)'.dependencies]
+errno = "*"
+
+[target.'cfg(windows)'.dependencies]
+winapi = "*"
+kernel32-sys = "*"
+
+[[bin]]
+name = "bim"
+doctest = false
+doc = false

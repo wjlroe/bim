@@ -1085,7 +1085,8 @@ void editorProcessKeypress() {
     case CTRL_KEY('q'):
       if (E.unsaved && quit_times > 0) {
         editorSetStatusMessage(
-            "WARNING!!! File has unsaved changes. Press Ctrl-Q %d more times "
+            "WARNING!!! File has unsaved changes. Press Ctrl-Q %d more "
+            "times "
             "to quit.",
             quit_times);
         quit_times--;
@@ -1240,4 +1241,5 @@ int main(int argc, char* argv[]) {
 
 // Local Variables:
 // c-basic-offset: 2
+// clang-format-style: Google
 // End:

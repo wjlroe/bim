@@ -1,4 +1,14 @@
 kilo
-kilo-unix.c
-kilo-unix2.c
+win_size
 .kilo_debug
+kilo-*.c
+target
+target-unix
+build/
+*.sln
+.vs/
+*.dll
+*.exe
+*.VC.*
+*.dSYM
+.*debug
