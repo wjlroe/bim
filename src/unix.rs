@@ -126,7 +126,7 @@ extern "C" fn disable_raw_mode() {
     }
 }
 
-fn read_key() -> Key {
+fn read_key() -> Option<Key> {
     let mut buf = vec![0u8; 1];
     let character;
 
@@ -142,12 +142,12 @@ fn read_key() -> Key {
             let mut buf = vec![0u8; 3];
 
             if read(STDIN_FILENO, buf.as_mut_ptr() as *mut c_void, 1) == -1 {
-                return Key::Escape;
+                return Some(Key::Escape);
             }
 
             if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) == -1
             {
-                return Key::Escape;
+                return Some(Key::Escape);
             }
 
             if buf[0] == b'[' {
@@ -158,45 +158,46 @@ fn read_key() -> Key {
                         1,
                     ) != 1
                     {
-                        return Key::Escape;
+                        return Some(Key::Escape);
                     }
                     if buf[2] == b'~' {
                         match buf[1] {
-                            b'1' => return Key::Home,
-                            b'3' => return Key::Delete,
-                            b'4' => return Key::End,
-                            b'5' => return Key::PageUp,
-                            b'6' => return Key::PageDown,
-                            b'7' => return Key::Home,
-                            b'8' => return Key::End,
-                            _ => return Key::Escape,
+                            b'1' => return Some(Key::Home),
+                            b'3' => return Some(Key::Delete),
+                            b'4' => return Some(Key::End),
+                            b'5' => return Some(Key::PageUp),
+                            b'6' => return Some(Key::PageDown),
+                            b'7' => return Some(Key::Home),
+                            b'8' => return Some(Key::End),
+                            _ => return Some(Key::Escape),
                         }
                     }
                 } else {
                     match buf[1] {
-                        b'A' => return Key::ArrowUp,
-                        b'B' => return Key::ArrowDown,
-                        b'C' => return Key::ArrowRight,
-                        b'D' => return Key::ArrowLeft,
-                        b'H' => return Key::Home,
-                        b'F' => return Key::End,
-                        _ => return Key::Escape,
+                        b'A' => return Some(Key::ArrowUp),
+                        b'B' => return Some(Key::ArrowDown),
+                        b'C' => return Some(Key::ArrowRight),
+                        b'D' => return Some(Key::ArrowLeft),
+                        b'H' => return Some(Key::Home),
+                        b'F' => return Some(Key::End),
+                        _ => return Some(Key::Escape),
                     }
                 }
             } else if buf[0] == b'O' {
                 match buf[1] {
-                    b'H' => return Key::Home,
-                    b'F' => return Key::End,
-                    _ => return Key::Escape,
+                    b'H' => return Some(Key::Home),
+                    b'F' => return Some(Key::End),
+                    _ => return Some(Key::Escape),
                 }
             }
         }
     }
 
     match character {
-        '\r' => Key::Return,
-        '\u{7f}' => Key::Backspace,
-        _ => Key::Other(character),
+        '\r' => Some(Key::Return),
+        '\u{7f}' => Some(Key::Backspace),
+        '\0' => None,
+        _ => Some(Key::Other(character)),
     }
 }
 
@@ -228,6 +229,6 @@ impl Editor for EditorImpl {
     }
 
     fn read_a_character(&self) -> Option<Key> {
-        Some(read_key())
+        read_key()
     }
 }
