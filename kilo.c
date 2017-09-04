@@ -21,6 +21,7 @@
 #define KILO_QUIT_TIMES 3
 #define CTRL_KEY(k) ((k)&0x1f)
 #define UI_ROWS 2
+#define KILO_DEBUG_LOG ".kilo_debug"
 
 #define HL_HIGHLIGHT_NUMBERS (1 << 0)
 #define HL_HIGHLIGHT_STRINGS (1 << 1)
@@ -126,6 +127,16 @@ void die(const char* s) {
   exit(1);
 }
 
+void editorLogDebug(char* message, int len) {
+  int fd = open(KILO_DEBUG_LOG, O_APPEND | O_RDWR | O_CREAT, 0644);
+  if (fd != -1) {
+    write(fd, message, len);
+    close(fd);
+  } else {
+    die("could not open .kilo_debug!");
+  }
+}
+
 void disableRawMode() {
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1) {
     die("tcsetattr");
@@ -177,6 +188,10 @@ int editorReadKey() {
       die("read");
     }
   }
+
+  char message[80];
+  int messagelen = snprintf(message, sizeof(message), "Key pressed: %c (%d as decimal)\n", c, c);
+  editorLogDebug(message, messagelen);
 
   if (c == '\x1b') {
     char seq[3];
@@ -1192,6 +1207,8 @@ void editorPrintDebug() {
 
   struct abuf ab = ABUF_INIT;
 
+  len = snprintf(buf, sizeof(buf), "Kilo editor -- version %s\r\n", KILO_VERSION);
+  abAppend(&ab, buf, len);
   len = snprintf(buf, sizeof(buf), "rows: %d\r\n", E.screenrows + UI_ROWS);
   abAppend(&ab, buf, len);
   len = snprintf(buf, sizeof(buf), "cols: %d\r\n", E.screencols);
@@ -1199,14 +1216,9 @@ void editorPrintDebug() {
   len = snprintf(buf, sizeof(buf), "method: %s\r\n", method);
   abAppend(&ab, buf, len);
 
-  clearOut();
-  write(STDOUT_FILENO, ab.b, ab.len);
-
-  int fd = open(".kilo_debug", O_TRUNC | O_RDWR | O_CREAT, 0644);
+  int fd = open(KILO_DEBUG_LOG, O_TRUNC | O_RDWR | O_CREAT, 0644);
   if (fd != -1) {
-    if (write(fd, ab.b, ab.len) == ab.len) {
-      close(fd);
-    }
+    write(fd, ab.b, ab.len);
     close(fd);
   } else {
     len = snprintf(buf, sizeof(buf),
@@ -1215,16 +1227,15 @@ void editorPrintDebug() {
   }
 
   abFree(&ab);
-
-  exit(0);
 }
 
 int main(int argc, char* argv[]) {
   enableRawMode();
   initEditor();
+  editorPrintDebug();
   if (argc >= 2) {
     if (strncmp(argv[1], "--debug", 7) == 0) {
-      editorPrintDebug();
+      exit(0);
     } else {
       editorOpen(argv[1]);
     }
