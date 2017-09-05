@@ -12,6 +12,7 @@ typedef struct config {
 static HANDLE stdIn;
 static HANDLE stdOut;
 static config E;
+static BOOL Running = true;
 
 typedef struct abuf {
     char* b;
@@ -179,12 +180,15 @@ void refreshScreen() {
     abFree(&ab);
 }
 
-void die(const char* s) {
+void clearOutput() {
     abuf ab = ABUF_INIT;
     clearScreen(&ab);
     abWrite(&ab);
     abFree(&ab);
+}
 
+void die(const char* s) {
+    clearOutput();
     perror(s);
     exit(1);
 }
@@ -192,6 +196,7 @@ void die(const char* s) {
 void disableRawMode() {
     SetConsoleMode(stdIn, E.orig_stdin_mode);
     SetConsoleMode(stdOut, E.orig_stdout_mode);
+    clearOutput();
 }
 
 void enableRawMode() {
@@ -399,11 +404,21 @@ void initEditor() {
     }
 }
 
+BOOL WINAPI SignalHandler(DWORD signal) {
+    (void)signal;
+    Running = false;
+    clearOutput();
+    return true;
+}
+
 int main(int argc, char* argv[]) {
     enableRawMode();
+
+    SetConsoleCtrlHandler(SignalHandler, true);
+
     initEditor();
 
-    while (1) {
+    while (Running) {
         refreshScreen();
         processKeyPress();
     }
