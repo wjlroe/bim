@@ -81,4 +81,5 @@ pub enum Cmd {
     Quit,
     Save,
     InsertChar(char),
+    Search,
 }

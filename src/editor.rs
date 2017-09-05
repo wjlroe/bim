@@ -53,6 +53,12 @@ pub trait Editor {
             {
                 terminal.filename = Some(filename);
             }
+        } else if cmd == Search {
+            if let Some(needle) =
+                self.prompt(terminal, "Search:", "(ESC to cancel)")
+            {
+                terminal.search_for(&needle);
+            }
         }
     }
 

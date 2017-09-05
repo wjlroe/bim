@@ -464,6 +464,7 @@ impl Terminal {
             }
             Save => self.save_file(),
             InsertChar(c) => self.insert_char(c),
+            Search => {}
         }
 
         self.quit_times = BIM_QUIT_TIMES;
@@ -498,6 +499,8 @@ impl Terminal {
                     Some(Save)
                 } else if ctrl_key('l', c as u32) {
                     None
+                } else if ctrl_key('f', c as u32) {
+                    Some(Search)
                 } else if !c.is_control() {
                     Some(InsertChar(c))
                 } else {
@@ -535,9 +538,9 @@ impl Terminal {
 
     pub fn init(&mut self) {
         self.start_debug();
-        self.set_status_message(
-            String::from("HELP: Ctrl-S = save | Ctrl-Q = quit"),
-        );
+        self.set_status_message(String::from(
+            "HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find",
+        ));
 
         self.screen_rows -= UI_ROWS;
     }
@@ -597,6 +600,17 @@ impl Terminal {
                         format!("Can't save! Error: {:?}", err),
                     )
                 }
+            }
+        }
+    }
+
+    pub fn search_for(&mut self, needle: &str) {
+        for (y, row) in self.rows.iter().enumerate() {
+            if let Some(x) = row.index_of(needle) {
+                self.cursor_x = row.render_cursor_to_text(x as i32);
+                self.cursor_y = y as i32;
+                self.row_offset = self.rows.len() as i32;
+                break;
             }
         }
     }
@@ -778,14 +792,16 @@ fn test_key_to_cmd() {
     assert_eq!(Some(DeleteCharBackward), term.key_to_cmd(Key::Backspace));
     assert_eq!(Some(Linebreak(0, 0)), term.key_to_cmd(Key::Return));
     assert_eq!(None, term.key_to_cmd(Key::Escape));
+    assert_eq!(Some(Search), term.key_to_cmd(Key::Other(6 as char)));
     assert_eq!(
         Some(DeleteCharBackward),
         term.key_to_cmd(Key::Other(8 as char))
     );
     assert_eq!(Some(Save), term.key_to_cmd(Key::Other(19 as char)));
-    for c in 0..8u8 {
+    for c in 0..5u8 {
         assert_eq!(None, term.key_to_cmd(Key::Other(c as char)));
     }
+    assert_eq!(None, term.key_to_cmd(Key::Other(7 as char)));
     for c in 9..17u8 {
         assert_eq!(None, term.key_to_cmd(Key::Other(c as char)));
     }

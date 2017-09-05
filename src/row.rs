@@ -74,6 +74,21 @@ impl Row {
         ridx
     }
 
+    pub fn render_cursor_to_text(&self, ridx: i32) -> i32 {
+        let tab_stop = TAB_STOP as i32;
+        let mut cur_rx: i32 = 0;
+        for (i, source_char) in self.chars.chars().enumerate() {
+            if source_char == '\t' {
+                cur_rx += (tab_stop - 1) - (cur_rx % tab_stop);
+            }
+            cur_rx += 1;
+            if cur_rx > ridx {
+                return i as i32;
+            }
+        }
+        return self.chars.chars().count() as i32;
+    }
+
     fn render_cursor_to_byte_position(&self, at: usize) -> usize {
         self.chars.chars().take(at).map(|c| c.len_utf8()).sum()
     }
@@ -131,6 +146,10 @@ impl Row {
     #[allow(dead_code)]
     pub fn rendered_str(&self) -> &str {
         self.render.as_str()
+    }
+
+    pub fn index_of(&self, needle: &str) -> Option<usize> {
+        self.render.find(needle)
     }
 }
 
