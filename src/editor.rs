@@ -63,12 +63,24 @@ pub trait Editor {
                 terminal.filename = Some(filename);
             }
         } else if cmd == Search {
-            self.prompt(
+            let saved_cx = terminal.cursor_x;
+            let saved_cy = terminal.cursor_y;
+            let saved_col_offset = terminal.col_offset;
+            let saved_row_offset = terminal.row_offset;
+
+            let query = self.prompt(
                 terminal,
                 "Search:",
                 "(ESC to cancel)",
                 |mut terminal, text| terminal.search_for(text),
             );
+
+            if query.is_none() {
+                terminal.cursor_x = saved_cx;
+                terminal.cursor_y = saved_cy;
+                terminal.col_offset = saved_col_offset;
+                terminal.row_offset = saved_row_offset;
+            }
         }
     }
 
