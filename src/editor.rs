@@ -7,12 +7,16 @@ pub trait Editor {
     fn get_window_size(&self) -> Terminal;
     fn read_a_character(&self) -> Option<Key>;
 
-    fn prompt(
+    fn prompt<F>(
         &self,
         terminal: &mut Terminal,
         status_left: &str,
         status_right: &str,
-    ) -> Option<String> {
+        mut callback: F,
+    ) -> Option<String>
+    where
+        F: FnMut(&mut Terminal, &str),
+    {
         let mut entered_text = String::new();
         loop {
             terminal.set_status_message(
@@ -25,10 +29,13 @@ pub trait Editor {
                         entered_text.push(c);
                     }
                     Key::Return if !entered_text.is_empty() => {
+                        terminal.set_status_message(String::new());
+                        callback(terminal, &entered_text);
                         break;
                     }
                     Key::Escape => {
                         terminal.set_status_message(String::new());
+                        callback(terminal, &entered_text);
                         return None;
                     }
                     Key::Backspace | Key::Delete => {
@@ -40,6 +47,8 @@ pub trait Editor {
                     _ => {}
                 }
             }
+
+            callback(terminal, &entered_text);
         }
         Some(entered_text)
     }
@@ -49,9 +58,28 @@ pub trait Editor {
 
         if cmd == Save && terminal.filename.is_none() {
             if let Some(filename) =
-                self.prompt(terminal, "Save as:", "(ESC to cancel)")
+                self.prompt(terminal, "Save as:", "(ESC to cancel)", |_, _| {})
             {
                 terminal.filename = Some(filename);
+            }
+        } else if cmd == Search {
+            let saved_cx = terminal.cursor_x;
+            let saved_cy = terminal.cursor_y;
+            let saved_col_offset = terminal.col_offset;
+            let saved_row_offset = terminal.row_offset;
+
+            let query = self.prompt(
+                terminal,
+                "Search:",
+                "(ESC to cancel)",
+                |mut terminal, text| terminal.search_for(text),
+            );
+
+            if query.is_none() {
+                terminal.cursor_x = saved_cx;
+                terminal.cursor_y = saved_cy;
+                terminal.col_offset = saved_col_offset;
+                terminal.row_offset = saved_row_offset;
             }
         }
     }

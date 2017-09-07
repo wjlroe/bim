@@ -74,8 +74,29 @@ impl Row {
         ridx
     }
 
+    pub fn render_cursor_to_text(&self, ridx: i32) -> i32 {
+        let tab_stop = TAB_STOP as i32;
+        let mut cur_cx: i32 = 0;
+        let mut cur_rx: i32 = 0;
+        for source_char in self.chars.chars() {
+            if source_char == '\t' {
+                cur_rx += (tab_stop - 1) - (cur_rx % tab_stop);
+            }
+            cur_rx += 1;
+            if cur_rx > ridx {
+                break;
+            }
+            cur_cx += 1;
+        }
+        cur_cx
+    }
+
     fn render_cursor_to_byte_position(&self, at: usize) -> usize {
         self.chars.chars().take(at).map(|c| c.len_utf8()).sum()
+    }
+
+    fn byte_position_to_char_position(&self, at: usize) -> usize {
+        self.render[0..at + 1].chars().count() - 1
     }
 
     pub fn insert_char(&mut self, at: usize, character: char) {
@@ -131,6 +152,12 @@ impl Row {
     #[allow(dead_code)]
     pub fn rendered_str(&self) -> &str {
         self.render.as_str()
+    }
+
+    pub fn index_of(&self, needle: &str) -> Option<usize> {
+        self.render
+            .find(needle)
+            .map(|at| self.byte_position_to_char_position(at))
     }
 }
 
@@ -246,4 +273,45 @@ fn test_truncate() {
     let mut row = Row::new("£££££.second.\r\n");
     row.truncate(6);
     assert_eq!("£££££.\r\n", row.chars);
+}
+
+#[test]
+fn test_render_cursor_to_text() {
+    {
+        let row = Row::new("nothing interesting\r\n");
+        assert_eq!(5, row.render_cursor_to_text(5));
+    }
+
+    {
+        let row = Row::new("\tinteresting\r\n");
+        assert_eq!("        interesting", row.rendered_str());
+        assert_eq!(0, row.render_cursor_to_text(0));
+        assert_eq!(1, row.render_cursor_to_text(8));
+        assert_eq!(11, row.render_cursor_to_text(18));
+        // the position after the text (EOL)
+        assert_eq!(12, row.render_cursor_to_text(19));
+    }
+
+    {
+        let row = Row::new("\t£intersting\r\n");
+        assert_eq!("        £intersting", row.rendered_str());
+        assert_eq!(0, row.render_cursor_to_text(0));
+        assert_eq!(1, row.render_cursor_to_text(8));
+        assert_eq!(2, row.render_cursor_to_text(9));
+    }
+}
+
+#[test]
+fn test_index_of() {
+    {
+        let row = Row::new("nothing interesting\r\n");
+        assert_eq!(Some(0), row.index_of("nothing"));
+        assert_eq!(Some(8), row.index_of("interesting"));
+    }
+
+    {
+        let row = Row::new("\t£lots\r\n");
+        assert_eq!("        £lots", row.rendered_str());
+        assert_eq!(Some(9), row.index_of("lots"));
+    }
 }
