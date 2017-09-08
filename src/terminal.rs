@@ -14,6 +14,11 @@ const UI_ROWS: i32 = 2;
 const BIM_QUIT_TIMES: i8 = 3;
 const BIM_DEBUG_LOG: &str = ".bim_debug";
 
+#[cfg(windows)]
+const DEFAULT_NEWLINE: &str = "\r\n";
+#[cfg(not(windows))]
+const DEFAULT_NEWLINE: &str = "\n";
+
 #[derive(PartialEq, Eq)]
 struct Status {
     message: String,
@@ -391,7 +396,10 @@ impl Terminal {
     }
 
     fn insert_newline(&mut self, row: usize, col: usize) {
-        let newline = self.rows[row].newline();
+        let newline = self.rows
+            .get(row)
+            .map(|r| r.newline())
+            .unwrap_or(DEFAULT_NEWLINE.to_string());
         if col == 0 {
             self.insert_row(row, &newline);
         } else {
@@ -834,4 +842,12 @@ fn test_insert_char() {
             .map(|r| r.as_str().clone())
             .collect::<Vec<_>>()
     );
+}
+
+#[test]
+fn test_empty_file() {
+    let mut terminal = Terminal::new(10, 10);
+    terminal.process_key(Key::Return);
+    assert_eq!(1, terminal.rows.len());
+    assert_eq!(DEFAULT_NEWLINE, terminal.rows[0].as_str());
 }
