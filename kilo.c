@@ -190,7 +190,12 @@ int editorReadKey() {
   }
 
   char message[80];
-  int messagelen = snprintf(message, sizeof(message), "Key pressed: %c (%d as decimal)\n", c, c);
+  int messagelen = snprintf(message,
+                            sizeof(message),
+                            "Key pressed: %c (%hhx) (%hhu as decimal)\n",
+                            c,
+                            c,
+                            c);
   editorLogDebug(message, messagelen);
 
   if (c == '\x1b') {
