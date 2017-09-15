@@ -182,7 +182,7 @@ void handleSignal(int signal) {
 
 int editorReadKey() {
   int nread;
-  char c;
+  char c = 0;
   while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
     if (nread == -1 && errno != EAGAIN) {
       die("read");
