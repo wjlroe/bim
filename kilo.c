@@ -1212,13 +1212,13 @@ void editorPrintDebug() {
 
   struct abuf ab = ABUF_INIT;
 
-  len = snprintf(buf, sizeof(buf), "Kilo editor -- version %s\r\n", KILO_VERSION);
+  len = snprintf(buf, sizeof(buf), "Kilo editor -- version %s\n", KILO_VERSION);
   abAppend(&ab, buf, len);
-  len = snprintf(buf, sizeof(buf), "rows: %d\r\n", E.screenrows + UI_ROWS);
+  len = snprintf(buf, sizeof(buf), "rows: %d\n", E.screenrows + UI_ROWS);
   abAppend(&ab, buf, len);
-  len = snprintf(buf, sizeof(buf), "cols: %d\r\n", E.screencols);
+  len = snprintf(buf, sizeof(buf), "cols: %d\n", E.screencols);
   abAppend(&ab, buf, len);
-  len = snprintf(buf, sizeof(buf), "method: %s\r\n", method);
+  len = snprintf(buf, sizeof(buf), "method: %s\n", method);
   abAppend(&ab, buf, len);
 
   int fd = open(KILO_DEBUG_LOG, O_TRUNC | O_RDWR | O_CREAT, 0644);
@@ -1227,7 +1227,7 @@ void editorPrintDebug() {
     close(fd);
   } else {
     len = snprintf(buf, sizeof(buf),
-                   "couldn't open .kilo_debug for writing!\r\n");
+                   "couldn't open .kilo_debug for writing!\n");
     write(STDERR_FILENO, buf, len);
   }
 
