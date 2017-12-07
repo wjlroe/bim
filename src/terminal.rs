@@ -498,7 +498,11 @@ impl Terminal {
             }
             Escape => None,
             Other(c) => {
-                self.debug(format!("other key: {}, {} as u32\n", c, c as u32));
+                self.debug(format!(
+                    "other key: {character}, {key_num:x}, {key_num} as u32\n",
+                    character = c,
+                    key_num = c as u32
+                ));
                 if ctrl_key('h', c as u32) {
                     Some(DeleteCharBackward)
                 } else if ctrl_key('q', c as u32) {
