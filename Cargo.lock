@@ -1,4 +1,4 @@
-[root]
+[[package]]
 name = "bim"
 version = "0.0.1"
 dependencies = [
