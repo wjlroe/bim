@@ -479,8 +479,8 @@ impl Terminal {
     }
 
     pub fn key_to_cmd(&self, key: Key) -> Option<Cmd> {
-        use keycodes::Key::*;
         use commands::Cmd::*;
+        use keycodes::Key::*;
 
         match key {
             ArrowLeft => Some(Move(MoveCursor::left(1))),
@@ -603,15 +603,15 @@ impl Terminal {
             match self.internal_save_file() {
                 Ok(bytes_saved) => {
                     self.dirty = 0;
-                    self.set_status_message(
-                        format!("{} bytes written to disk", bytes_saved),
-                    );
+                    self.set_status_message(format!(
+                        "{} bytes written to disk",
+                        bytes_saved
+                    ));
                 }
-                Err(err) => {
-                    self.set_status_message(
-                        format!("Can't save! Error: {:?}", err),
-                    )
-                }
+                Err(err) => self.set_status_message(format!(
+                    "Can't save! Error: {:?}",
+                    err
+                )),
             }
         }
     }

@@ -66,8 +66,8 @@ impl Editor for EditorImpl {
             if GetConsoleMode(handle, &mut ORIG_INPUT_CONSOLE_MODE) != 0 {
                 atexit(disable_raw_input_mode);
                 let mut raw = ORIG_INPUT_CONSOLE_MODE.clone();
-                raw &= !(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT |
-                    ENABLE_PROCESSED_INPUT);
+                raw &= !(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT
+                    | ENABLE_PROCESSED_INPUT);
                 if SetConsoleMode(handle, raw) == 0 {
                     panic!("setting console input mode failed!");
                 }
@@ -82,8 +82,8 @@ impl Editor for EditorImpl {
                 atexit(disable_raw_output_mode);
                 let mut raw = ORIG_OUTPUT_CONSOLE_MODE.clone();
                 raw &= !(ENABLE_WRAP_AT_EOL_OUTPUT);
-                raw |= DISABLE_NEWLINE_AUTO_RETURN |
-                    ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+                raw |= DISABLE_NEWLINE_AUTO_RETURN
+                    | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
                 if SetConsoleMode(handle, raw) == 0 {
                     panic!("setting console output mode failed!");
                 }
@@ -114,8 +114,8 @@ impl Editor for EditorImpl {
                     &mut events_read,
                 ) != 0
                 {
-                    if events_read == 1 &&
-                        input_records[0].EventType == KEY_EVENT
+                    if events_read == 1
+                        && input_records[0].EventType == KEY_EVENT
                     {
                         let record = input_records[0].KeyEvent();
                         if record.bKeyDown == 1 {
