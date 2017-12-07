@@ -19,9 +19,12 @@ pub trait Editor {
     {
         let mut entered_text = String::new();
         loop {
-            terminal.set_status_message(
-                format!("{} {} {}", status_left, entered_text, status_right),
-            );
+            terminal.set_status_message(format!(
+                "{} {} {}",
+                status_left,
+                entered_text,
+                status_right
+            ));
             terminal.refresh();
             if let Some(key) = self.read_a_character() {
                 match key {

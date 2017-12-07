@@ -28,9 +28,9 @@ impl Row {
 
     fn update(&mut self) {
         let mut string_end = self.chars.chars().count();
-        while string_end > 0 &&
-            (self.chars.chars().nth(string_end - 1).unwrap() == '\n' ||
-                self.chars.chars().nth(string_end - 1).unwrap() == '\r')
+        while string_end > 0
+            && (self.chars.chars().nth(string_end - 1).unwrap() == '\n'
+                || self.chars.chars().nth(string_end - 1).unwrap() == '\r')
         {
             string_end -= 1;
         }
@@ -100,7 +100,11 @@ impl Row {
     }
 
     pub fn insert_char(&mut self, at: usize, character: char) {
-        let at = if at > self.size { self.size } else { at };
+        let at = if at > self.size {
+            self.size
+        } else {
+            at
+        };
         let byte_pos = self.render_cursor_to_byte_position(at);
         self.chars.insert(byte_pos, character);
         self.size += 1;
