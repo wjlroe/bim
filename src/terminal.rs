@@ -1,4 +1,4 @@
-use commands::{Cmd, MoveCursor};
+use commands::{Cmd, MoveCursor, SearchDirection};
 use keycodes::{ctrl_key, Key};
 use row::Row;
 use std::cmp::Ordering;
@@ -482,6 +482,7 @@ impl Terminal {
         use commands::Cmd::*;
         use keycodes::Key::*;
 
+        self.debug(format!("key press: {:?}\r\n", key));
         match key {
             ArrowLeft => Some(Move(MoveCursor::left(1))),
             ArrowRight => Some(Move(MoveCursor::right(1))),
@@ -497,6 +498,18 @@ impl Terminal {
                 Some(Linebreak(self.cursor_y as usize, self.cursor_x as usize))
             }
             Escape => None,
+            Control(None) => None,
+            Control(Some(c)) => {
+                if ctrl_key('q', c as u32) {
+                    Some(Quit)
+                } else if ctrl_key('f', c as u32) {
+                    Some(Search)
+                } else if ctrl_key('h', c as u32) {
+                    Some(DeleteCharBackward)
+                } else {
+                    None
+                }
+            }
             Other(c) => {
                 self.debug(format!(
                     "other key: {character}, {key_num:x}, {key_num} as u32\n",
@@ -570,7 +583,7 @@ impl Terminal {
         }
     }
 
-    fn debug(&self, text: String) {
+    pub fn debug(&self, text: String) {
         if let Ok(mut file) =
             OpenOptions::new().append(true).open(BIM_DEBUG_LOG)
         {
@@ -616,15 +629,40 @@ impl Terminal {
         }
     }
 
-    pub fn search_for(&mut self, needle: &str) {
-        for (y, row) in self.rows.iter().enumerate() {
+    pub fn search_for(
+        &mut self,
+        last_match: Option<usize>,
+        direction: SearchDirection,
+        needle: &str,
+    ) -> Option<usize> {
+        let add_amount = last_match.map(|l| l + 1).unwrap_or(0);
+        let num_rows = self.rows.len();
+        let mut matched_row = None;
+        self.debug(format!(
+            "search_for: '{}', direction: {}\r\n",
+            needle, direction
+        ));
+        let lines = match direction {
+            SearchDirection::Forwards => (0..num_rows)
+                .map(|i| (i + add_amount) % num_rows)
+                .collect::<Vec<_>>(),
+            SearchDirection::Backwards => (0..num_rows)
+                .map(|i| (i + add_amount - 1) % num_rows)
+                .rev()
+                .collect::<Vec<_>>(),
+        };
+        for y in lines {
+            assert!(y < num_rows, "num_rows = {}, y = {}", num_rows, y);
+            let row = &self.rows[y];
             if let Some(x) = row.index_of(needle) {
                 self.cursor_x = row.render_cursor_to_text(x as i32);
                 self.cursor_y = y as i32;
+                matched_row = Some(y);
                 self.row_offset = self.rows.len() as i32;
                 break;
             }
         }
+        matched_row
     }
 }
 
@@ -854,4 +892,33 @@ fn test_empty_file() {
     terminal.process_key(Key::Return);
     assert_eq!(1, terminal.rows.len());
     assert_eq!(DEFAULT_NEWLINE, terminal.rows[0].as_str());
+}
+
+#[test]
+fn test_incremental_search() {
+    let mut terminal = Terminal::new(10, 10);
+    terminal.append_row("line 1. has the search text on it\r\n");
+    terminal.append_row("line 2. doesn't have anything\r\n");
+    terminal.append_row("line 3. also has search text here\r\n");
+    terminal.append_row("line 4. another search text match\r\n");
+    assert_eq!(
+        Some(0),
+        terminal.search_for(None, SearchDirection::Forwards, "search text")
+    );
+    assert_eq!(
+        Some(2),
+        terminal.search_for(Some(0), SearchDirection::Forwards, "search text")
+    );
+    assert_eq!(
+        Some(3),
+        terminal.search_for(Some(2), SearchDirection::Forwards, "search text")
+    );
+    assert_eq!(
+        Some(0),
+        terminal.search_for(Some(2), SearchDirection::Backwards, "search text")
+    );
+    assert_eq!(
+        Some(2),
+        terminal.search_for(Some(3), SearchDirection::Backwards, "search text")
+    );
 }

@@ -1,3 +1,20 @@
+use std::fmt;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum SearchDirection {
+    Forwards,
+    Backwards,
+}
+
+impl fmt::Display for SearchDirection {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &SearchDirection::Forwards => write!(f, "Forwards"),
+            &SearchDirection::Backwards => write!(f, "Backwards"),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Direction {
     Up,
