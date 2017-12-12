@@ -12,7 +12,7 @@ use winapi::winbase::{WAIT_OBJECT_0, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
 use winapi::wincon::{CONSOLE_SCREEN_BUFFER_INFO, COORD, ENABLE_ECHO_INPUT,
                      ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
                      ENABLE_WRAP_AT_EOL_OUTPUT, INPUT_RECORD, KEY_EVENT,
-                     SMALL_RECT};
+                     LEFT_CTRL_PRESSED, SMALL_RECT};
 use winapi::winnt::VOID;
 
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING: DWORD = 0x0004;
@@ -132,8 +132,7 @@ impl Editor for EditorImpl {
                                 VK_BACK => Some(Key::Backspace),
                                 VK_RETURN => Some(Key::Return),
                                 VK_ESCAPE => Some(Key::Escape),
-                                // escape is no-op
-                                VK_CONTROL => Some(Key::Escape),
+                                VK_CONTROL => Some(Key::Control(None)),
                                 VK_INSERT => Some(Key::Escape),
                                 VK_SHIFT => Some(Key::Escape),
                                 VK_LSHIFT => Some(Key::Escape),
@@ -152,7 +151,16 @@ impl Editor for EditorImpl {
                                 _ => {
                                     let unicode_char =
                                         record.UnicodeChar as u32;
-                                    char::from_u32(unicode_char).map(Key::Other)
+                                    if record.dwControlKeyState
+                                        & LEFT_CTRL_PRESSED
+                                        == LEFT_CTRL_PRESSED
+                                    {
+                                        char::from_u32(unicode_char)
+                                            .map(|uc| Key::Control(Some(uc)))
+                                    } else {
+                                        char::from_u32(unicode_char)
+                                            .map(Key::Other)
+                                    }
                                 }
                             };
                         }
