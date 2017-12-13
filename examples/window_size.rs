@@ -19,8 +19,7 @@ fn main() {
         if ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut ws) != -1 {
             println!(
                 "ioctl win size. rows: {}, cols: {}",
-                ws.ws_row,
-                ws.ws_col
+                ws.ws_row, ws.ws_col
             );
         }
     }
