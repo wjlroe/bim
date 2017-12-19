@@ -141,12 +141,19 @@ impl Row {
     }
 
     pub fn onscreen_text(&self, offset: usize, cols: usize) -> String {
+        let mut onscreen = String::new();
+        let highlight_digit = |c| format!("\x1b[31m{}\x1b[39m", c);
         // FIXME: call rendered_str here and slice it up!
-        self.render
-            .chars()
-            .skip(offset)
-            .take(cols)
-            .collect::<String>()
+        let characters = self.render.chars().skip(offset).take(cols);
+
+        for c in characters {
+            if c.is_digit(10) {
+                onscreen.push_str(highlight_digit(c).as_str());
+            } else {
+                onscreen.push(c);
+            }
+        }
+        onscreen
     }
 
     pub fn as_str(&self) -> &str {
@@ -317,5 +324,23 @@ fn test_index_of() {
         let row = Row::new("\t£lots\r\n");
         assert_eq!("        £lots", row.rendered_str());
         assert_eq!(Some(9), row.index_of("lots"));
+    }
+}
+
+#[test]
+fn test_onscreen_text() {
+    {
+        let row = Row::new("no numbers here\r\n");
+        assert_eq!("no nu", row.onscreen_text(0, 5))
+    }
+
+    {
+        let row = Row::new("no numbers here\r\n");
+        assert_eq!(" numbers ", row.onscreen_text(2, 9));
+    }
+
+    {
+        let row = Row::new("number 1 here\r\n");
+        assert_eq!("number \x1b[31m1\x1b[39m he", row.onscreen_text(0, 11));
     }
 }
