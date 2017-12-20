@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate lazy_static;
 extern crate libc;
 extern crate time;
 
@@ -24,6 +26,7 @@ pub use win::EditorImpl;
 
 mod keycodes;
 mod commands;
+mod highlight;
 mod row;
 pub mod config;
 mod terminal;

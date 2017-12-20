@@ -6,6 +6,7 @@ authors = ["William Roe <git@wjlr.org.uk>"]
 [dependencies]
 libc = "*"
 time = "0.1.38"
+lazy_static = "1.0.0"
 
 [target.'cfg(unix)'.dependencies]
 errno = "*"
