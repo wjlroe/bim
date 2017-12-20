@@ -162,15 +162,21 @@ impl Row {
         // FIXME: call rendered_str here and slice it up!
         let characters = self.render.chars().skip(offset).take(cols);
         let highlights = self.hl.iter().skip(offset).take(cols);
+        let mut last_highlight = None;
 
         for (c, hl) in characters.zip(highlights) {
-            onscreen.push_str(
-                format!(
-                    "\x1b[{}m{}",
-                    HL_TO_COLOUR.get(hl).unwrap_or(&DEFAULT_COLOUR),
-                    c
-                ).as_str(),
-            );
+            if last_highlight == Some(hl) {
+                onscreen.push(c);
+            } else {
+                onscreen.push_str(
+                    format!(
+                        "\x1b[{}m{}",
+                        HL_TO_COLOUR.get(hl).unwrap_or(&DEFAULT_COLOUR),
+                        c
+                    ).as_str(),
+                );
+                last_highlight = Some(hl);
+            }
         }
         onscreen.push_str(format!("\x1b[{}m", DEFAULT_COLOUR).as_str());
         onscreen
@@ -355,14 +361,18 @@ fn test_onscreen_text() {
         assert!(onscreen.contains("\x1b[39m"));
         assert!(!onscreen.contains("\x1b[31m"));
         assert!(onscreen.ends_with("\x1b[39m"));
+        assert!(onscreen.starts_with("\x1b[39m"));
+        assert_eq!(2, onscreen.matches("\x1b[39m").count());
     }
 
     {
-        let row = Row::new("number 1 here\r\n");
+        let row = Row::new("number 19 here\r\n");
         let onscreen = row.onscreen_text(0, 11);
-        assert!(onscreen.contains("\x1b[31m1\x1b[39m "));
+        assert!(onscreen.contains("\x1b[31m1"));
         assert!(onscreen.contains("\x1b[39m"));
         assert!(onscreen.ends_with("\x1b[39m"));
+        assert_eq!(3, onscreen.matches("\x1b[39m").count());
+        assert_eq!(1, onscreen.matches("\x1b[31m").count());
     }
 }
 
