@@ -1,4 +1,4 @@
-use highlight::{Highlight, HL_TO_COLOUR};
+use highlight::{Highlight, DEFAULT_COLOUR, HL_TO_COLOUR};
 
 const TAB_STOP: usize = 8;
 
@@ -165,10 +165,14 @@ impl Row {
 
         for (c, hl) in characters.zip(highlights) {
             onscreen.push_str(
-                format!("\x1b[{}m{}", HL_TO_COLOUR.get(hl).unwrap_or(&39), c)
-                    .as_str(),
+                format!(
+                    "\x1b[{}m{}",
+                    HL_TO_COLOUR.get(hl).unwrap_or(&DEFAULT_COLOUR),
+                    c
+                ).as_str(),
             );
         }
+        onscreen.push_str(format!("\x1b[{}m", DEFAULT_COLOUR).as_str());
         onscreen
     }
 
@@ -347,17 +351,18 @@ fn test_index_of() {
 fn test_onscreen_text() {
     {
         let row = Row::new("no numbers here\r\n");
-        assert_eq!("no nu", row.onscreen_text(0, 5))
-    }
-
-    {
-        let row = Row::new("no numbers here\r\n");
-        assert_eq!(" numbers ", row.onscreen_text(2, 9));
+        let onscreen = row.onscreen_text(2, 9);
+        assert!(onscreen.contains("\x1b[39m"));
+        assert!(!onscreen.contains("\x1b[31m"));
+        assert!(onscreen.ends_with("\x1b[39m"));
     }
 
     {
         let row = Row::new("number 1 here\r\n");
-        assert_eq!("number \x1b[31m1\x1b[39m he", row.onscreen_text(0, 11));
+        let onscreen = row.onscreen_text(0, 11);
+        assert!(onscreen.contains("\x1b[31m1\x1b[39m "));
+        assert!(onscreen.contains("\x1b[39m"));
+        assert!(onscreen.ends_with("\x1b[39m"));
     }
 }
 
