@@ -1,3 +1,5 @@
+use highlight::{Highlight, HL_TO_COLOUR};
+
 const TAB_STOP: usize = 8;
 
 #[derive(PartialEq, Eq)]
@@ -6,6 +8,7 @@ pub struct Row {
     pub size: usize,
     render: String,
     rsize: usize,
+    hl: Vec<Highlight>,
 }
 
 impl Row {
@@ -15,6 +18,7 @@ impl Row {
             size: 0,
             render: String::new(),
             rsize: 0,
+            hl: vec![],
         };
         row.set_text(text);
         row
@@ -36,6 +40,7 @@ impl Row {
         }
         self.size = string_end;
         self.update_render();
+        self.update_highlight();
     }
 
     fn update_render(&mut self) {
@@ -57,6 +62,19 @@ impl Row {
             }
         }
         self.rsize = rsize;
+    }
+
+    fn update_highlight(&mut self) {
+        use self::Highlight::*;
+
+        self.hl.clear();
+        for c in self.render.chars() {
+            if c.is_digit(10) {
+                self.hl.push(Number);
+            } else {
+                self.hl.push(Normal);
+            }
+        }
     }
 
     pub fn text_cursor_to_render(&self, cidx: i32) -> i32 {
@@ -107,8 +125,7 @@ impl Row {
         };
         let byte_pos = self.render_cursor_to_byte_position(at);
         self.chars.insert(byte_pos, character);
-        self.size += 1;
-        self.update_render();
+        self.update();
     }
 
     pub fn append_text(&mut self, text: &str) {
@@ -142,16 +159,15 @@ impl Row {
 
     pub fn onscreen_text(&self, offset: usize, cols: usize) -> String {
         let mut onscreen = String::new();
-        let highlight_digit = |c| format!("\x1b[31m{}\x1b[39m", c);
         // FIXME: call rendered_str here and slice it up!
         let characters = self.render.chars().skip(offset).take(cols);
+        let highlights = self.hl.iter().skip(offset).take(cols);
 
-        for c in characters {
-            if c.is_digit(10) {
-                onscreen.push_str(highlight_digit(c).as_str());
-            } else {
-                onscreen.push(c);
-            }
+        for (c, hl) in characters.zip(highlights) {
+            onscreen.push_str(
+                format!("\x1b[{}m{}", HL_TO_COLOUR.get(hl).unwrap_or(&39), c)
+                    .as_str(),
+            );
         }
         onscreen
     }
@@ -342,5 +358,31 @@ fn test_onscreen_text() {
     {
         let row = Row::new("number 1 here\r\n");
         assert_eq!("number \x1b[31m1\x1b[39m he", row.onscreen_text(0, 11));
+    }
+}
+
+#[test]
+fn test_highlight() {
+    use highlight::Highlight::*;
+
+    {
+        let mut row = Row::new("normal\r\n");
+        assert_eq!(vec![Normal; 6], row.hl);
+        row.insert_char(0, '1');
+        assert_eq!(
+            vec![Number, Normal, Normal, Normal, Normal, Normal, Normal],
+            row.hl
+        );
+    }
+
+    {
+        let row = Row::new("1A2b34zz \r\n");
+        assert_eq!(
+            vec![
+                Number, Normal, Number, Normal, Number, Number, Normal, Normal,
+                Normal,
+            ],
+            row.hl
+        );
     }
 }
