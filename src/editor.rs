@@ -122,6 +122,8 @@ pub trait Editor {
                 terminal.col_offset = saved_col_offset;
                 terminal.row_offset = saved_row_offset;
             }
+
+            terminal.clear_search_overlay();
         }
     }
 

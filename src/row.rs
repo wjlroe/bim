@@ -9,6 +9,7 @@ pub struct Row {
     render: String,
     rsize: usize,
     hl: Vec<Highlight>,
+    overlay: Vec<Option<Highlight>>,
 }
 
 impl Row {
@@ -19,6 +20,7 @@ impl Row {
             render: String::new(),
             rsize: 0,
             hl: vec![],
+            overlay: vec![],
         };
         row.set_text(text);
         row
@@ -68,11 +70,28 @@ impl Row {
         use self::Highlight::*;
 
         self.hl.clear();
+        self.overlay.clear();
         for c in self.render.chars() {
             if c.is_digit(10) {
                 self.hl.push(Number);
             } else {
                 self.hl.push(Normal);
+            }
+
+            self.overlay.push(None);
+        }
+    }
+
+    pub fn clear_overlay_search(&mut self) {
+        for elem in self.overlay.iter_mut() {
+            *elem = None;
+        }
+    }
+
+    pub fn set_overlay_search(&mut self, begin: usize, end: usize) {
+        for x in begin..end {
+            if let Some(elem) = self.overlay.get_mut(x) {
+                *elem = Some(Highlight::SearchMatch);
             }
         }
     }
@@ -162,20 +181,22 @@ impl Row {
         // FIXME: call rendered_str here and slice it up!
         let characters = self.render.chars().skip(offset).take(cols);
         let highlights = self.hl.iter().skip(offset).take(cols);
+        let overlays = self.overlay.iter().skip(offset).take(cols);
         let mut last_highlight = None;
 
-        for (c, hl) in characters.zip(highlights) {
-            if last_highlight == Some(hl) {
+        for (c, (hl, overlay)) in characters.zip(highlights.zip(overlays)) {
+            let hl_or_ol = overlay.unwrap_or(*hl);
+            if last_highlight == Some(hl_or_ol) {
                 onscreen.push(c);
             } else {
                 onscreen.push_str(
                     format!(
                         "\x1b[{}m{}",
-                        HL_TO_COLOUR.get(hl).unwrap_or(&DEFAULT_COLOUR),
+                        HL_TO_COLOUR.get(&hl_or_ol).unwrap_or(&DEFAULT_COLOUR),
                         c
                     ).as_str(),
                 );
-                last_highlight = Some(hl);
+                last_highlight = Some(hl_or_ol);
             }
         }
         onscreen.push_str(format!("\x1b[{}m", DEFAULT_COLOUR).as_str());
@@ -373,6 +394,13 @@ fn test_onscreen_text() {
         assert!(onscreen.ends_with("\x1b[39m"));
         assert_eq!(3, onscreen.matches("\x1b[39m").count());
         assert_eq!(1, onscreen.matches("\x1b[31m").count());
+    }
+
+    {
+        let mut row = Row::new("abc123 TEXT zxc987\r\n");
+        row.set_overlay_search(7, 11);
+        let onscreen = row.onscreen_text(0, 18);
+        assert!(onscreen.contains("\x1b[34mTEXT\x1b[39m"));
     }
 }
 
