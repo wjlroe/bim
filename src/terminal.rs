@@ -535,6 +535,12 @@ impl Terminal {
         }
     }
 
+    pub fn clear_search_overlay(&mut self) {
+        for row in self.rows.iter_mut() {
+            row.clear_overlay_search();
+        }
+    }
+
     pub fn set_status_message(&mut self, message: String) {
         let status = Status::new(message);
         self.status = Some(status);
@@ -653,12 +659,13 @@ impl Terminal {
         };
         for y in lines {
             assert!(y < num_rows, "num_rows = {}, y = {}", num_rows, y);
-            let row = &self.rows[y];
+            let row = &mut self.rows[y];
             if let Some(x) = row.index_of(needle) {
                 self.cursor_x = row.render_cursor_to_text(x as i32);
                 self.cursor_y = y as i32;
                 matched_row = Some(y);
-                self.row_offset = self.rows.len() as i32;
+                self.row_offset = num_rows as i32;
+                row.set_overlay_search(x, x + needle.len());
                 break;
             }
         }
@@ -921,4 +928,29 @@ fn test_incremental_search() {
         Some(2),
         terminal.search_for(Some(3), SearchDirection::Backwards, "search text")
     );
+}
+
+#[test]
+fn test_search_match_highlighting() {
+    let mut terminal = Terminal::new(10, 10);
+    terminal.append_row("nothing abc123 nothing\r\n");
+    let row_idx = terminal
+        .search_for(None, SearchDirection::Forwards, "abc123")
+        .unwrap();
+    let row = &terminal.rows[row_idx];
+    let onscreen = row.onscreen_text(0, 22);
+    assert!(onscreen.contains("\x1b[34mabc123\x1b[39m"));
+}
+
+#[test]
+fn test_clearing_search_overlay() {
+    let mut terminal = Terminal::new(10, 10);
+    terminal.append_row("nothing abc123 nothing\r\n");
+    let row_idx = terminal
+        .search_for(None, SearchDirection::Forwards, "abc123")
+        .unwrap();
+    terminal.clear_search_overlay();
+    let row = &terminal.rows[row_idx];
+    let onscreen = row.onscreen_text(0, 22);
+    assert!(!onscreen.contains("\x1b[34m"));
 }

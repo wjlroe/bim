@@ -4,6 +4,7 @@ use std::collections::HashMap;
 pub enum Highlight {
     Normal,
     Number,
+    SearchMatch,
 }
 
 pub const DEFAULT_COLOUR: u8 = 39;
@@ -15,6 +16,7 @@ lazy_static! {
         let mut m = HashMap::new();
         m.insert(Normal, DEFAULT_COLOUR);
         m.insert(Number, 31);
+        m.insert(SearchMatch, 34);
         m
     };
 }
