@@ -1,6 +1,7 @@
 use highlight::{Highlight, DEFAULT_COLOUR, HL_TO_COLOUR};
 
 const TAB_STOP: usize = 8;
+const SEPARATORS: &str = ",.()+-/*=~%<>[];";
 
 #[derive(PartialEq, Eq)]
 pub struct Row {
@@ -66,17 +67,32 @@ impl Row {
         self.rsize = rsize;
     }
 
+    fn is_separator(&self, c: char) -> bool {
+        // TODO: Is null char '\0'?
+        c.is_whitespace() || SEPARATORS.contains(c)
+    }
+
     fn update_highlight(&mut self) {
         use self::Highlight::*;
 
         self.hl.clear();
         self.overlay.clear();
-        for c in self.render.chars() {
-            if c.is_digit(10) {
+        let mut prev_sep = true;
+        for (idx, c) in self.render.chars().enumerate() {
+            let prev_hl = if idx > 0 {
+                self.hl.get(idx - 1).cloned().unwrap_or(Normal)
+            } else {
+                Normal
+            };
+            if (c.is_digit(10) && (prev_sep || prev_hl == Number))
+                || (c == '.' && prev_hl == Number)
+            {
                 self.hl.push(Number);
             } else {
                 self.hl.push(Normal);
             }
+
+            prev_sep = self.is_separator(c);
 
             self.overlay.push(None);
         }
@@ -405,27 +421,29 @@ fn test_onscreen_text() {
 }
 
 #[test]
-fn test_highlight() {
-    use highlight::Highlight::*;
+fn test_highlight_normal() {
+    let row = Row::new("normal\r\n");
+    assert_eq!(vec![Highlight::Normal; 6], row.hl);
+}
 
-    {
-        let mut row = Row::new("normal\r\n");
-        assert_eq!(vec![Normal; 6], row.hl);
-        row.insert_char(0, '1');
-        assert_eq!(
-            vec![Number, Normal, Normal, Normal, Normal, Normal, Normal],
-            row.hl
-        );
-    }
+#[test]
+fn test_highlight_numbers() {
+    let row = Row::new("12345.6789\r\n");
+    assert_eq!(vec![Highlight::Number; 10], row.hl);
+}
 
-    {
-        let row = Row::new("1A2b34zz \r\n");
-        assert_eq!(
-            vec![
-                Number, Normal, Number, Normal, Number, Number, Normal, Normal,
-                Normal,
-            ],
-            row.hl
-        );
-    }
+#[test]
+fn test_highlight_mixed_numbers_words() {
+    let row = Row::new("123 abc 456\r\n");
+    let mut expected = vec![];
+    expected.append(&mut vec![Highlight::Number; 3]);
+    expected.append(&mut vec![Highlight::Normal; 5]);
+    expected.append(&mut vec![Highlight::Number; 3]);
+    assert_eq!(expected, row.hl);
+}
+
+#[test]
+fn test_highlight_numbers_in_words_are_normal() {
+    let row = Row::new("word9\r\n");
+    assert_eq!(vec![Highlight::Normal; 5], row.hl);
 }
