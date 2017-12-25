@@ -31,7 +31,10 @@
       "args": [
         "test"
       ],
-      "group": "test",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
       "problemMatcher": "$rustc"
     },
     {
