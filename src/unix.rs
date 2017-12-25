@@ -35,7 +35,7 @@ static mut ORIG_TERMIOS: termios = termios {
     c_ispeed: 0,
 };
 
-fn get_window_size_ioctl() -> Option<Terminal> {
+fn get_window_size_ioctl<'a>() -> Option<Terminal<'a>> {
     let mut ws = winsize {
         ws_row: 0,
         ws_col: 0,
@@ -51,7 +51,7 @@ fn get_window_size_ioctl() -> Option<Terminal> {
     }
 }
 
-fn get_window_size_cursor_pos() -> Option<Terminal> {
+fn get_window_size_cursor_pos<'a>() -> Option<Terminal<'a>> {
     if let Ok(12) = stdout().write(b"\x1b[999C\x1b[999B") {
         stdout().flush().unwrap();
         if let Ok(4) = stdout().write(b"\x1b[6n") {

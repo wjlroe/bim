@@ -1,20 +1,22 @@
 use highlight::{Highlight, DEFAULT_COLOUR, HL_TO_COLOUR};
+use std::rc::Weak;
+use syntax::Syntax;
 
 const TAB_STOP: usize = 8;
 const SEPARATORS: &str = ",.()+-/*=~%<>[];";
 
-#[derive(PartialEq, Eq)]
-pub struct Row {
+pub struct Row<'a> {
     chars: String,
     pub size: usize,
     render: String,
     rsize: usize,
     hl: Vec<Highlight>,
     overlay: Vec<Option<Highlight>>,
+    syntax: Weak<Option<&'a Syntax<'a>>>,
 }
 
-impl Row {
-    pub fn new(text: &str) -> Self {
+impl<'a> Row<'a> {
+    pub fn new(text: &str, syntax: Weak<Option<&'a Syntax<'a>>>) -> Self {
         let mut row = Row {
             chars: String::new(),
             size: 0,
@@ -22,6 +24,7 @@ impl Row {
             rsize: 0,
             hl: vec![],
             overlay: vec![],
+            syntax,
         };
         row.set_text(text);
         row
@@ -30,6 +33,11 @@ impl Row {
     fn set_text(&mut self, text: &str) {
         self.chars.clear();
         self.chars.push_str(text);
+        self.update();
+    }
+
+    pub fn set_syntax(&mut self, syntax: Weak<Option<&'a Syntax<'a>>>) {
+        self.syntax = syntax;
         self.update();
     }
 
@@ -43,6 +51,7 @@ impl Row {
         }
         self.size = string_end;
         self.update_render();
+        self.clear_overlay();
         self.update_highlight();
     }
 
@@ -72,11 +81,27 @@ impl Row {
         c.is_whitespace() || SEPARATORS.contains(c)
     }
 
+    fn clear_overlay(&mut self) {
+        self.overlay.clear();
+        for _ in self.render.chars() {
+            self.overlay.push(None);
+        }
+    }
+
     fn update_highlight(&mut self) {
         use self::Highlight::*;
 
         self.hl.clear();
-        self.overlay.clear();
+        let syntax = self.syntax.upgrade();
+        if syntax.is_none() {
+            return;
+        }
+        let syntax = syntax.unwrap();
+        if syntax.is_none() {
+            return;
+        }
+        let syntax = syntax.unwrap();
+
         let mut prev_sep = true;
         for (idx, c) in self.render.chars().enumerate() {
             let prev_hl = if idx > 0 {
@@ -84,17 +109,17 @@ impl Row {
             } else {
                 Normal
             };
-            if (c.is_digit(10) && (prev_sep || prev_hl == Number))
-                || (c == '.' && prev_hl == Number)
-            {
-                self.hl.push(Number);
-            } else {
-                self.hl.push(Normal);
+            if syntax.highlight_numbers() {
+                if (c.is_digit(10) && (prev_sep || prev_hl == Number))
+                    || (c == '.' && prev_hl == Number)
+                {
+                    self.hl.push(Number);
+                } else {
+                    self.hl.push(Normal);
+                }
             }
 
             prev_sep = self.is_separator(c);
-
-            self.overlay.push(None);
         }
     }
 
@@ -196,12 +221,14 @@ impl Row {
         let mut onscreen = String::new();
         // FIXME: call rendered_str here and slice it up!
         let characters = self.render.chars().skip(offset).take(cols);
-        let highlights = self.hl.iter().skip(offset).take(cols);
-        let overlays = self.overlay.iter().skip(offset).take(cols);
+        let mut highlights = self.hl.iter().skip(offset).take(cols);
+        let mut overlays = self.overlay.iter().skip(offset).take(cols);
         let mut last_highlight = None;
 
-        for (c, (hl, overlay)) in characters.zip(highlights.zip(overlays)) {
-            let hl_or_ol = overlay.unwrap_or(*hl);
+        for c in characters {
+            let hl = highlights.next().cloned();
+            let overlay = overlays.next().cloned().unwrap_or(None);
+            let hl_or_ol = overlay.or(hl).unwrap_or(Highlight::Normal);
             if last_highlight == Some(hl_or_ol) {
                 onscreen.push(c);
             } else {
@@ -235,165 +262,217 @@ impl Row {
     }
 }
 
-#[test]
-fn test_insert_char() {
-    let mut row = Row::new("a line of text\r\n");
-    assert_eq!(14, row.size);
-    assert_eq!(14, row.rsize);
-    assert_eq!(row.chars.trim(), row.render);
-    row.insert_char(2, 'z');
-    assert_eq!(15, row.size);
-    assert_eq!(15, row.rsize);
-    assert_eq!("a zline of text\r\n", row.chars);
-    row.insert_char(0, '_');
-    assert_eq!(16, row.size);
-    assert_eq!(16, row.rsize);
-    assert_eq!("_a zline of text\r\n", row.chars);
-    row.insert_char(16, '_');
-    assert_eq!(17, row.size);
-    assert_eq!(17, row.rsize);
-    assert_eq!("_a zline of text_\r\n", row.chars);
-    row.insert_char(0, '£');
-    assert_eq!(18, row.size);
-    assert_eq!(18, row.rsize);
-    assert_eq!("£_a zline of text_\r\n", row.chars);
-    row.insert_char(1, '1');
-    assert_eq!(19, row.size);
-    assert_eq!(19, row.rsize);
-    assert_eq!("£1_a zline of text_\r\n", row.chars);
-    row.insert_char(0, '£');
-    row.insert_char(0, '£');
-    assert_eq!("£££1_a zline of text_\r\n", row.chars);
-    row.insert_char(2, '¬');
-    assert_eq!("££¬£1_a zline of text_\r\n", row.chars);
-}
+#[cfg(test)]
+mod test {
+    use highlight::Highlight;
+    use row::Row;
+    use std::rc::Rc;
+    use std::rc::Weak;
+    use syntax::Syntax;
 
-#[test]
-fn test_update() {
-    let mut row = Row::new("£1.50\r\n");
-    row.update();
-    assert_eq!(5, row.size);
-    assert_eq!(5, row.rsize);
-}
-
-#[test]
-fn test_set_text() {
-    let mut row = Row::new("");
-    assert_eq!(0, row.size);
-    assert_eq!(0, row.rsize);
-
-    row.set_text("a row\n");
-
-    assert_eq!(5, row.size);
-    assert_eq!(5, row.rsize);
-
-    row.set_text("another row\r\n");
-
-    assert_eq!(11, row.size);
-    assert_eq!(11, row.rsize);
-}
-
-#[test]
-fn test_delete_char() {
-    let mut row = Row::new("this is a nice row\r\n");
-    assert_eq!(18, row.size);
-    assert_eq!("this is a nice row", row.render);
-
-    row.delete_char(0);
-    assert_eq!("his is a nice row\r\n", row.chars);
-    assert_eq!(17, row.size);
-    assert_eq!("his is a nice row", row.render);
-
-    row.delete_char(17);
-    assert_eq!("his is a nice ro\r\n", row.chars);
-    assert_eq!(16, row.size);
-    assert_eq!("his is a nice ro", row.render);
-}
-
-#[test]
-fn test_delete_char_utf8() {
-    let mut row = Row::new("££1.50\r\n");
-    assert_eq!(6, row.size);
-    row.delete_char(1);
-    assert_eq!(5, row.size);
-    assert_eq!("£1.50", row.render);
-}
-
-#[test]
-fn test_append_text() {
-    let mut row = Row::new("this is a line of text.\r\n");
-    row.append_text("another line.\r\n");
-    assert_eq!("this is a line of text.another line.\r\n", row.chars);
-    let mut row = Row::new("££\r\n");
-    row.append_text("word\r\n");
-    assert_eq!("££word\r\n", row.chars);
-}
-
-#[test]
-fn test_newline() {
-    let row = Row::new("this is a line.\r\n");
-    assert_eq!("\r\n", row.newline());
-    let row = Row::new("another line.\n");
-    assert_eq!("\n", row.newline());
-    let row = Row::new("££££\r\n");
-    assert_eq!("\r\n", row.newline());
-}
-
-#[test]
-fn test_truncate() {
-    let mut row = Row::new("first.second.\r\n");
-    row.truncate(6);
-    assert_eq!("first.\r\n", row.chars);
-    let mut row = Row::new("£££££.second.\r\n");
-    row.truncate(6);
-    assert_eq!("£££££.\r\n", row.chars);
-}
-
-#[test]
-fn test_render_cursor_to_text() {
-    {
-        let row = Row::new("nothing interesting\r\n");
-        assert_eq!(5, row.render_cursor_to_text(5));
+    lazy_static! {
+        static ref SYNTAXES: Vec<Syntax<'static>> = {
+            use syntax::SyntaxSetting::*;
+            vec![Syntax::new("HLNumbers", vec![], vec![HighlightNumbers])]
+        };
     }
 
-    {
-        let row = Row::new("\tinteresting\r\n");
-        assert_eq!("        interesting", row.rendered_str());
-        assert_eq!(0, row.render_cursor_to_text(0));
-        assert_eq!(1, row.render_cursor_to_text(8));
-        assert_eq!(11, row.render_cursor_to_text(18));
-        // the position after the text (EOL)
-        assert_eq!(12, row.render_cursor_to_text(19));
+    fn new_row_without_syntax(text: &str) -> Row {
+        let syntax: Weak<Option<&Syntax>> = Weak::new();
+        Row::new(text, syntax)
     }
 
-    {
-        let row = Row::new("\t£intersting\r\n");
-        assert_eq!("        £intersting", row.rendered_str());
-        assert_eq!(0, row.render_cursor_to_text(0));
-        assert_eq!(1, row.render_cursor_to_text(8));
-        assert_eq!(2, row.render_cursor_to_text(9));
-    }
-}
-
-#[test]
-fn test_index_of() {
-    {
-        let row = Row::new("nothing interesting\r\n");
-        assert_eq!(Some(0), row.index_of("nothing"));
-        assert_eq!(Some(8), row.index_of("interesting"));
+    macro_rules! row_with_text_and_filetype {
+        ($text:expr, $filetype:expr, $syntax:ident, $row:ident) => (
+            let syntax_val = SYNTAXES.iter().find(|s| s.filetype == $filetype);
+            assert!(syntax_val.is_some(),
+                    "Failed to find syntax with filetype: {}",
+                    $filetype);
+            let $syntax = Rc::new(syntax_val);
+            #[allow(unused_mut)]
+            let mut $row = Row::new($text, Rc::downgrade(&$syntax));
+        )
     }
 
-    {
-        let row = Row::new("\t£lots\r\n");
-        assert_eq!("        £lots", row.rendered_str());
-        assert_eq!(Some(9), row.index_of("lots"));
+    #[test]
+    fn test_row_with_highlighted_numbers() {
+        row_with_text_and_filetype!("123\r\n", "HLNumbers", syntax, row);
+        assert!(
+            row.syntax.upgrade().unwrap().unwrap().highlight_numbers(),
+            "Should have highlighted numbers"
+        );
     }
-}
 
-#[test]
-fn test_onscreen_text() {
-    {
-        let row = Row::new("no numbers here\r\n");
+    #[test]
+    fn test_insert_char() {
+        let mut row = new_row_without_syntax("a line of text\r\n");
+        assert_eq!(14, row.size);
+        assert_eq!(14, row.rsize);
+        assert_eq!(row.chars.trim(), row.render);
+        row.insert_char(2, 'z');
+        assert_eq!(15, row.size);
+        assert_eq!(15, row.rsize);
+        assert_eq!("a zline of text\r\n", row.chars);
+        row.insert_char(0, '_');
+        assert_eq!(16, row.size);
+        assert_eq!(16, row.rsize);
+        assert_eq!("_a zline of text\r\n", row.chars);
+        row.insert_char(16, '_');
+        assert_eq!(17, row.size);
+        assert_eq!(17, row.rsize);
+        assert_eq!("_a zline of text_\r\n", row.chars);
+        row.insert_char(0, '£');
+        assert_eq!(18, row.size);
+        assert_eq!(18, row.rsize);
+        assert_eq!("£_a zline of text_\r\n", row.chars);
+        row.insert_char(1, '1');
+        assert_eq!(19, row.size);
+        assert_eq!(19, row.rsize);
+        assert_eq!("£1_a zline of text_\r\n", row.chars);
+        row.insert_char(0, '£');
+        row.insert_char(0, '£');
+        assert_eq!("£££1_a zline of text_\r\n", row.chars);
+        row.insert_char(2, '¬');
+        assert_eq!("££¬£1_a zline of text_\r\n", row.chars);
+    }
+
+    #[test]
+    fn test_update() {
+        let mut row = new_row_without_syntax("£1.50\r\n");
+        row.update();
+        assert_eq!(5, row.size);
+        assert_eq!(5, row.rsize);
+    }
+
+    #[test]
+    fn test_set_text() {
+        let mut row = new_row_without_syntax("");
+        assert_eq!(0, row.size);
+        assert_eq!(0, row.rsize);
+
+        row.set_text("a row\n");
+
+        assert_eq!(5, row.size);
+        assert_eq!(5, row.rsize);
+
+        row.set_text("another row\r\n");
+
+        assert_eq!(11, row.size);
+        assert_eq!(11, row.rsize);
+    }
+
+    #[test]
+    fn test_delete_char() {
+        let mut row = new_row_without_syntax("this is a nice row\r\n");
+        assert_eq!(18, row.size);
+        assert_eq!("this is a nice row", row.render);
+
+        row.delete_char(0);
+        assert_eq!("his is a nice row\r\n", row.chars);
+        assert_eq!(17, row.size);
+        assert_eq!("his is a nice row", row.render);
+
+        row.delete_char(17);
+        assert_eq!("his is a nice ro\r\n", row.chars);
+        assert_eq!(16, row.size);
+        assert_eq!("his is a nice ro", row.render);
+    }
+
+    #[test]
+    fn test_delete_char_utf8() {
+        let mut row = new_row_without_syntax("££1.50\r\n");
+        assert_eq!(6, row.size);
+        row.delete_char(1);
+        assert_eq!(5, row.size);
+        assert_eq!("£1.50", row.render);
+    }
+
+    #[test]
+    fn test_append_text() {
+        let mut row = new_row_without_syntax("this is a line of text.\r\n");
+        row.append_text("another line.\r\n");
+        assert_eq!("this is a line of text.another line.\r\n", row.chars);
+        let mut row = new_row_without_syntax("££\r\n");
+        row.append_text("word\r\n");
+        assert_eq!("££word\r\n", row.chars);
+    }
+
+    #[test]
+    fn test_newline() {
+        let row = new_row_without_syntax("this is a line.\r\n");
+        assert_eq!("\r\n", row.newline());
+        let row = new_row_without_syntax("another line.\n");
+        assert_eq!("\n", row.newline());
+        let row = new_row_without_syntax("££££\r\n");
+        assert_eq!("\r\n", row.newline());
+    }
+
+    #[test]
+    fn test_truncate() {
+        let mut row = new_row_without_syntax("first.second.\r\n");
+        row.truncate(6);
+        assert_eq!("first.\r\n", row.chars);
+        let mut row = new_row_without_syntax("£££££.second.\r\n");
+        row.truncate(6);
+        assert_eq!("£££££.\r\n", row.chars);
+    }
+
+    #[test]
+    fn test_render_cursor_to_text() {
+        {
+            let row = new_row_without_syntax("nothing interesting\r\n");
+            assert_eq!(5, row.render_cursor_to_text(5));
+        }
+
+        {
+            let row = new_row_without_syntax("\tinteresting\r\n");
+            assert_eq!("        interesting", row.rendered_str());
+            assert_eq!(0, row.render_cursor_to_text(0));
+            assert_eq!(1, row.render_cursor_to_text(8));
+            assert_eq!(11, row.render_cursor_to_text(18));
+            // the position after the text (EOL)
+            assert_eq!(12, row.render_cursor_to_text(19));
+        }
+
+        {
+            let row = new_row_without_syntax("\t£intersting\r\n");
+            assert_eq!("        £intersting", row.rendered_str());
+            assert_eq!(0, row.render_cursor_to_text(0));
+            assert_eq!(1, row.render_cursor_to_text(8));
+            assert_eq!(2, row.render_cursor_to_text(9));
+        }
+    }
+
+    #[test]
+    fn test_index_of() {
+        {
+            let row = new_row_without_syntax("nothing interesting\r\n");
+            assert_eq!(Some(0), row.index_of("nothing"));
+            assert_eq!(Some(8), row.index_of("interesting"));
+        }
+
+        {
+            let row = new_row_without_syntax("\t£lots\r\n");
+            assert_eq!("        £lots", row.rendered_str());
+            assert_eq!(Some(9), row.index_of("lots"));
+        }
+    }
+
+    #[test]
+    fn test_onscreen_text_without_syntax() {
+        let row = new_row_without_syntax("text\r\n");
+        let onscreen = row.onscreen_text(0, 4);
+        assert_eq!("\x1b[39mtext\x1b[39m", onscreen);
+    }
+
+    #[test]
+    fn test_onscreen_text_with_highlighted_numbers_but_no_numbers() {
+        row_with_text_and_filetype!(
+            "no numbers here\r\n",
+            "HLNumbers",
+            syntax,
+            row
+        );
         let onscreen = row.onscreen_text(2, 9);
         assert!(onscreen.contains("\x1b[39m"));
         assert!(!onscreen.contains("\x1b[31m"));
@@ -402,8 +481,15 @@ fn test_onscreen_text() {
         assert_eq!(2, onscreen.matches("\x1b[39m").count());
     }
 
-    {
-        let row = Row::new("number 19 here\r\n");
+    #[test]
+    fn test_onscreen_text_with_highlighted_numbers_and_some_numbers() {
+        row_with_text_and_filetype!(
+            "number 19 here\r\n",
+            "HLNumbers",
+            syntax,
+            row
+        );
+        assert!(row.syntax.upgrade().is_some(), "Should have valid syntax");
         let onscreen = row.onscreen_text(0, 11);
         assert!(onscreen.contains("\x1b[31m1"));
         assert!(onscreen.contains("\x1b[39m"));
@@ -412,38 +498,49 @@ fn test_onscreen_text() {
         assert_eq!(1, onscreen.matches("\x1b[31m").count());
     }
 
-    {
-        let mut row = Row::new("abc123 TEXT zxc987\r\n");
+    #[test]
+    fn test_onscreen_text_with_highlighted_numbers_and_overlay_search() {
+        row_with_text_and_filetype!(
+            "abc123 TEXT zxc987\r\n",
+            "HLNumbers",
+            syntax,
+            row
+        );
         row.set_overlay_search(7, 11);
         let onscreen = row.onscreen_text(0, 18);
         assert!(onscreen.contains("\x1b[34mTEXT\x1b[39m"));
     }
-}
 
-#[test]
-fn test_highlight_normal() {
-    let row = Row::new("normal\r\n");
-    assert_eq!(vec![Highlight::Normal; 6], row.hl);
-}
+    #[test]
+    fn test_highlight_normal() {
+        row_with_text_and_filetype!("normal\r\n", "HLNumbers", syntax, row);
+        assert_eq!(vec![Highlight::Normal; 6], row.hl);
+    }
 
-#[test]
-fn test_highlight_numbers() {
-    let row = Row::new("12345.6789\r\n");
-    assert_eq!(vec![Highlight::Number; 10], row.hl);
-}
+    #[test]
+    fn test_highlight_numbers() {
+        row_with_text_and_filetype!("12345.6789\r\n", "HLNumbers", syntax, row);
+        assert_eq!(vec![Highlight::Number; 10], row.hl);
+    }
 
-#[test]
-fn test_highlight_mixed_numbers_words() {
-    let row = Row::new("123 abc 456\r\n");
-    let mut expected = vec![];
-    expected.append(&mut vec![Highlight::Number; 3]);
-    expected.append(&mut vec![Highlight::Normal; 5]);
-    expected.append(&mut vec![Highlight::Number; 3]);
-    assert_eq!(expected, row.hl);
-}
+    #[test]
+    fn test_highlight_mixed_numbers_words() {
+        row_with_text_and_filetype!(
+            "123 abc 456\r\n",
+            "HLNumbers",
+            syntax,
+            row
+        );
+        let mut expected = vec![];
+        expected.append(&mut vec![Highlight::Number; 3]);
+        expected.append(&mut vec![Highlight::Normal; 5]);
+        expected.append(&mut vec![Highlight::Number; 3]);
+        assert_eq!(expected, row.hl);
+    }
 
-#[test]
-fn test_highlight_numbers_in_words_are_normal() {
-    let row = Row::new("word9\r\n");
-    assert_eq!(vec![Highlight::Normal; 5], row.hl);
+    #[test]
+    fn test_highlight_numbers_in_words_are_normal() {
+        row_with_text_and_filetype!("word9\r\n", "HLNumbers", syntax, row);
+        assert_eq!(vec![Highlight::Normal; 5], row.hl);
+    }
 }
