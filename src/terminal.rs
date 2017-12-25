@@ -1,12 +1,13 @@
 use commands::{Cmd, MoveCursor, SearchDirection};
 use keycodes::{ctrl_key, Key};
 use row::Row;
-use std::cmp::Ordering;
 use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::{stdout, BufRead, BufReader, BufWriter, Write};
 use std::process::exit;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
+use syntax::{Syntax, SYNTAXES};
 use time::now;
 
 const BIM_VERSION: &str = "0.0.1";
@@ -34,24 +35,24 @@ impl Status {
     }
 }
 
-#[derive(Eq, PartialEq)]
-pub struct Terminal {
+pub struct Terminal<'a> {
     pub screen_cols: i32,
     pub screen_rows: i32,
     pub cursor_x: i32,
     pub cursor_y: i32,
     rcursor_x: i32,
     pub append_buffer: String,
-    rows: Vec<Row>,
+    rows: Vec<Row<'a>>,
     pub row_offset: i32,
     pub col_offset: i32,
     pub filename: Option<String>,
     dirty: i32,
     quit_times: i8,
     status: Option<Status>,
+    syntax: Rc<Option<&'a Syntax<'a>>>,
 }
 
-impl Terminal {
+impl<'a> Terminal<'a> {
     pub fn new(screen_cols: i32, screen_rows: i32) -> Self {
         Terminal {
             screen_cols,
@@ -67,6 +68,7 @@ impl Terminal {
             dirty: 0,
             quit_times: BIM_QUIT_TIMES,
             status: None,
+            syntax: Rc::new(None),
         }
     }
 
@@ -122,13 +124,16 @@ impl Terminal {
         } else {
             ""
         };
+        let filetype = self.syntax.map(|x| x.filetype).unwrap_or("no ft");
+
         let mut status = format!(
             "{0:.20} - {1} lines {2}",
             filename,
             self.rows.len(),
             file_status
         );
-        let rstatus = format!("{}/{}", self.cursor_y + 1, self.rows.len());
+        let rstatus =
+            format!("{} | {}/{}", filetype, self.cursor_y + 1, self.rows.len());
         status.truncate(self.screen_cols as usize);
         self.append_buffer.push_str(&status);
         let remaining =
@@ -347,7 +352,7 @@ impl Terminal {
 
     fn insert_char(&mut self, character: char) {
         if self.cursor_y == self.rows.len() as i32 {
-            self.rows.push(Row::new(""));
+            self.rows.push(Row::new("", Rc::downgrade(&self.syntax)));
         }
         self.rows[self.cursor_y as usize]
             .insert_char(self.cursor_x as usize, character);
@@ -385,7 +390,7 @@ impl Terminal {
 
     fn insert_row(&mut self, at: usize, text: &str) {
         if at <= self.rows.len() {
-            let row = Row::new(text);
+            let row = Row::new(text, Rc::downgrade(&self.syntax));
             self.rows.insert(at, row);
         }
     }
@@ -506,6 +511,8 @@ impl Terminal {
                     Some(Search)
                 } else if ctrl_key('h', c as u32) {
                     Some(DeleteCharBackward)
+                } else if ctrl_key('s', c as u32) {
+                    Some(Save)
                 } else {
                     None
                 }
@@ -546,10 +553,22 @@ impl Terminal {
         self.status = Some(status);
     }
 
+    fn select_syntax(&mut self) {
+        if let Some(ref filename) = self.filename {
+            *Rc::make_mut(&mut self.syntax) = SYNTAXES
+                .iter()
+                .find(|syntax| syntax.matches_filename(&filename));
+            for row in self.rows.iter_mut() {
+                row.set_syntax(Rc::downgrade(&self.syntax));
+            }
+        }
+    }
+
     pub fn open(&mut self, filename: &str) {
         match File::open(filename) {
             Ok(f) => {
                 self.filename = Some(filename.to_string());
+                self.select_syntax();
                 self.rows.clear();
                 let mut reader = BufReader::new(f);
                 loop {
@@ -619,6 +638,7 @@ impl Terminal {
 
     pub fn save_file(&mut self) {
         if self.filename.is_some() {
+            self.select_syntax();
             match self.internal_save_file() {
                 Ok(bytes_saved) => {
                     self.dirty = 0;
@@ -780,40 +800,6 @@ fn test_enter_at_eol() {
     assert_eq!(0, terminal.cursor_x);
     terminal.process_key(Key::Return);
     assert_eq!(4, terminal.rows.len());
-}
-
-impl Ord for Terminal {
-    fn cmp(&self, other: &Terminal) -> Ordering {
-        self.screen_rows
-            .cmp(&other.screen_rows)
-            .then(self.screen_cols.cmp(&other.screen_cols))
-    }
-}
-
-impl PartialOrd for Terminal {
-    fn partial_cmp(&self, other: &Terminal) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-#[test]
-fn test_terminal_ordering() {
-    use std::cmp::Ordering::*;
-
-    let term1 = Terminal::new(1, 1);
-    assert_eq!(Equal, term1.cmp(&term1));
-    let term2 = Terminal::new(2, 1);
-    assert_eq!(Less, term1.cmp(&term2));
-    assert_eq!(Greater, term2.cmp(&term1));
-    let term3 = Terminal::new(1, 2);
-    assert_eq!(Less, term1.cmp(&term3));
-    assert_eq!(Greater, term3.cmp(&term1));
-
-    let none_term: Option<Terminal> = None;
-    let some_term1 = Some(term1);
-    assert_eq!(Equal, some_term1.cmp(&some_term1));
-    assert_eq!(Less, none_term.cmp(&some_term1));
-    assert_eq!(Greater, some_term1.cmp(&none_term));
 }
 
 #[test]

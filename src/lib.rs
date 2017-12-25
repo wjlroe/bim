@@ -26,6 +26,7 @@ pub use win::EditorImpl;
 
 mod keycodes;
 mod commands;
+mod syntax;
 mod highlight;
 mod row;
 pub mod config;
