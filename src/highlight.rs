@@ -5,6 +5,7 @@ pub enum Highlight {
     Normal,
     Number,
     SearchMatch,
+    String,
 }
 
 pub const DEFAULT_COLOUR: u8 = 39;
@@ -17,6 +18,7 @@ lazy_static! {
         m.insert(Normal, DEFAULT_COLOUR);
         m.insert(Number, 31);
         m.insert(SearchMatch, 34);
+        m.insert(String, 35);
         m
     };
 }
