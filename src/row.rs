@@ -113,6 +113,16 @@ impl<'a> Row<'a> {
                 Normal
             };
 
+            if syntax.highlight_comments() && in_string.is_none() {
+                let rest_of_line = &self.render[idx..];
+                if rest_of_line.starts_with(syntax.singleline_comment_start) {
+                    for _ in idx..self.rsize {
+                        self.hl.push(Comment);
+                    }
+                    break;
+                }
+            }
+
             if syntax.highlight_strings() {
                 if let Some(string_char) = in_string {
                     cur_hl = Some(String);
@@ -293,10 +303,15 @@ mod test {
     lazy_static! {
         static ref SYNTAXES: Vec<Syntax<'static>> = {
             use syntax::SyntaxSetting::*;
-            vec![Syntax::new("HLNumbers", vec![], vec![HighlightNumbers]),
-                 Syntax::new("HLStrings", vec![], vec![HighlightStrings]),
+            vec![Syntax::new("HLNumbers", vec![], "", vec![HighlightNumbers]),
+                 Syntax::new("HLStrings", vec![], "", vec![HighlightStrings]),
+                 Syntax::new("HLComments",
+                             vec![],
+                             "//",
+                             vec![HighlightComments]),
                  Syntax::new("HLEverything",
                              vec![],
+                             "//",
                              vec![HighlightNumbers, HighlightStrings])]
         };
     }
@@ -636,5 +651,28 @@ mod test {
         expected.append(&mut vec![Highlight::String; 10]);
         expected.append(&mut vec![Highlight::Normal; 4]);
         assert_eq!(expected, row.hl);
+    }
+
+    #[test]
+    fn test_highlight_comments() {
+        row_with_text_and_filetype!(
+            "nothing // and a comment\r\n",
+            "HLComments",
+            syntax,
+            row
+        );
+        let mut expected = vec![];
+        expected.append(&mut vec![Highlight::Normal; 8]);
+        expected.append(&mut vec![Highlight::Comment; 16]);
+        assert_eq!(expected, row.hl);
+    }
+
+    #[test]
+    fn test_highlight_ignore_comments() {
+        use syntax::SyntaxSetting::*;
+        let syntax = Syntax::new("test", vec![], "", vec![HighlightComments]);
+        let rc = Rc::new(Some(&syntax));
+        let row = Row::new("nothing // and a comment\r\n", Rc::downgrade(&rc));
+        assert_eq!(vec![Highlight::Normal; 24], row.hl);
     }
 }
