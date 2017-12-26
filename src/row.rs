@@ -103,23 +103,39 @@ impl<'a> Row<'a> {
         let syntax = syntax.unwrap();
 
         let mut prev_sep = true;
+        let mut in_string: Option<char> = None;
         for (idx, c) in self.render.chars().enumerate() {
+            let mut cur_hl = None;
             let prev_hl = if idx > 0 {
                 self.hl.get(idx - 1).cloned().unwrap_or(Normal)
             } else {
                 Normal
             };
-            if syntax.highlight_numbers() {
+
+            if syntax.highlight_strings() {
+                if let Some(string_char) = in_string {
+                    cur_hl = Some(String);
+                    if string_char == c {
+                        in_string = None;
+                    }
+                } else {
+                    if c == '\'' || c == '"' {
+                        in_string = Some(c);
+                        cur_hl = Some(String);
+                    }
+                }
+            }
+
+            if syntax.highlight_numbers() && cur_hl.is_none() {
                 if (c.is_digit(10) && (prev_sep || prev_hl == Number))
                     || (c == '.' && prev_hl == Number)
                 {
-                    self.hl.push(Number);
-                } else {
-                    self.hl.push(Normal);
+                    cur_hl = Some(Number);
                 }
             }
 
             prev_sep = self.is_separator(c);
+            self.hl.push(cur_hl.unwrap_or(Normal));
         }
     }
 
@@ -266,14 +282,17 @@ impl<'a> Row<'a> {
 mod test {
     use highlight::Highlight;
     use row::Row;
-    use std::rc::Rc;
-    use std::rc::Weak;
+    use std::rc::{Rc, Weak};
     use syntax::Syntax;
 
     lazy_static! {
         static ref SYNTAXES: Vec<Syntax<'static>> = {
             use syntax::SyntaxSetting::*;
-            vec![Syntax::new("HLNumbers", vec![], vec![HighlightNumbers])]
+            vec![Syntax::new("HLNumbers", vec![], vec![HighlightNumbers]),
+                 Syntax::new("HLStrings", vec![], vec![HighlightStrings]),
+                 Syntax::new("HLEverything",
+                             vec![],
+                             vec![HighlightNumbers, HighlightStrings])]
         };
     }
 
@@ -542,5 +561,60 @@ mod test {
     fn test_highlight_numbers_in_words_are_normal() {
         row_with_text_and_filetype!("word9\r\n", "HLNumbers", syntax, row);
         assert_eq!(vec![Highlight::Normal; 5], row.hl);
+    }
+
+    #[test]
+    fn test_highlight_double_quoted_strings() {
+        row_with_text_and_filetype!(
+            "nah \"STU'FF\" done\r\n",
+            "HLStrings",
+            syntax,
+            row
+        );
+        let mut expected = vec![];
+        expected.append(&mut vec![Highlight::Normal; 4]);
+        expected.append(&mut vec![Highlight::String; 8]);
+        expected.append(&mut vec![Highlight::Normal; 5]);
+        assert_eq!(expected, row.hl);
+    }
+
+    #[test]
+    fn test_highlight_single_quoted_strings() {
+        row_with_text_and_filetype!(
+            "nah 'ST\"UFF' done\r\n",
+            "HLStrings",
+            syntax,
+            row
+        );
+        let mut expected = vec![];
+        expected.append(&mut vec![Highlight::Normal; 4]);
+        expected.append(&mut vec![Highlight::String; 8]);
+        expected.append(&mut vec![Highlight::Normal; 5]);
+        assert_eq!(expected, row.hl);
+    }
+
+    #[test]
+    fn test_onscreen_double_quoted_strings() {
+        row_with_text_and_filetype!(
+            "nah \"STUFF\" done\r\n",
+            "HLStrings",
+            syntax,
+            row
+        );
+        assert_eq!(
+            "\x1b[39mnah \x1b[35m\"STUFF\"\x1b[39m done\x1b[39m",
+            row.onscreen_text(0, 16)
+        );
+    }
+
+    #[test]
+    fn test_highlight_numbers_in_strings() {
+        row_with_text_and_filetype!(
+            "'abc.12.3zxc'\r\n",
+            "HLEverything",
+            syntax,
+            row
+        );
+        assert_eq!(vec![Highlight::String; 13], row.hl);
     }
 }
