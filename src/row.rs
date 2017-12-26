@@ -104,6 +104,7 @@ impl<'a> Row<'a> {
 
         let mut prev_sep = true;
         let mut in_string: Option<char> = None;
+        let mut escaped_quote = false;
         for (idx, c) in self.render.chars().enumerate() {
             let mut cur_hl = None;
             let prev_hl = if idx > 0 {
@@ -115,7 +116,11 @@ impl<'a> Row<'a> {
             if syntax.highlight_strings() {
                 if let Some(string_char) = in_string {
                     cur_hl = Some(String);
-                    if string_char == c {
+                    if escaped_quote {
+                        escaped_quote = false;
+                    } else if c == '\\' && idx + 1 < self.rsize {
+                        escaped_quote = true;
+                    } else if string_char == c {
                         in_string = None;
                     }
                 } else {
@@ -616,5 +621,20 @@ mod test {
             row
         );
         assert_eq!(vec![Highlight::String; 13], row.hl);
+    }
+
+    #[test]
+    fn test_highlight_escaped_quotes() {
+        row_with_text_and_filetype!(
+            "abc \"WO\\\"O\\\"T\" xyz\r\n",
+            "HLStrings",
+            syntax,
+            row
+        );
+        let mut expected = vec![];
+        expected.append(&mut vec![Highlight::Normal; 4]);
+        expected.append(&mut vec![Highlight::String; 10]);
+        expected.append(&mut vec![Highlight::Normal; 4]);
+        assert_eq!(expected, row.hl);
     }
 }
