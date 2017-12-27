@@ -105,8 +105,7 @@ impl<'a> Row<'a> {
         let mut prev_sep = true;
         let mut in_string: Option<char> = None;
         let mut escaped_quote = false;
-        let mut in_keyword1 = None;
-        let mut in_keyword2 = None;
+        let mut in_keyword: Option<(Highlight, usize)> = None;
         for (idx, c) in self.render.chars().enumerate() {
             let mut cur_hl = None;
             let prev_hl = if idx > 0 {
@@ -115,23 +114,13 @@ impl<'a> Row<'a> {
                 Normal
             };
 
-            if in_keyword1 == Some(0) {
-                in_keyword1 = None;
+            if let Some((_, 0)) = in_keyword {
+                in_keyword = None;
             }
 
-            if let Some(keyword_len) = in_keyword1.as_mut() {
-                *keyword_len -= 1;
-                self.hl.push(Keyword1);
-                continue;
-            }
-
-            if in_keyword2 == Some(0) {
-                in_keyword2 = None;
-            }
-
-            if let Some(keyword_len) = in_keyword2.as_mut() {
-                *keyword_len -= 1;
-                self.hl.push(Keyword2);
+            if let Some(val) = in_keyword.as_mut() {
+                val.1 -= 1;
+                self.hl.push(val.0);
                 continue;
             }
 
@@ -173,16 +162,11 @@ impl<'a> Row<'a> {
 
             if syntax.highlight_keywords() && prev_sep {
                 let rest_of_line = &self.render[idx..];
-                if let Some(keyword_len) =
-                    syntax.highlight_keyword1(rest_of_line)
+                if let Some((highlight, keyword_len)) =
+                    syntax.starts_with_keyword(rest_of_line)
                 {
-                    in_keyword1 = Some(keyword_len - 1);
-                    cur_hl = Some(Keyword1);
-                } else if let Some(keyword_len) =
-                    syntax.highlight_keyword2(rest_of_line)
-                {
-                    in_keyword2 = Some(keyword_len - 1);
-                    cur_hl = Some(Keyword2);
+                    in_keyword = Some((highlight, keyword_len - 1));
+                    cur_hl = Some(highlight);
                 }
             }
 
