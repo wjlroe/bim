@@ -1,3 +1,4 @@
+use highlight::Highlight;
 use std::path::Path;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -66,6 +67,16 @@ impl<'a> Syntax<'a> {
             .iter()
             .find(|keyword| haystack.starts_with(*keyword))
             .map(|keyword| keyword.len())
+    }
+
+    pub fn starts_with_keyword(
+        &self,
+        haystack: &str,
+    ) -> Option<(Highlight, usize)> {
+        self.highlight_keyword1(haystack)
+            .map(|size| (Highlight::Keyword1, size))
+            .or(self.highlight_keyword2(haystack)
+                .map(|size| (Highlight::Keyword2, size)))
     }
 
     pub fn matches_filename(&self, filename: &str) -> bool {
@@ -181,7 +192,7 @@ fn test_highlight_keywords() {
 }
 
 #[test]
-fn test_highlight_keyword1() {
+fn test_starts_with_keyword_keyword1() {
     let syntax = Syntax::new(
         "test",
         vec![],
@@ -190,12 +201,15 @@ fn test_highlight_keyword1() {
         vec![],
         vec![SyntaxSetting::HighlightKeywords],
     );
-    assert_eq!(Some(2), syntax.highlight_keyword1("if something"));
-    assert_eq!(None, syntax.highlight_keyword1(" if else blah"));
+    assert_eq!(
+        Some((Highlight::Keyword1, 2)),
+        syntax.starts_with_keyword("if something")
+    );
+    assert_eq!(None, syntax.starts_with_keyword(" if else blah"));
 }
 
 #[test]
-fn test_highlight_keyword2() {
+fn test_starts_with_keyword_keyword2() {
     let syntax = Syntax::new(
         "test",
         vec![],
@@ -204,6 +218,9 @@ fn test_highlight_keyword2() {
         vec!["int"],
         vec![SyntaxSetting::HighlightKeywords],
     );
-    assert_eq!(Some(3), syntax.highlight_keyword2("int woot;"));
-    assert_eq!(None, syntax.highlight_keyword2(" int woot;"));
+    assert_eq!(
+        Some((Highlight::Keyword2, 3)),
+        syntax.starts_with_keyword("int woot;")
+    );
+    assert_eq!(None, syntax.starts_with_keyword(" int woot;"));
 }
