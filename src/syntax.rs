@@ -1,4 +1,5 @@
 use highlight::Highlight;
+use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -14,8 +15,7 @@ pub struct Syntax<'a> {
     pub filetype: &'a str,
     filematches: Vec<&'a str>,
     pub singleline_comment_start: &'a str,
-    keywords1: Vec<&'a str>,
-    keywords2: Vec<&'a str>,
+    keywords: HashMap<Highlight, Vec<&'a str>>,
     flags: Vec<SyntaxSetting>,
 }
 
@@ -28,12 +28,14 @@ impl<'a> Syntax<'a> {
         keywords2: Vec<&'a str>,
         flags: Vec<SyntaxSetting>,
     ) -> Self {
+        let mut keywords = HashMap::new();
+        keywords.insert(Highlight::Keyword1, keywords1);
+        keywords.insert(Highlight::Keyword2, keywords2);
         Syntax {
             filetype,
             filematches,
             singleline_comment_start,
-            keywords1,
-            keywords2,
+            keywords,
             flags,
         }
     }
@@ -55,28 +57,20 @@ impl<'a> Syntax<'a> {
         self.flags.contains(&SyntaxSetting::HighlightKeywords)
     }
 
-    pub fn highlight_keyword1(&self, haystack: &str) -> Option<usize> {
-        self.keywords1
-            .iter()
-            .find(|keyword| haystack.starts_with(*keyword))
-            .map(|keyword| keyword.len())
-    }
-
-    pub fn highlight_keyword2(&self, haystack: &str) -> Option<usize> {
-        self.keywords2
-            .iter()
-            .find(|keyword| haystack.starts_with(*keyword))
-            .map(|keyword| keyword.len())
-    }
-
     pub fn starts_with_keyword(
         &self,
         haystack: &str,
     ) -> Option<(Highlight, usize)> {
-        self.highlight_keyword1(haystack)
-            .map(|size| (Highlight::Keyword1, size))
-            .or(self.highlight_keyword2(haystack)
-                .map(|size| (Highlight::Keyword2, size)))
+        for (highlight, keywords) in &self.keywords {
+            let found_keyword = keywords
+                .iter()
+                .find(|keyword| haystack.starts_with(*keyword))
+                .map(|keyword| (*highlight, keyword.len()));
+            if found_keyword.is_some() {
+                return found_keyword;
+            }
+        }
+        None
     }
 
     pub fn matches_filename(&self, filename: &str) -> bool {
