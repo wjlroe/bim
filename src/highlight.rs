@@ -7,6 +7,8 @@ pub enum Highlight {
     SearchMatch,
     String,
     Comment,
+    Keyword1,
+    Keyword2,
 }
 
 pub const DEFAULT_COLOUR: u8 = 39;
@@ -21,6 +23,8 @@ lazy_static! {
         m.insert(SearchMatch, 34);
         m.insert(String, 35);
         m.insert(Comment, 36);
+        m.insert(Keyword1, 33);
+        m.insert(Keyword2, 32);
         m
     };
 }

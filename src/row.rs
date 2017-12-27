@@ -105,6 +105,8 @@ impl<'a> Row<'a> {
         let mut prev_sep = true;
         let mut in_string: Option<char> = None;
         let mut escaped_quote = false;
+        let mut in_keyword1 = None;
+        let mut in_keyword2 = None;
         for (idx, c) in self.render.chars().enumerate() {
             let mut cur_hl = None;
             let prev_hl = if idx > 0 {
@@ -112,6 +114,26 @@ impl<'a> Row<'a> {
             } else {
                 Normal
             };
+
+            if in_keyword1 == Some(0) {
+                in_keyword1 = None;
+            }
+
+            if let Some(keyword_len) = in_keyword1.as_mut() {
+                *keyword_len -= 1;
+                self.hl.push(Keyword1);
+                continue;
+            }
+
+            if in_keyword2 == Some(0) {
+                in_keyword2 = None;
+            }
+
+            if let Some(keyword_len) = in_keyword2.as_mut() {
+                *keyword_len -= 1;
+                self.hl.push(Keyword2);
+                continue;
+            }
 
             if syntax.highlight_comments() && in_string.is_none() {
                 let rest_of_line = &self.render[idx..];
@@ -146,6 +168,21 @@ impl<'a> Row<'a> {
                     || (c == '.' && prev_hl == Number)
                 {
                     cur_hl = Some(Number);
+                }
+            }
+
+            if syntax.highlight_keywords() && prev_sep {
+                let rest_of_line = &self.render[idx..];
+                if let Some(keyword_len) =
+                    syntax.highlight_keyword1(rest_of_line)
+                {
+                    in_keyword1 = Some(keyword_len - 1);
+                    cur_hl = Some(Keyword1);
+                } else if let Some(keyword_len) =
+                    syntax.highlight_keyword2(rest_of_line)
+                {
+                    in_keyword2 = Some(keyword_len - 1);
+                    cur_hl = Some(Keyword2);
                 }
             }
 
@@ -303,16 +340,38 @@ mod test {
     lazy_static! {
         static ref SYNTAXES: Vec<Syntax<'static>> = {
             use syntax::SyntaxSetting::*;
-            vec![Syntax::new("HLNumbers", vec![], "", vec![HighlightNumbers]),
-                 Syntax::new("HLStrings", vec![], "", vec![HighlightStrings]),
+            vec![Syntax::new("HLNumbers",
+                             vec![],
+                             "",
+                             vec![],
+                             vec![],
+                             vec![HighlightNumbers]),
+                 Syntax::new("HLStrings",
+                             vec![],
+                             "",
+                             vec![],
+                             vec![],
+                             vec![HighlightStrings]),
                  Syntax::new("HLComments",
                              vec![],
                              "//",
+                             vec![],
+                             vec![],
                              vec![HighlightComments]),
+                 Syntax::new("HLKeywords",
+                             vec![],
+                             "",
+                             vec!["if", "else", "switch"],
+                             vec!["int", "double", "void"],
+                             vec![HighlightKeywords]),
                  Syntax::new("HLEverything",
                              vec![],
                              "//",
-                             vec![HighlightNumbers, HighlightStrings])]
+                             vec!["if", "else", "switch"],
+                             vec!["int", "double", "void"],
+                             vec![HighlightNumbers,
+                                  HighlightStrings,
+                                  HighlightKeywords])]
         };
     }
 
@@ -670,9 +729,93 @@ mod test {
     #[test]
     fn test_highlight_ignore_comments() {
         use syntax::SyntaxSetting::*;
-        let syntax = Syntax::new("test", vec![], "", vec![HighlightComments]);
+        let syntax = Syntax::new(
+            "test",
+            vec![],
+            "",
+            vec![],
+            vec![],
+            vec![HighlightComments],
+        );
         let rc = Rc::new(Some(&syntax));
         let row = Row::new("nothing // and a comment\r\n", Rc::downgrade(&rc));
         assert_eq!(vec![Highlight::Normal; 24], row.hl);
+    }
+
+    #[test]
+    fn test_highlight_keywords1() {
+        row_with_text_and_filetype!(
+            "if NOTHING else THAT switch\r\n",
+            "HLEverything",
+            syntax,
+            row
+        );
+        let mut expected = vec![];
+        expected.append(&mut vec![Highlight::Keyword1; 2]);
+        expected.append(&mut vec![Highlight::Normal; 9]);
+        expected.append(&mut vec![Highlight::Keyword1; 4]);
+        expected.append(&mut vec![Highlight::Normal; 6]);
+        expected.append(&mut vec![Highlight::Keyword1; 6]);
+        assert_eq!(expected, row.hl);
+    }
+
+    #[test]
+    fn test_highlight_keywords2() {
+        row_with_text_and_filetype!(
+            "int hello; double another; void **\r\n",
+            "HLEverything",
+            syntax,
+            row
+        );
+        let mut expected = vec![];
+        expected.append(&mut vec![Highlight::Keyword2; 3]);
+        expected.append(&mut vec![Highlight::Normal; 8]);
+        expected.append(&mut vec![Highlight::Keyword2; 6]);
+        expected.append(&mut vec![Highlight::Normal; 10]);
+        expected.append(&mut vec![Highlight::Keyword2; 4]);
+        expected.append(&mut vec![Highlight::Normal; 3]);
+        assert_eq!(expected, row.hl);
+    }
+
+    #[test]
+    fn test_onscreen_keywords1() {
+        row_with_text_and_filetype!(
+            " if something else {}\r\n",
+            "HLEverything",
+            syntax,
+            row
+        );
+        let onscreen = row.onscreen_text(0, 21);
+        assert!(onscreen.contains("\x1b[33mif\x1b[39m"));
+        assert!(onscreen.contains("\x1b[39m something "));
+        assert!(onscreen.contains("\x1b[33melse\x1b[39m"));
+    }
+
+    #[test]
+    fn test_onscreen_keywords2() {
+        row_with_text_and_filetype!(
+            " int something; double woot; {}\r\n",
+            "HLEverything",
+            syntax,
+            row
+        );
+        let onscreen = row.onscreen_text(0, 31);
+        assert!(onscreen.contains("\x1b[32mint\x1b[39m"));
+        assert!(onscreen.contains("\x1b[39m something; "));
+        assert!(onscreen.contains("\x1b[32mdouble\x1b[39m"));
+        assert!(onscreen.contains("\x1b[39m woot; {}\x1b[39m"));
+    }
+
+    #[test]
+    fn test_highlight_strings_with_keywords_in_them() {
+        row_with_text_and_filetype!("'else'\r\n", "HLEverything", syntax, row);
+        assert_eq!(vec![Highlight::String; 6], row.hl);
+        row_with_text_and_filetype!(
+            "\"else\"\r\n",
+            "HLEverything",
+            syntax,
+            row
+        );
+        assert_eq!(vec![Highlight::String; 6], row.hl);
     }
 }
