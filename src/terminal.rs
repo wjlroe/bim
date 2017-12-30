@@ -164,22 +164,33 @@ impl<'a> Terminal<'a> {
     pub fn reset(&mut self) {
         self.clear();
         self.goto_origin();
-        self.flush();
+        match self.flush() {
+            Err(err) => {
+                panic!("oh no! flush failed: {:?}", err);
+            }
+            _ => {}
+        }
     }
 
-    fn flush(&mut self) {
+    fn flush(&mut self) -> Result<(), Box<Error>> {
         {
             let output = self.append_buffer.as_bytes();
-            if stdout().write(output).unwrap() == output.len() {
-                stdout().flush().unwrap();
+            let output_size = output.len();
+            let written_bytes = stdout().write(output)?;
+            if written_bytes == output_size {
+                let _ = stdout().flush()?;
             } else {
-                panic!(
-                    "oh no, couldn't write append buffer (len: {}) to screen!",
-                    output.len()
+                let failed = "Failed to write all the output.";
+                let err_desc = format!(
+                    "{} output_size = {} written_bytes = {}",
+                    failed, output_size, written_bytes
                 );
+                return Err(err_desc).map_err(|err| err.into());
             }
         }
         self.append_buffer.clear();
+        self.buffer.clear_append_buffer();
+        Ok(())
     }
 
     fn scroll(&mut self) {
@@ -220,7 +231,12 @@ impl<'a> Terminal<'a> {
 
         self.show_cursor();
 
-        self.flush();
+        match self.flush() {
+            Err(err) => {
+                panic!("oh no! flush failed: {:?}", err);
+            }
+            _ => {}
+        }
     }
 
     pub fn move_cursor(&mut self, move_cursor: MoveCursor) {
