@@ -1,24 +1,19 @@
+use buffer::Buffer;
 use commands::{Cmd, MoveCursor, SearchDirection};
+use editor::BIM_VERSION;
 use keycodes::{ctrl_key, Key};
-use row::Row;
 use std::error::Error;
 use std::fs::{File, OpenOptions};
-use std::io::{stdout, BufRead, BufReader, BufWriter, Write};
+use std::io::{stdout, Write};
 use std::process::exit;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 use syntax::{Syntax, SYNTAXES};
 use time::now;
 
-const BIM_VERSION: &str = "0.0.1";
 const UI_ROWS: i32 = 2;
 const BIM_QUIT_TIMES: i8 = 3;
 const BIM_DEBUG_LOG: &str = ".bim_debug";
-
-#[cfg(windows)]
-const DEFAULT_NEWLINE: &str = "\r\n";
-#[cfg(not(windows))]
-const DEFAULT_NEWLINE: &str = "\n";
 
 #[derive(PartialEq, Eq)]
 struct Status {
@@ -41,8 +36,8 @@ pub struct Terminal<'a> {
     pub cursor_x: i32,
     pub cursor_y: i32,
     rcursor_x: i32,
-    pub append_buffer: String,
-    rows: Vec<Row<'a>>,
+    buffer: Buffer<'a>,
+    append_buffer: String,
     pub row_offset: i32,
     pub col_offset: i32,
     pub filename: Option<String>,
@@ -54,21 +49,22 @@ pub struct Terminal<'a> {
 
 impl<'a> Terminal<'a> {
     pub fn new(screen_cols: i32, screen_rows: i32) -> Self {
+        let syntax = Rc::new(None);
         Terminal {
             screen_cols,
             screen_rows,
             cursor_x: 0,
             cursor_y: 0,
             rcursor_x: 0,
+            buffer: Buffer::new(Rc::clone(&syntax)),
             append_buffer: String::new(),
-            rows: Vec::new(),
             row_offset: 0,
             col_offset: 0,
             filename: None,
             dirty: 0,
             quit_times: BIM_QUIT_TIMES,
             status: None,
-            syntax: Rc::new(None),
+            syntax: syntax,
         }
     }
 
@@ -80,39 +76,14 @@ impl<'a> Terminal<'a> {
     }
 
     fn draw_rows(&mut self) {
-        let numrows = self.rows.len() as i32;
-        for i in 0..self.screen_rows {
-            let filerow = i + self.row_offset;
-            if filerow >= numrows {
-                if numrows == 0 && i == self.screen_rows / 3 {
-                    let mut welcome =
-                        format!("bim editor - version {}", BIM_VERSION);
-                    welcome.truncate(self.screen_cols as usize);
-                    let mut padding =
-                        (self.screen_cols - welcome.len() as i32) / 2;
-                    if padding > 0 {
-                        self.append_buffer.push_str("~");
-                        padding -= 1;
-                    }
-                    // TODO: can we pad with spaces easier?
-                    let padding_str = format!("{:1$}", "", padding as usize);
-                    self.append_buffer.push_str(&padding_str);
-                    self.append_buffer.push_str(&welcome);
-                } else {
-                    self.append_buffer.push_str("~");
-                }
-            } else {
-                let onscreen_row = self.rows[filerow as usize].onscreen_text(
-                    self.col_offset as usize,
-                    self.screen_cols as usize,
-                );
-                self.append_buffer.push_str(onscreen_row.as_str());
-            }
-
-            self.clear_line();
-
-            self.append_buffer.push_str("\r\n");
-        }
+        self.buffer.draw_rows(
+            self.screen_rows,
+            self.screen_cols,
+            self.row_offset,
+            self.col_offset,
+        );
+        self.append_buffer
+            .push_str(self.buffer.append_buffer.as_str());
     }
 
     fn draw_status_bar(&mut self) {
@@ -129,11 +100,15 @@ impl<'a> Terminal<'a> {
         let mut status = format!(
             "{0:.20} - {1} lines {2}",
             filename,
-            self.rows.len(),
+            self.buffer.num_lines(),
             file_status
         );
-        let rstatus =
-            format!("{} | {}/{}", filetype, self.cursor_y + 1, self.rows.len());
+        let rstatus = format!(
+            "{} | {}/{}",
+            filetype,
+            self.cursor_y + 1,
+            self.buffer.num_lines()
+        );
         status.truncate(self.screen_cols as usize);
         self.append_buffer.push_str(&status);
         let remaining =
@@ -206,9 +181,9 @@ impl<'a> Terminal<'a> {
 
     fn scroll(&mut self) {
         self.rcursor_x = 0;
-        if self.cursor_y < self.rows.len() as i32 {
-            self.rcursor_x = self.rows[self.cursor_y as usize]
-                .text_cursor_to_render(self.cursor_x);
+        if self.cursor_y < self.buffer.num_lines() as i32 {
+            self.rcursor_x = self.buffer
+                .text_cursor_to_render(self.cursor_x, self.cursor_y);
         }
 
         if self.cursor_y < self.row_offset {
@@ -267,8 +242,8 @@ impl<'a> Terminal<'a> {
                 amount,
             } => {
                 self.cursor_y += amount as i32;
-                if self.cursor_y > self.rows.len() as i32 {
-                    self.cursor_y = self.rows.len() as i32;
+                if self.cursor_y > self.buffer.num_lines() as i32 {
+                    self.cursor_y = self.buffer.num_lines() as i32;
                 }
             }
             MoveCursor {
@@ -283,7 +258,8 @@ impl<'a> Terminal<'a> {
                     } else if self.cursor_y > 0 {
                         self.cursor_y -= 1;
                         self.cursor_x =
-                            self.rows[self.cursor_y as usize].size as i32;
+                            self.buffer.line_len(self.cursor_y).unwrap_or(0)
+                                as i32;
                     } else {
                         break;
                     }
@@ -297,10 +273,11 @@ impl<'a> Terminal<'a> {
             } => {
                 let mut right_amount = amount as i32;
                 while right_amount > 0 {
-                    if let Some(row) = self.rows.get(self.cursor_y as usize) {
-                        if self.cursor_x < row.size as i32 {
+                    if let Some(row_size) = self.buffer.line_len(self.cursor_y)
+                    {
+                        if self.cursor_x < row_size as i32 {
                             self.cursor_x += 1;
-                        } else if self.cursor_x == row.size as i32 {
+                        } else if self.cursor_x == row_size as i32 {
                             self.cursor_y += 1;
                             self.cursor_x = 0;
                         } else {
@@ -340,10 +317,7 @@ impl<'a> Terminal<'a> {
             } => {}
         }
 
-        let rowlen = self.rows
-            .get(self.cursor_y as usize)
-            .map(|r| r.size)
-            .unwrap_or(0);
+        let rowlen = self.buffer.line_len(self.cursor_y).unwrap_or(0);
 
         if self.cursor_x > rowlen as i32 {
             self.cursor_x = rowlen as i32;
@@ -351,66 +325,37 @@ impl<'a> Terminal<'a> {
     }
 
     fn insert_char(&mut self, character: char) {
-        if self.cursor_y == self.rows.len() as i32 {
-            self.rows.push(Row::new("", Rc::downgrade(&self.syntax)));
-        }
-        self.rows[self.cursor_y as usize]
-            .insert_char(self.cursor_x as usize, character);
+        self.buffer
+            .insert_char(character, self.cursor_x, self.cursor_y);
         self.cursor_x += 1;
         self.dirty += 1;
     }
 
     fn join_row(&mut self, at: usize) {
-        if at > 0 && at < self.rows.len() {
-            let row = self.rows.remove(at);
-            if let Some(previous_row) = self.rows.get_mut(at - 1) {
-                previous_row.append_text(row.as_str());
-            }
+        if self.buffer.join_row(at) {
             self.dirty += 1;
         }
     }
 
     fn delete_char(&mut self) {
-        let numrows = self.rows.len() as i32;
+        let numrows = self.buffer.num_lines() as i32;
         if self.cursor_y >= numrows {
             return;
         }
         if self.cursor_x > 0 {
-            self.rows[self.cursor_y as usize]
-                .delete_char((self.cursor_x - 1) as usize);
+            self.buffer.delete_char(self.cursor_x, self.cursor_y);
             self.cursor_x -= 1;
             self.dirty += 1;
         } else if self.cursor_y > 0 && self.cursor_x == 0 {
-            let at = self.cursor_y as usize;
-            self.cursor_x = self.rows[at - 1].size as i32;
-            self.join_row(at);
+            let at = self.cursor_y;
+            self.cursor_x = self.buffer.line_len(at - 1).unwrap_or(0) as i32;
+            self.join_row(at as usize);
             self.cursor_y -= 1;
         }
     }
 
-    fn insert_row(&mut self, at: usize, text: &str) {
-        if at <= self.rows.len() {
-            let row = Row::new(text, Rc::downgrade(&self.syntax));
-            self.rows.insert(at, row);
-        }
-    }
-
-    fn append_row(&mut self, text: &str) {
-        let at = self.rows.len();
-        self.insert_row(at, text);
-    }
-
     fn insert_newline(&mut self, row: usize, col: usize) {
-        let newline = self.rows
-            .get(row)
-            .map(|r| r.newline())
-            .unwrap_or(DEFAULT_NEWLINE.to_string());
-        if col == 0 {
-            self.insert_row(row, &newline);
-        } else {
-            let new_line_text = self.rows[row].truncate(col);
-            self.insert_row(row + 1, &new_line_text);
-        }
+        self.buffer.insert_newline(row, col);
         self.dirty += 1;
     }
 
@@ -421,8 +366,10 @@ impl<'a> Terminal<'a> {
     }
 
     pub fn row_end(&self) -> Option<Cmd> {
-        if self.cursor_y < self.rows.len() as i32 {
-            Some(Cmd::JumpCursorX(self.rows[self.cursor_y as usize].size))
+        if self.cursor_y < self.buffer.num_lines() as i32 {
+            Some(Cmd::JumpCursorX(
+                self.buffer.line_len(self.cursor_y).unwrap_or(0),
+            ))
         } else {
             None
         }
@@ -457,11 +404,11 @@ impl<'a> Terminal<'a> {
                 }
             }
             JumpCursorX(new_x) => {
-                if new_x <= self.rows[self.cursor_y as usize].size {
+                if new_x <= self.buffer.line_len(self.cursor_y).unwrap_or(0) {
                     self.cursor_x = new_x as i32;
                 }
             }
-            JumpCursorY(new_y) => if new_y < self.rows.len() {
+            JumpCursorY(new_y) => if new_y < self.buffer.num_lines() {
                 self.cursor_y = new_y as i32;
             },
             DeleteCharBackward => self.delete_char(),
@@ -543,9 +490,7 @@ impl<'a> Terminal<'a> {
     }
 
     pub fn clear_search_overlay(&mut self) {
-        for row in self.rows.iter_mut() {
-            row.clear_overlay_search();
-        }
+        self.buffer.clear_search_overlay();
     }
 
     pub fn set_status_message(&mut self, message: String) {
@@ -558,9 +503,7 @@ impl<'a> Terminal<'a> {
             *Rc::make_mut(&mut self.syntax) = SYNTAXES
                 .iter()
                 .find(|syntax| syntax.matches_filename(&filename));
-            for row in self.rows.iter_mut() {
-                row.set_syntax(Rc::downgrade(&self.syntax));
-            }
+            self.buffer.set_syntax(Rc::clone(&self.syntax));
         }
     }
 
@@ -569,18 +512,7 @@ impl<'a> Terminal<'a> {
             Ok(f) => {
                 self.filename = Some(filename.to_string());
                 self.select_syntax();
-                self.rows.clear();
-                let mut reader = BufReader::new(f);
-                loop {
-                    let mut line = String::new();
-                    let read_info = reader.read_line(&mut line);
-                    match read_info {
-                        Ok(bytes_read) if bytes_read > 0 => {
-                            self.append_row(&line);
-                        }
-                        _ => break,
-                    }
-                }
+                self.buffer.open_file(f);
             }
             Err(e) => self.die(e.description()),
         }
@@ -625,15 +557,11 @@ impl<'a> Terminal<'a> {
     }
 
     fn internal_save_file(&self) -> Result<usize, Box<Error>> {
-        let mut bytes_saved: usize = 0;
         if let Some(ref filename) = self.filename {
-            let mut buffer = BufWriter::new(File::create(filename)?);
-            for line in &self.rows {
-                bytes_saved += buffer.write(line.as_str().as_bytes())?;
-            }
-            buffer.flush()?;
+            self.buffer.save_to_file(filename)
+        } else {
+            Ok(0)
         }
-        Ok(bytes_saved)
     }
 
     pub fn save_file(&mut self) {
@@ -657,39 +585,22 @@ impl<'a> Terminal<'a> {
 
     pub fn search_for(
         &mut self,
-        last_match: Option<usize>,
+        last_match: Option<(usize, usize)>,
         direction: SearchDirection,
         needle: &str,
-    ) -> Option<usize> {
-        let add_amount = last_match.map(|l| l + 1).unwrap_or(0);
-        let num_rows = self.rows.len();
-        let mut matched_row = None;
+    ) -> Option<(usize, usize)> {
         self.debug(format!(
             "search_for: '{}', direction: {}\r\n",
             needle, direction
         ));
-        let lines = match direction {
-            SearchDirection::Forwards => (0..num_rows)
-                .map(|i| (i + add_amount) % num_rows)
-                .collect::<Vec<_>>(),
-            SearchDirection::Backwards => (0..num_rows)
-                .map(|i| (i + add_amount - 1) % num_rows)
-                .rev()
-                .collect::<Vec<_>>(),
-        };
-        for y in lines {
-            assert!(y < num_rows, "num_rows = {}, y = {}", num_rows, y);
-            let row = &mut self.rows[y];
-            if let Some(x) = row.index_of(needle) {
-                self.cursor_x = row.render_cursor_to_text(x as i32);
+        self.buffer
+            .search_for(last_match, direction, needle)
+            .and_then(|(x, y)| {
+                self.cursor_x = x as i32;
                 self.cursor_y = y as i32;
-                matched_row = Some(y);
-                self.row_offset = num_rows as i32;
-                row.set_overlay_search(x, x + needle.len());
-                break;
-            }
-        }
-        matched_row
+                self.row_offset = self.buffer.num_lines() as i32;
+                Some((x, y))
+            })
     }
 }
 
@@ -697,43 +608,38 @@ impl<'a> Terminal<'a> {
 fn test_join_row() {
     let mut terminal = Terminal::new(10, 10);
 
-    terminal.append_row("this is the first line. \r\n");
-    terminal.append_row("this is the second line.\r\n");
-    assert_eq!(2, terminal.rows.len());
+    terminal.buffer.append_row("this is the first line. \r\n");
+    terminal.buffer.append_row("this is the second line.\r\n");
+    assert_eq!(2, terminal.buffer.num_lines());
 
     terminal.join_row(1);
     assert_eq!(1, terminal.dirty);
-    assert_eq!(1, terminal.rows.len());
-    let first_row = terminal.rows.get(0).clone().unwrap();
-    assert_eq!(
-        "this is the first line. this is the second line.\r\n",
-        first_row.as_str()
-    );
+    assert_eq!(1, terminal.buffer.num_lines());
 }
 
 #[test]
 fn test_backspace_to_join_lines() {
     let mut terminal = Terminal::new(10, 10);
 
-    terminal.append_row("this is the first line. \r\n");
-    terminal.append_row("this is second line.\r\n");
+    terminal.buffer.append_row("this is the first line. \r\n");
+    terminal.buffer.append_row("this is second line.\r\n");
     assert_eq!(0, terminal.cursor_x);
     assert_eq!(0, terminal.cursor_y);
-    assert_eq!(2, terminal.rows.len());
+    assert_eq!(2, terminal.buffer.num_lines());
 
     terminal.process_key(Key::Backspace);
     assert_eq!(0, terminal.cursor_x);
     assert_eq!(0, terminal.cursor_y);
-    assert_eq!(2, terminal.rows.len());
+    assert_eq!(2, terminal.buffer.num_lines());
 
     terminal.move_cursor(MoveCursor::down(1));
     assert_eq!(0, terminal.cursor_x);
     assert_eq!(1, terminal.cursor_y);
-    assert_eq!(2, terminal.rows.len());
+    assert_eq!(2, terminal.buffer.num_lines());
 
     terminal.process_key(Key::Backspace);
 
-    assert_eq!(1, terminal.rows.len());
+    assert_eq!(1, terminal.buffer.num_lines());
     assert_eq!(0, terminal.cursor_y);
     assert_eq!(24, terminal.cursor_x);
 }
@@ -741,65 +647,32 @@ fn test_backspace_to_join_lines() {
 #[test]
 fn test_insert_newline() {
     let mut terminal = Terminal::new(10, 15);
-    terminal.append_row("what a good first line.\r\n");
-    terminal.append_row("not a bad second line\r\n");
-    assert_eq!(2, terminal.rows.len());
+    terminal.buffer.append_row("what a good first line.\r\n");
+    terminal.buffer.append_row("not a bad second line\r\n");
+    assert_eq!(2, terminal.buffer.num_lines());
 
     terminal.insert_newline(1, 0);
 
-    assert_eq!(3, terminal.rows.len());
+    assert_eq!(3, terminal.buffer.num_lines());
     assert_eq!(1, terminal.dirty);
-    assert_eq!(
-        vec![
-            "what a good first line.\r\n",
-            "\r\n",
-            "not a bad second line\r\n",
-        ],
-        terminal
-            .rows
-            .iter()
-            .map(|r| r.as_str().clone())
-            .collect::<Vec<_>>()
-    );
 
     terminal.insert_newline(2, 4);
 
-    assert_eq!(4, terminal.rows.len());
+    assert_eq!(4, terminal.buffer.num_lines());
     assert_eq!(2, terminal.dirty);
-    assert_eq!(
-        vec![
-            "what a good first line.\r\n",
-            "\r\n",
-            "not \r\n",
-            "a bad second line\r\n",
-        ],
-        terminal
-            .rows
-            .iter()
-            .map(|r| r.as_str().clone())
-            .collect::<Vec<_>>()
-    );
-    assert_eq!(
-        vec!["what a good first line.", "", "not ", "a bad second line"],
-        terminal
-            .rows
-            .iter()
-            .map(|r| r.rendered_str().clone())
-            .collect::<Vec<_>>()
-    );
 }
 
 #[test]
 fn test_enter_at_eol() {
     let mut terminal = Terminal::new(10, 15);
-    terminal.append_row("this is line 1.\r\n");
-    terminal.append_row("this is line 2.\r\n");
+    terminal.buffer.append_row("this is line 1.\r\n");
+    terminal.buffer.append_row("this is line 2.\r\n");
     terminal.process_key(Key::End);
     terminal.process_key(Key::Return);
-    assert_eq!(3, terminal.rows.len());
+    assert_eq!(3, terminal.buffer.num_lines());
     assert_eq!(0, terminal.cursor_x);
     terminal.process_key(Key::Return);
-    assert_eq!(4, terminal.rows.len());
+    assert_eq!(4, terminal.buffer.num_lines());
 }
 
 #[test]
@@ -860,83 +733,66 @@ fn test_jump_to_end() {
 
     let mut term = Terminal::new(10, 10);
     assert_eq!(None, term.key_to_cmd(Key::End));
-    term.append_row("this is a line of text.\r\n");
+    term.buffer.append_row("this is a line of text.\r\n");
     assert_eq!(Some(JumpCursorX(23)), term.key_to_cmd(Key::End));
-}
-
-#[test]
-fn test_insert_char() {
-    let mut terminal = Terminal::new(10, 10);
-    terminal.insert_char('£');
-    terminal.insert_char('1');
-    assert_eq!(
-        vec!["£1"],
-        terminal
-            .rows
-            .iter()
-            .map(|r| r.as_str().clone())
-            .collect::<Vec<_>>()
-    );
 }
 
 #[test]
 fn test_empty_file() {
     let mut terminal = Terminal::new(10, 10);
     terminal.process_key(Key::Return);
-    assert_eq!(1, terminal.rows.len());
-    assert_eq!(DEFAULT_NEWLINE, terminal.rows[0].as_str());
+    assert_eq!(1, terminal.buffer.num_lines());
 }
 
 #[test]
 fn test_incremental_search() {
     let mut terminal = Terminal::new(10, 10);
-    terminal.append_row("line 1. has the search text on it\r\n");
-    terminal.append_row("line 2. doesn't have anything\r\n");
-    terminal.append_row("line 3. also has search text here\r\n");
-    terminal.append_row("line 4. another search text match\r\n");
+    terminal
+        .buffer
+        .append_row("line 1. has the search text on it\r\n");
+    terminal
+        .buffer
+        .append_row("line 2. doesn't have anything\r\n");
+    terminal
+        .buffer
+        .append_row("line 3. also has search text here\r\n");
+    terminal
+        .buffer
+        .append_row("line 4. another search text match\r\n");
     assert_eq!(
-        Some(0),
+        Some((16, 0)),
         terminal.search_for(None, SearchDirection::Forwards, "search text")
     );
     assert_eq!(
-        Some(2),
-        terminal.search_for(Some(0), SearchDirection::Forwards, "search text")
+        Some((17, 2)),
+        terminal.search_for(
+            Some((16, 0)),
+            SearchDirection::Forwards,
+            "search text"
+        )
     );
     assert_eq!(
-        Some(3),
-        terminal.search_for(Some(2), SearchDirection::Forwards, "search text")
+        Some((16, 3)),
+        terminal.search_for(
+            Some((17, 2)),
+            SearchDirection::Forwards,
+            "search text"
+        )
     );
     assert_eq!(
-        Some(0),
-        terminal.search_for(Some(2), SearchDirection::Backwards, "search text")
+        Some((16, 0)),
+        terminal.search_for(
+            Some((17, 2)),
+            SearchDirection::Backwards,
+            "search text"
+        )
     );
     assert_eq!(
-        Some(2),
-        terminal.search_for(Some(3), SearchDirection::Backwards, "search text")
+        Some((17, 2)),
+        terminal.search_for(
+            Some((16, 3)),
+            SearchDirection::Backwards,
+            "search text"
+        )
     );
-}
-
-#[test]
-fn test_search_match_highlighting() {
-    let mut terminal = Terminal::new(10, 10);
-    terminal.append_row("nothing abc123 nothing\r\n");
-    let row_idx = terminal
-        .search_for(None, SearchDirection::Forwards, "abc123")
-        .unwrap();
-    let row = &terminal.rows[row_idx];
-    let onscreen = row.onscreen_text(0, 22);
-    assert!(onscreen.contains("\x1b[34mabc123\x1b[39m"));
-}
-
-#[test]
-fn test_clearing_search_overlay() {
-    let mut terminal = Terminal::new(10, 10);
-    terminal.append_row("nothing abc123 nothing\r\n");
-    let row_idx = terminal
-        .search_for(None, SearchDirection::Forwards, "abc123")
-        .unwrap();
-    terminal.clear_search_overlay();
-    let row = &terminal.rows[row_idx];
-    let onscreen = row.onscreen_text(0, 22);
-    assert!(!onscreen.contains("\x1b[34m"));
 }

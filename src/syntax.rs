@@ -48,7 +48,7 @@ impl<'a> Syntax<'a> {
         self.flags.contains(&SyntaxSetting::HighlightStrings)
     }
 
-    pub fn highlight_comments(&self) -> bool {
+    pub fn highlight_singleline_comments(&self) -> bool {
         self.flags.contains(&SyntaxSetting::HighlightComments)
             && self.singleline_comment_start.len() > 0
     }
@@ -147,7 +147,7 @@ fn test_highlight_strings() {
 }
 
 #[test]
-fn test_highlight_comments() {
+fn test_highlight_singleline_comments() {
     let syntax = Syntax::new(
         "test",
         vec![],
@@ -156,7 +156,7 @@ fn test_highlight_comments() {
         vec![],
         vec![SyntaxSetting::HighlightComments],
     );
-    assert!(syntax.highlight_comments());
+    assert!(syntax.highlight_singleline_comments());
     let syntax = Syntax::new(
         "test",
         vec![],
@@ -165,9 +165,9 @@ fn test_highlight_comments() {
         vec![],
         vec![SyntaxSetting::HighlightComments],
     );
-    assert!(!syntax.highlight_comments());
-    let syntax = Syntax::new("test", vec![], "", vec![], vec![], vec![]);
-    assert!(!syntax.highlight_comments());
+    assert!(!syntax.highlight_singleline_comments());
+    let syntax = Syntax::new("test", vec![], "//", vec![], vec![], vec![]);
+    assert!(!syntax.highlight_singleline_comments());
 }
 
 #[test]
