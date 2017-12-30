@@ -173,7 +173,10 @@ impl<'a> Terminal<'a> {
             if stdout().write(output).unwrap() == output.len() {
                 stdout().flush().unwrap();
             } else {
-                panic!("oh no, couldn't write append buffer to screen!");
+                panic!(
+                    "oh no, couldn't write append buffer (len: {}) to screen!",
+                    output.len()
+                );
             }
         }
         self.append_buffer.clear();
