@@ -159,6 +159,10 @@ impl<'a> Buffer<'a> {
         self.rows[cursor_y as usize].insert_char(cursor_x as usize, character);
     }
 
+    pub fn clear_append_buffer(&mut self) {
+        self.append_buffer.clear();
+    }
+
     fn clear_line(&mut self) {
         self.append_buffer.push_str("\x1b[K");
     }
