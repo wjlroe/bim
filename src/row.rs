@@ -124,7 +124,7 @@ impl<'a> Row<'a> {
                 continue;
             }
 
-            if syntax.highlight_comments() && in_string.is_none() {
+            if syntax.highlight_singleline_comments() && in_string.is_none() {
                 let rest_of_line = &self.render[idx..];
                 if rest_of_line.starts_with(syntax.singleline_comment_start) {
                     for _ in idx..self.rsize {
@@ -204,10 +204,10 @@ impl<'a> Row<'a> {
         ridx
     }
 
-    pub fn render_cursor_to_text(&self, ridx: i32) -> i32 {
-        let tab_stop = TAB_STOP as i32;
-        let mut cur_cx: i32 = 0;
-        let mut cur_rx: i32 = 0;
+    pub fn render_cursor_to_text(&self, ridx: usize) -> usize {
+        let tab_stop = TAB_STOP;
+        let mut cur_cx: usize = 0;
+        let mut cur_rx: usize = 0;
         for source_char in self.chars.chars() {
             if source_char == '\t' {
                 cur_rx += (tab_stop - 1) - (cur_rx % tab_stop);
@@ -697,7 +697,7 @@ mod test {
     }
 
     #[test]
-    fn test_highlight_comments() {
+    fn test_highlight_singleline_comments() {
         row_with_text_and_filetype!(
             "nothing // and a comment\r\n",
             "HLComments",
@@ -711,7 +711,7 @@ mod test {
     }
 
     #[test]
-    fn test_highlight_ignore_comments() {
+    fn test_highlight_ignore_singleline_comments() {
         use syntax::SyntaxSetting::*;
         let syntax = Syntax::new(
             "test",

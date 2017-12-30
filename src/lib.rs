@@ -30,4 +30,5 @@ mod syntax;
 mod highlight;
 mod row;
 pub mod config;
+mod buffer;
 mod terminal;
