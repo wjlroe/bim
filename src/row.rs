@@ -165,8 +165,14 @@ impl<'a> Row<'a> {
                 if let Some((highlight, keyword_len)) =
                     syntax.starts_with_keyword(rest_of_line)
                 {
-                    in_keyword = Some((highlight, keyword_len - 1));
-                    cur_hl = Some(highlight);
+                    let next_char =
+                        self.render.chars().skip(idx + keyword_len).nth(0);
+                    if next_char.is_none()
+                        || self.is_separator(next_char.unwrap())
+                    {
+                        in_keyword = Some((highlight, keyword_len - 1));
+                        cur_hl = Some(highlight);
+                    }
                 }
             }
 
@@ -741,6 +747,18 @@ mod test {
         expected.append(&mut vec![Highlight::Normal; 6]);
         expected.append(&mut vec![Highlight::Keyword1; 6]);
         assert_eq!(expected, row.hl);
+    }
+
+    #[test]
+    fn test_highlight_keywords_whole_words() {
+        row_with_text_and_filetype!(
+            "row->ints = switchAroo;\r\n",
+            "HLEverything",
+            syntax,
+            row
+        );
+        assert!(!row.hl.contains(&Highlight::Keyword1));
+        assert!(!row.hl.contains(&Highlight::Keyword2));
     }
 
     #[test]
