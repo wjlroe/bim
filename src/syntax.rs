@@ -20,24 +20,61 @@ pub struct Syntax<'a> {
 }
 
 impl<'a> Syntax<'a> {
-    pub fn new(
-        filetype: &'a str,
-        filematches: Vec<&'a str>,
-        singleline_comment_start: &'a str,
-        keywords1: Vec<&'a str>,
-        keywords2: Vec<&'a str>,
-        flags: Vec<SyntaxSetting>,
-    ) -> Self {
-        let mut keywords = HashMap::new();
-        keywords.insert(Highlight::Keyword1, keywords1);
-        keywords.insert(Highlight::Keyword2, keywords2);
+    pub fn new(filetype: &'a str) -> Self {
         Syntax {
             filetype,
-            filematches,
-            singleline_comment_start,
-            keywords,
-            flags,
+            filematches: Vec::new(),
+            singleline_comment_start: "",
+            keywords: HashMap::new(),
+            flags: Vec::new(),
         }
+    }
+
+    #[allow(dead_code)]
+    pub fn filematch(mut self, filematch: &'a str) -> Syntax {
+        self.filematches.push(filematch);
+        self
+    }
+
+    pub fn filematches(mut self, filematches: &'a [&'a str]) -> Syntax {
+        for filematch in filematches {
+            self.filematches.push(filematch);
+        }
+        self
+    }
+
+    pub fn keywords1(mut self, keywords1: &'a [&'a str]) -> Syntax {
+        {
+            let keywords = self.keywords
+                .entry(Highlight::Keyword1)
+                .or_insert(Vec::new());
+            for keyword in keywords1 {
+                keywords.push(keyword);
+            }
+        }
+        self
+    }
+
+    pub fn keywords2(mut self, keywords2: &'a [&'a str]) -> Syntax {
+        {
+            let keywords = self.keywords
+                .entry(Highlight::Keyword2)
+                .or_insert(Vec::new());
+            for keyword in keywords2 {
+                keywords.push(keyword);
+            }
+        }
+        self
+    }
+
+    pub fn singleline_comment_start(mut self, singleline: &'a str) -> Syntax {
+        self.singleline_comment_start = singleline;
+        self
+    }
+
+    pub fn flag(mut self, flag: SyntaxSetting) -> Syntax<'a> {
+        self.flags.push(flag);
+        self
     }
 
     pub fn highlight_numbers(&self) -> bool {
@@ -94,107 +131,75 @@ impl<'a> Syntax<'a> {
 lazy_static! {
     pub static ref SYNTAXES: Vec<Syntax<'static>> = {
         use self::SyntaxSetting::*;
-        vec![Syntax::new("C",
-                         vec![".c", ".cpp", ".h"],
-                         "//",
-                         vec!["switch", "if", "while", "for", "break",
-                              "continue", "return", "else", "struct", "union",
-                              "typedef", "static", "enum", "class", "case"],
-                         vec!["int", "long", "double", "float", "char",
-                              "unsigned", "signed", "void"],
-                         vec![HighlightNumbers,
-                              HighlightStrings,
-                              HighlightComments,
-                              HighlightKeywords])]
+        vec![
+            Syntax::new("C")
+                .filematches(&[".c", ".cpp", ".h"])
+                .flag(HighlightComments)
+                .singleline_comment_start("//")
+                .flag(HighlightKeywords)
+                .keywords1(&[
+                    "switch", "if", "while", "for", "break", "continue",
+                    "return", "else", "struct", "union", "typedef", "static",
+                    "enum", "class", "case",
+                ])
+                .keywords2(&[
+                    "int", "long", "double", "float", "char", "unsigned",
+                    "signed", "void",
+                ])
+                .flag(HighlightNumbers)
+                .flag(HighlightStrings),
+        ]
     };
 }
 
 #[test]
 fn test_matches_filename() {
-    let syntax = Syntax::new("C", vec![".c"], "", vec![], vec![], vec![]);
+    let syntax = Syntax::new("C").filematch(".c");
     assert!(syntax.matches_filename("test.c"));
     assert!(!syntax.matches_filename("test.r"));
 }
 
 #[test]
 fn test_highlight_numbers() {
-    let syntax = Syntax::new(
-        "test",
-        vec![],
-        "",
-        vec![],
-        vec![],
-        vec![SyntaxSetting::HighlightNumbers],
-    );
+    let syntax = Syntax::new("test").flag(SyntaxSetting::HighlightNumbers);
     assert!(syntax.highlight_numbers());
-    let syntax = Syntax::new("test", vec![], "", vec![], vec![], vec![]);
+    let syntax = Syntax::new("test");
     assert!(!syntax.highlight_numbers());
 }
 
 #[test]
 fn test_highlight_strings() {
-    let syntax = Syntax::new(
-        "test",
-        vec![],
-        "",
-        vec![],
-        vec![],
-        vec![SyntaxSetting::HighlightStrings],
-    );
+    let syntax = Syntax::new("test").flag(SyntaxSetting::HighlightStrings);
     assert!(syntax.highlight_strings());
-    let syntax = Syntax::new("test", vec![], "", vec![], vec![], vec![]);
+    let syntax = Syntax::new("test");
     assert!(!syntax.highlight_strings());
 }
 
 #[test]
 fn test_highlight_singleline_comments() {
-    let syntax = Syntax::new(
-        "test",
-        vec![],
-        "//",
-        vec![],
-        vec![],
-        vec![SyntaxSetting::HighlightComments],
-    );
+    let syntax = Syntax::new("test")
+        .flag(SyntaxSetting::HighlightComments)
+        .singleline_comment_start("//");
     assert!(syntax.highlight_singleline_comments());
-    let syntax = Syntax::new(
-        "test",
-        vec![],
-        "",
-        vec![],
-        vec![],
-        vec![SyntaxSetting::HighlightComments],
-    );
+    let syntax = Syntax::new("test").flag(SyntaxSetting::HighlightComments);
     assert!(!syntax.highlight_singleline_comments());
-    let syntax = Syntax::new("test", vec![], "//", vec![], vec![], vec![]);
+    let syntax = Syntax::new("test").singleline_comment_start("//");
     assert!(!syntax.highlight_singleline_comments());
 }
 
 #[test]
 fn test_highlight_keywords() {
-    let syntax = Syntax::new(
-        "test",
-        vec![],
-        "",
-        vec![],
-        vec![],
-        vec![SyntaxSetting::HighlightKeywords],
-    );
+    let syntax = Syntax::new("test").flag(SyntaxSetting::HighlightKeywords);
     assert!(syntax.highlight_keywords());
-    let syntax = Syntax::new("test", vec![], "", vec![], vec![], vec![]);
+    let syntax = Syntax::new("test");
     assert!(!syntax.highlight_keywords());
 }
 
 #[test]
 fn test_starts_with_keyword_keyword1() {
-    let syntax = Syntax::new(
-        "test",
-        vec![],
-        "",
-        vec!["if"],
-        vec![],
-        vec![SyntaxSetting::HighlightKeywords],
-    );
+    let syntax = Syntax::new("test")
+        .flag(SyntaxSetting::HighlightKeywords)
+        .keywords1(&["if"]);
     assert_eq!(
         Some((Highlight::Keyword1, 2)),
         syntax.starts_with_keyword("if something")
@@ -204,14 +209,9 @@ fn test_starts_with_keyword_keyword1() {
 
 #[test]
 fn test_starts_with_keyword_keyword2() {
-    let syntax = Syntax::new(
-        "test",
-        vec![],
-        "",
-        vec![],
-        vec!["int"],
-        vec![SyntaxSetting::HighlightKeywords],
-    );
+    let syntax = Syntax::new("test")
+        .flag(SyntaxSetting::HighlightKeywords)
+        .keywords2(&["int"]);
     assert_eq!(
         Some((Highlight::Keyword2, 3)),
         syntax.starts_with_keyword("int woot;")

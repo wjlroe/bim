@@ -327,42 +327,31 @@ mod test {
     use std::rc::{Rc, Weak};
     use syntax::Syntax;
 
+    fn test_syntaxes() -> Vec<Syntax<'static>> {
+        use syntax::SyntaxSetting::*;
+        vec![
+            Syntax::new("HLNumbers").flag(HighlightNumbers),
+            Syntax::new("HLStrings").flag(HighlightStrings),
+            Syntax::new("HLComments")
+                .flag(HighlightComments)
+                .singleline_comment_start("//"),
+            Syntax::new("HLKeywords")
+                .flag(HighlightKeywords)
+                .keywords1(&["if", "else", "switch"])
+                .keywords2(&["int", "double", "void"]),
+            Syntax::new("HLEverything")
+                .flag(HighlightNumbers)
+                .flag(HighlightStrings)
+                .flag(HighlightKeywords)
+                .flag(HighlightComments)
+                .singleline_comment_start("//")
+                .keywords1(&["if", "else", "switch"])
+                .keywords2(&["int", "double", "void"]),
+        ]
+    }
+
     lazy_static! {
-        static ref SYNTAXES: Vec<Syntax<'static>> = {
-            use syntax::SyntaxSetting::*;
-            vec![Syntax::new("HLNumbers",
-                             vec![],
-                             "",
-                             vec![],
-                             vec![],
-                             vec![HighlightNumbers]),
-                 Syntax::new("HLStrings",
-                             vec![],
-                             "",
-                             vec![],
-                             vec![],
-                             vec![HighlightStrings]),
-                 Syntax::new("HLComments",
-                             vec![],
-                             "//",
-                             vec![],
-                             vec![],
-                             vec![HighlightComments]),
-                 Syntax::new("HLKeywords",
-                             vec![],
-                             "",
-                             vec!["if", "else", "switch"],
-                             vec!["int", "double", "void"],
-                             vec![HighlightKeywords]),
-                 Syntax::new("HLEverything",
-                             vec![],
-                             "//",
-                             vec!["if", "else", "switch"],
-                             vec!["int", "double", "void"],
-                             vec![HighlightNumbers,
-                                  HighlightStrings,
-                                  HighlightKeywords])]
-        };
+        static ref SYNTAXES: Vec<Syntax<'static>> = test_syntaxes();
     }
 
     fn new_row_without_syntax(text: &str) -> Row {
@@ -719,14 +708,7 @@ mod test {
     #[test]
     fn test_highlight_ignore_singleline_comments() {
         use syntax::SyntaxSetting::*;
-        let syntax = Syntax::new(
-            "test",
-            vec![],
-            "",
-            vec![],
-            vec![],
-            vec![HighlightComments],
-        );
+        let syntax = Syntax::new("test").flag(HighlightComments);
         let rc = Rc::new(Some(&syntax));
         let row = Row::new("nothing // and a comment\r\n", Rc::downgrade(&rc));
         assert_eq!(vec![Highlight::Normal; 24], row.hl);
