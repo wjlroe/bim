@@ -7,7 +7,7 @@ before_script:
   - export PATH="$PATH:$HOME/.cargo/bin"
   - curl http://pre-commit.com/install-local.py | python
   - rustup install nightly
-  - CFG_RELEASE_CHANNEL=nightly rustup run nightly cargo install -f rustfmt-nightly
+  - rustup component add rustfmt-preview --toolchain nightly
 script:
   - rustup run nightly rustfmt --version
   - pre-commit run --all-files
