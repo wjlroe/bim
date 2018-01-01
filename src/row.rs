@@ -52,7 +52,6 @@ impl<'a> Row<'a> {
         self.size = string_end;
         self.update_render();
         self.clear_overlay();
-        self.update_highlight();
     }
 
     fn update_render(&mut self) {
@@ -88,24 +87,28 @@ impl<'a> Row<'a> {
         }
     }
 
-    fn update_highlight(&mut self) {
+    pub fn update_syntax_highlight(
+        &mut self,
+        previous_ml_comment: bool,
+    ) -> bool {
         use self::Highlight::*;
 
         self.hl.clear();
         let syntax = self.syntax.upgrade();
         if syntax.is_none() {
-            return;
+            return false;
         }
         let syntax = syntax.unwrap();
         if syntax.is_none() {
-            return;
+            return false;
         }
         let syntax = syntax.unwrap();
 
         let mut prev_sep = true;
         let mut in_string: Option<char> = None;
         let mut escaped_quote = false;
-        let mut in_keyword: Option<(Highlight, usize)> = None;
+        let mut in_highlight: Option<(Highlight, usize)> = None;
+        let mut in_comment = previous_ml_comment;
         for (idx, c) in self.render.chars().enumerate() {
             let mut cur_hl = None;
             let prev_hl = if idx > 0 {
@@ -114,23 +117,53 @@ impl<'a> Row<'a> {
                 Normal
             };
 
-            if let Some((_, 0)) = in_keyword {
-                in_keyword = None;
+            if let Some((_, 0)) = in_highlight {
+                in_highlight = None;
             }
 
-            if let Some(val) = in_keyword.as_mut() {
+            if let Some(val) = in_highlight.as_mut() {
                 val.1 -= 1;
                 self.hl.push(val.0);
                 continue;
             }
 
-            if syntax.highlight_singleline_comments() && in_string.is_none() {
+            if syntax.highlight_singleline_comments() && in_string.is_none()
+                && !in_comment
+            {
                 let rest_of_line = &self.render[idx..];
                 if rest_of_line.starts_with(syntax.singleline_comment_start) {
                     for _ in idx..self.rsize {
                         self.hl.push(Comment);
                     }
                     break;
+                }
+            }
+
+            if syntax.highlight_multiline_comments() && in_string.is_none() {
+                let rest_of_line = &self.render[idx..];
+                if in_comment
+                    && rest_of_line.starts_with(syntax.multiline_comment_end)
+                {
+                    in_comment = false;
+                    in_highlight = Some((
+                        MultilineComment,
+                        syntax.multiline_comment_end.len() - 1,
+                    ));
+                    self.hl.push(MultilineComment);
+                    continue;
+                }
+                if rest_of_line.starts_with(syntax.multiline_comment_start) {
+                    in_comment = true;
+                    in_highlight = Some((
+                        MultilineComment,
+                        syntax.multiline_comment_start.len() - 1,
+                    ));
+                    self.hl.push(MultilineComment);
+                    continue;
+                }
+                if in_comment {
+                    self.hl.push(MultilineComment);
+                    continue;
                 }
             }
 
@@ -170,7 +203,7 @@ impl<'a> Row<'a> {
                     if next_char.is_none()
                         || self.is_separator(next_char.unwrap())
                     {
-                        in_keyword = Some((highlight, keyword_len - 1));
+                        in_highlight = Some((highlight, keyword_len - 1));
                         cur_hl = Some(highlight);
                     }
                 }
@@ -179,6 +212,7 @@ impl<'a> Row<'a> {
             prev_sep = self.is_separator(c);
             self.hl.push(cur_hl.unwrap_or(Normal));
         }
+        in_comment
     }
 
     pub fn clear_overlay_search(&mut self) {
@@ -335,6 +369,10 @@ mod test {
             Syntax::new("HLComments")
                 .flag(HighlightComments)
                 .singleline_comment_start("//"),
+            Syntax::new("HLMLComments")
+                .flag(HighlightComments)
+                .multiline_comment_start("/*")
+                .multiline_comment_end("*/"),
             Syntax::new("HLKeywords")
                 .flag(HighlightKeywords)
                 .keywords1(&["if", "else", "switch"])
@@ -345,6 +383,8 @@ mod test {
                 .flag(HighlightKeywords)
                 .flag(HighlightComments)
                 .singleline_comment_start("//")
+                .multiline_comment_start("/*")
+                .multiline_comment_end("*/")
                 .keywords1(&["if", "else", "switch"])
                 .keywords2(&["int", "double", "void"]),
         ]
@@ -537,7 +577,8 @@ mod test {
 
     #[test]
     fn test_onscreen_text_without_syntax() {
-        let row = new_row_without_syntax("text\r\n");
+        let mut row = new_row_without_syntax("text\r\n");
+        row.update_syntax_highlight(false);
         let onscreen = row.onscreen_text(0, 4);
         assert_eq!("\x1b[39mtext\x1b[39m", onscreen);
     }
@@ -550,6 +591,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         let onscreen = row.onscreen_text(2, 9);
         assert!(onscreen.contains("\x1b[39m"));
         assert!(!onscreen.contains("\x1b[31m"));
@@ -566,6 +608,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         assert!(row.syntax.upgrade().is_some(), "Should have valid syntax");
         let onscreen = row.onscreen_text(0, 11);
         assert!(onscreen.contains("\x1b[31m1"));
@@ -583,6 +626,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         row.set_overlay_search(7, 11);
         let onscreen = row.onscreen_text(0, 18);
         assert!(onscreen.contains("\x1b[34mTEXT\x1b[39m"));
@@ -591,12 +635,14 @@ mod test {
     #[test]
     fn test_highlight_normal() {
         row_with_text_and_filetype!("normal\r\n", "HLNumbers", syntax, row);
+        row.update_syntax_highlight(false);
         assert_eq!(vec![Highlight::Normal; 6], row.hl);
     }
 
     #[test]
     fn test_highlight_numbers() {
         row_with_text_and_filetype!("12345.6789\r\n", "HLNumbers", syntax, row);
+        row.update_syntax_highlight(false);
         assert_eq!(vec![Highlight::Number; 10], row.hl);
     }
 
@@ -608,6 +654,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         let mut expected = vec![];
         expected.append(&mut vec![Highlight::Number; 3]);
         expected.append(&mut vec![Highlight::Normal; 5]);
@@ -618,6 +665,7 @@ mod test {
     #[test]
     fn test_highlight_numbers_in_words_are_normal() {
         row_with_text_and_filetype!("word9\r\n", "HLNumbers", syntax, row);
+        row.update_syntax_highlight(false);
         assert_eq!(vec![Highlight::Normal; 5], row.hl);
     }
 
@@ -629,6 +677,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         let mut expected = vec![];
         expected.append(&mut vec![Highlight::Normal; 4]);
         expected.append(&mut vec![Highlight::String; 8]);
@@ -644,6 +693,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         let mut expected = vec![];
         expected.append(&mut vec![Highlight::Normal; 4]);
         expected.append(&mut vec![Highlight::String; 8]);
@@ -659,6 +709,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         assert_eq!(
             "\x1b[39mnah \x1b[35m\"STUFF\"\x1b[39m done\x1b[39m",
             row.onscreen_text(0, 16)
@@ -673,6 +724,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         assert_eq!(vec![Highlight::String; 13], row.hl);
     }
 
@@ -684,6 +736,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         let mut expected = vec![];
         expected.append(&mut vec![Highlight::Normal; 4]);
         expected.append(&mut vec![Highlight::String; 10]);
@@ -699,6 +752,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         let mut expected = vec![];
         expected.append(&mut vec![Highlight::Normal; 8]);
         expected.append(&mut vec![Highlight::Comment; 16]);
@@ -710,7 +764,9 @@ mod test {
         use syntax::SyntaxSetting::*;
         let syntax = Syntax::new("test").flag(HighlightComments);
         let rc = Rc::new(Some(&syntax));
-        let row = Row::new("nothing // and a comment\r\n", Rc::downgrade(&rc));
+        let mut row =
+            Row::new("nothing // and a comment\r\n", Rc::downgrade(&rc));
+        row.update_syntax_highlight(false);
         assert_eq!(vec![Highlight::Normal; 24], row.hl);
     }
 
@@ -722,6 +778,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         let mut expected = vec![];
         expected.append(&mut vec![Highlight::Keyword1; 2]);
         expected.append(&mut vec![Highlight::Normal; 9]);
@@ -739,6 +796,8 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
+        assert!(row.hl.contains(&Highlight::Normal));
         assert!(!row.hl.contains(&Highlight::Keyword1));
         assert!(!row.hl.contains(&Highlight::Keyword2));
     }
@@ -751,6 +810,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         let mut expected = vec![];
         expected.append(&mut vec![Highlight::Keyword2; 3]);
         expected.append(&mut vec![Highlight::Normal; 8]);
@@ -769,6 +829,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         let onscreen = row.onscreen_text(0, 21);
         assert!(onscreen.contains("\x1b[33mif\x1b[39m"));
         assert!(onscreen.contains("\x1b[39m something "));
@@ -783,6 +844,7 @@ mod test {
             syntax,
             row
         );
+        row.update_syntax_highlight(false);
         let onscreen = row.onscreen_text(0, 31);
         assert!(onscreen.contains("\x1b[32mint\x1b[39m"));
         assert!(onscreen.contains("\x1b[39m something; "));
@@ -792,14 +854,122 @@ mod test {
 
     #[test]
     fn test_highlight_strings_with_keywords_in_them() {
-        row_with_text_and_filetype!("'else'\r\n", "HLEverything", syntax, row);
-        assert_eq!(vec![Highlight::String; 6], row.hl);
+        {
+            row_with_text_and_filetype!(
+                "'else'\r\n",
+                "HLEverything",
+                syntax,
+                row
+            );
+            row.update_syntax_highlight(false);
+            assert_eq!(vec![Highlight::String; 6], row.hl);
+        }
+
+        {
+            row_with_text_and_filetype!(
+                "\"else\"\r\n",
+                "HLEverything",
+                syntax,
+                row
+            );
+            row.update_syntax_highlight(false);
+            assert_eq!(vec![Highlight::String; 6], row.hl);
+        }
+    }
+
+    #[test]
+    fn test_highlight_multiline_comments_on_one_line() {
         row_with_text_and_filetype!(
-            "\"else\"\r\n",
+            "int 1; /* blah */\r\n",
+            "HLMLComments",
+            syntax,
+            row
+        );
+        assert_eq!(false, row.update_syntax_highlight(false));
+        let mut expected = vec![Highlight::Normal; 7];
+        expected.append(&mut vec![Highlight::MultilineComment; 10]);
+        assert_eq!(expected, row.hl);
+    }
+
+    #[test]
+    fn test_highlight_multiline_comments_start() {
+        row_with_text_and_filetype!(
+            "int 1; /* blah\r\n",
+            "HLMLComments",
+            syntax,
+            row
+        );
+        assert_eq!(true, row.update_syntax_highlight(false));
+        let mut expected = vec![Highlight::Normal; 7];
+        expected.append(&mut vec![Highlight::MultilineComment; 7]);
+        assert_eq!(expected, row.hl);
+    }
+
+    #[test]
+    fn test_highlight_multiline_comments_end() {
+        row_with_text_and_filetype!(
+            "blah */ int 1;\r\n",
+            "HLMLComments",
+            syntax,
+            row
+        );
+        assert_eq!(false, row.update_syntax_highlight(true));
+        let mut expected = vec![Highlight::MultilineComment; 7];
+        expected.append(&mut vec![Highlight::Normal; 7]);
+        assert_eq!(expected, row.hl);
+    }
+
+    #[test]
+    fn test_highlight_multiline_comments_continue() {
+        row_with_text_and_filetype!(
+            "this is in a comment\r\n",
+            "HLMLComments",
+            syntax,
+            row
+        );
+        assert_eq!(true, row.update_syntax_highlight(true));
+        assert_eq!(vec![Highlight::MultilineComment; 20], row.hl);
+    }
+
+    #[test]
+    fn test_highlight_multiline_comments_then_keywords() {
+        row_with_text_and_filetype!(
+            "blah */ int 1;\r\n",
             "HLEverything",
             syntax,
             row
         );
-        assert_eq!(vec![Highlight::String; 6], row.hl);
+        assert_eq!(false, row.update_syntax_highlight(true));
+        let mut expected = vec![Highlight::MultilineComment; 7];
+        expected.append(&mut vec![Highlight::Normal]);
+        expected.append(&mut vec![Highlight::Keyword2; 3]);
+        expected.append(&mut vec![Highlight::Normal]);
+        expected.append(&mut vec![Highlight::Number]);
+        expected.append(&mut vec![Highlight::Normal]);
+        assert_eq!(expected, row.hl);
+    }
+
+    #[test]
+    fn test_highlight_comments_inside_strings() {
+        row_with_text_and_filetype!(
+            "\"/* blah */\"\r\n",
+            "HLEverything",
+            syntax,
+            row
+        );
+        assert_eq!(false, row.update_syntax_highlight(false));
+        assert_eq!(vec![Highlight::String; 12], row.hl);
+    }
+
+    #[test]
+    fn test_highlight_singleline_comments_inside_multiline_comments() {
+        row_with_text_and_filetype!(
+            "/* // blah */\r\n",
+            "HLEverything",
+            syntax,
+            row
+        );
+        assert_eq!(false, row.update_syntax_highlight(false));
+        assert_eq!(vec![Highlight::MultilineComment; 13], row.hl);
     }
 }

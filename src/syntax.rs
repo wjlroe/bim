@@ -15,6 +15,8 @@ pub struct Syntax<'a> {
     pub filetype: &'a str,
     filematches: Vec<&'a str>,
     pub singleline_comment_start: &'a str,
+    pub multiline_comment_start: &'a str,
+    pub multiline_comment_end: &'a str,
     keywords: HashMap<Highlight, Vec<&'a str>>,
     flags: Vec<SyntaxSetting>,
 }
@@ -25,6 +27,8 @@ impl<'a> Syntax<'a> {
             filetype,
             filematches: Vec::new(),
             singleline_comment_start: "",
+            multiline_comment_start: "",
+            multiline_comment_end: "",
             keywords: HashMap::new(),
             flags: Vec::new(),
         }
@@ -72,6 +76,16 @@ impl<'a> Syntax<'a> {
         self
     }
 
+    pub fn multiline_comment_start(mut self, marker: &'a str) -> Syntax {
+        self.multiline_comment_start = marker;
+        self
+    }
+
+    pub fn multiline_comment_end(mut self, marker: &'a str) -> Syntax {
+        self.multiline_comment_end = marker;
+        self
+    }
+
     pub fn flag(mut self, flag: SyntaxSetting) -> Syntax<'a> {
         self.flags.push(flag);
         self
@@ -88,6 +102,12 @@ impl<'a> Syntax<'a> {
     pub fn highlight_singleline_comments(&self) -> bool {
         self.flags.contains(&SyntaxSetting::HighlightComments)
             && self.singleline_comment_start.len() > 0
+    }
+
+    pub fn highlight_multiline_comments(&self) -> bool {
+        self.flags.contains(&SyntaxSetting::HighlightComments)
+            && self.multiline_comment_start.len() > 0
+            && self.multiline_comment_end.len() > 0
     }
 
     pub fn highlight_keywords(&self) -> bool {
@@ -136,6 +156,8 @@ lazy_static! {
                 .filematches(&[".c", ".cpp", ".h"])
                 .flag(HighlightComments)
                 .singleline_comment_start("//")
+                .multiline_comment_start("/*")
+                .multiline_comment_end("*/")
                 .flag(HighlightKeywords)
                 .keywords1(&[
                     "switch", "if", "while", "for", "break", "continue",
@@ -217,4 +239,25 @@ fn test_starts_with_keyword_keyword2() {
         syntax.starts_with_keyword("int woot;")
     );
     assert_eq!(None, syntax.starts_with_keyword(" int woot;"));
+}
+
+#[test]
+fn test_highlight_multiline_comments() {
+    let syntax = Syntax::new("test")
+        .flag(SyntaxSetting::HighlightComments)
+        .multiline_comment_start("/*")
+        .multiline_comment_end("*/");
+    assert!(syntax.highlight_multiline_comments());
+    let syntax = Syntax::new("test")
+        .flag(SyntaxSetting::HighlightComments)
+        .multiline_comment_end("*/");
+    assert!(!syntax.highlight_multiline_comments());
+    let syntax = Syntax::new("test")
+        .flag(SyntaxSetting::HighlightComments)
+        .multiline_comment_start("/*");
+    assert!(!syntax.highlight_multiline_comments());
+    let syntax = Syntax::new("test")
+        .multiline_comment_start("/*")
+        .multiline_comment_end("*/");
+    assert!(!syntax.highlight_multiline_comments());
 }

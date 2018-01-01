@@ -530,8 +530,8 @@ impl<'a> Terminal<'a> {
         match File::open(filename) {
             Ok(f) => {
                 self.filename = Some(filename.to_string());
-                self.select_syntax();
                 self.buffer.open_file(f);
+                self.select_syntax();
             }
             Err(e) => self.die(e.description()),
         }
