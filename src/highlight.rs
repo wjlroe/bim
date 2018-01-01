@@ -7,6 +7,7 @@ pub enum Highlight {
     SearchMatch,
     String,
     Comment,
+    MultilineComment,
     Keyword1,
     Keyword2,
 }
@@ -23,6 +24,7 @@ lazy_static! {
         m.insert(SearchMatch, 34);
         m.insert(String, 35);
         m.insert(Comment, 36);
+        m.insert(MultilineComment, 36);
         m.insert(Keyword1, 33);
         m.insert(Keyword2, 32);
         m

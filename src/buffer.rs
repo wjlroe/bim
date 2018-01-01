@@ -34,10 +34,11 @@ impl<'a> Buffer<'a> {
         self.rows[cursor_y as usize].text_cursor_to_render(cursor_x)
     }
 
-    pub fn insert_row(&mut self, at: usize, text: &str) {
+    fn insert_row(&mut self, at: usize, text: &str) {
         if at <= self.num_lines() {
             let row = Row::new(text, Rc::downgrade(&self.syntax));
             self.rows.insert(at, row);
+            self.update();
         }
     }
 
@@ -49,6 +50,16 @@ impl<'a> Buffer<'a> {
 
     pub fn clear(&mut self) {
         self.rows.clear();
+    }
+
+    fn update_syntax_highlighting(&mut self) {
+        self.rows
+            .iter_mut()
+            .fold(false, |prev, row| row.update_syntax_highlight(prev));
+    }
+
+    fn update(&mut self) {
+        self.update_syntax_highlighting();
     }
 
     pub fn open_file(&mut self, file: File) {
@@ -111,6 +122,7 @@ impl<'a> Buffer<'a> {
         for row in self.rows.iter_mut() {
             row.set_syntax(Rc::downgrade(&self.syntax));
         }
+        self.update();
     }
 
     pub fn append_row(&mut self, text: &str) {
@@ -137,6 +149,7 @@ impl<'a> Buffer<'a> {
             if let Some(previous_row) = self.rows.get_mut(at - 1) {
                 previous_row.append_text(row.as_str());
             }
+            self.update();
             true
         } else {
             false
@@ -145,6 +158,7 @@ impl<'a> Buffer<'a> {
 
     pub fn delete_char(&mut self, x: i32, y: i32) {
         self.rows[y as usize].delete_char((x - 1) as usize);
+        self.update();
     }
 
     pub fn insert_char(
@@ -157,6 +171,7 @@ impl<'a> Buffer<'a> {
             self.rows.push(Row::new("", Rc::downgrade(&self.syntax)));
         }
         self.rows[cursor_y as usize].insert_char(cursor_x as usize, character);
+        self.update();
     }
 
     pub fn clear_append_buffer(&mut self) {
