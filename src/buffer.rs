@@ -301,6 +301,17 @@ fn test_insert_newline_default() {
 }
 
 #[test]
+fn test_insert_newline_after_firstline() {
+    use editor::DEFAULT_NEWLINE;
+    let syntax = Rc::new(None);
+    let mut buffer = Buffer::new(syntax);
+    buffer.insert_char('1', 0, 0);
+    buffer.insert_newline(0, 1);
+    assert_eq!(2, buffer.num_lines());
+    assert!(buffer.rows[0].as_str().ends_with(DEFAULT_NEWLINE));
+}
+
+#[test]
 fn test_insert_char() {
     let syntax = Rc::new(None);
     let mut buffer = Buffer::new(syntax);
