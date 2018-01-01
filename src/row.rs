@@ -1,3 +1,4 @@
+use editor::DEFAULT_NEWLINE;
 use highlight::{Highlight, DEFAULT_COLOUR, HL_TO_COLOUR};
 use std::rc::Weak;
 use syntax::Syntax;
@@ -296,7 +297,12 @@ impl<'a> Row<'a> {
 
     pub fn newline(&self) -> String {
         let byte_pos = self.render_cursor_to_byte_position(self.size);
-        String::from(&self.chars[byte_pos..])
+        let newline = String::from(&self.chars[byte_pos..]);
+        if newline.is_empty() {
+            String::from(DEFAULT_NEWLINE)
+        } else {
+            newline
+        }
     }
 
     pub fn truncate(&mut self, at: usize) -> String {
