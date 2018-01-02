@@ -38,7 +38,7 @@ impl<'a> Buffer<'a> {
         if at <= self.num_lines() {
             let row = Row::new(text, Rc::downgrade(&self.syntax));
             self.rows.insert(at, row);
-            self.update();
+            self.update_from(at);
         }
     }
 
@@ -60,6 +60,26 @@ impl<'a> Buffer<'a> {
 
     fn update(&mut self) {
         self.update_syntax_highlighting();
+    }
+
+    fn update_from(&mut self, at: usize) {
+        let mut in_comment = if at > 0 {
+            self.rows
+                .get(at - 1)
+                .map(|row| row.hl_open_comment)
+                .unwrap_or(false)
+        } else {
+            false
+        };
+        for row in self.rows.iter_mut().skip(at) {
+            let prev_ml_comment = row.hl_open_comment;
+            in_comment = row.update_syntax_highlight(in_comment);
+            if in_comment != prev_ml_comment {
+                row.hl_open_comment = in_comment;
+            } else {
+                break;
+            }
+        }
     }
 
     pub fn open_file(&mut self, file: File) {
@@ -140,6 +160,7 @@ impl<'a> Buffer<'a> {
         } else {
             let new_line_text = self.rows[row].truncate(col);
             self.insert_row(row + 1, &new_line_text);
+            self.update_from(row);
         }
     }
 
@@ -149,7 +170,7 @@ impl<'a> Buffer<'a> {
             if let Some(previous_row) = self.rows.get_mut(at - 1) {
                 previous_row.append_text(row.as_str());
             }
-            self.update();
+            self.update_from(at - 1);
             true
         } else {
             false
@@ -158,7 +179,7 @@ impl<'a> Buffer<'a> {
 
     pub fn delete_char(&mut self, x: i32, y: i32) {
         self.rows[y as usize].delete_char((x - 1) as usize);
-        self.update();
+        self.update_from(y as usize);
     }
 
     pub fn insert_char(
@@ -171,7 +192,7 @@ impl<'a> Buffer<'a> {
             self.rows.push(Row::new("", Rc::downgrade(&self.syntax)));
         }
         self.rows[cursor_y as usize].insert_char(cursor_x as usize, character);
-        self.update();
+        self.update_from(cursor_y as usize);
     }
 
     pub fn clear_append_buffer(&mut self) {

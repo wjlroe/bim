@@ -14,6 +14,7 @@ pub struct Row<'a> {
     hl: Vec<Highlight>,
     overlay: Vec<Option<Highlight>>,
     syntax: Weak<Option<&'a Syntax<'a>>>,
+    pub hl_open_comment: bool,
 }
 
 impl<'a> Row<'a> {
@@ -25,6 +26,7 @@ impl<'a> Row<'a> {
             rsize: 0,
             hl: vec![],
             overlay: vec![],
+            hl_open_comment: false,
             syntax,
         };
         row.set_text(text);
