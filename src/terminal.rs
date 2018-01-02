@@ -815,3 +815,41 @@ fn test_incremental_search() {
         )
     );
 }
+
+#[test]
+fn test_newline_inside_multiline_comment() {
+    let mut terminal = Terminal::new(100, 10);
+    terminal.filename = Some("test.c".to_string());
+    terminal.select_syntax();
+    terminal
+        .buffer
+        .append_row("/* this is a multiline comment */\r\n");
+    terminal.buffer.append_row("int 1;\r\n");
+    for _ in 0..8 {
+        terminal.process_key(Key::ArrowRight);
+    }
+    terminal.process_key(Key::Return);
+    terminal.draw_rows();
+    assert!(
+        terminal
+            .append_buffer
+            .contains("\x1b[36mis a multiline comment */")
+    );
+    assert!(terminal.append_buffer.contains("\x1b[32mint\x1b[39m"));
+}
+
+#[test]
+fn test_backspace_inside_multiline_comment() {
+    let mut terminal = Terminal::new(100, 10);
+    terminal.filename = Some("test.c".to_string());
+    terminal.select_syntax();
+    terminal
+        .buffer
+        .append_row("/* this is a multiline comment\r\n");
+    terminal.buffer.append_row(" carrying on \r\n");
+    terminal.buffer.append_row(" and ending */\r\n");
+    terminal.process_key(Key::ArrowDown);
+    terminal.process_key(Key::Backspace);
+    terminal.draw_rows();
+    assert!(terminal.append_buffer.contains("\x1b[36m and ending"));
+}
