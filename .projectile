@@ -1,0 +1,10 @@
+- kilo
+- *.exe
+- *.sln
+- *.obj
+- *.dll
+- *.ilk
+- *.db
+- *.bk
+- build/
+- win_size
