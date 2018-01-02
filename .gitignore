@@ -13,3 +13,4 @@ build/
 *.dSYM
 .*debug
 *.txt
+testfiles/
