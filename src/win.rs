@@ -1,19 +1,22 @@
 use editor::Editor;
-use kernel32::{GetConsoleMode, GetConsoleScreenBufferInfo, GetStdHandle,
-               ReadConsoleInputA, SetConsoleMode, WaitForSingleObjectEx,
-               WriteConsoleA};
 use keycodes::Key;
 use libc::atexit;
 use std::char;
+use std::mem::zeroed;
 use std::ptr;
 use terminal::Terminal;
-use winapi::minwindef::{DWORD, LPDWORD};
-use winapi::winbase::{WAIT_OBJECT_0, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
-use winapi::wincon::{CONSOLE_SCREEN_BUFFER_INFO, COORD, ENABLE_ECHO_INPUT,
-                     ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
-                     ENABLE_WRAP_AT_EOL_OUTPUT, INPUT_RECORD, KEY_EVENT,
-                     LEFT_CTRL_PRESSED, SMALL_RECT};
-use winapi::winnt::VOID;
+use winapi::ctypes::c_void;
+use winapi::shared::minwindef::{DWORD, LPDWORD};
+use winapi::um::consoleapi::{GetConsoleMode, ReadConsoleInputA,
+                             SetConsoleMode, WriteConsoleA};
+use winapi::um::processenv::GetStdHandle;
+use winapi::um::synchapi::WaitForSingleObjectEx;
+use winapi::um::winbase::{WAIT_OBJECT_0, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
+use winapi::um::wincon::{GetConsoleScreenBufferInfo, INPUT_RECORD_Event,
+                         CONSOLE_SCREEN_BUFFER_INFO, COORD, ENABLE_ECHO_INPUT,
+                         ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
+                         ENABLE_WRAP_AT_EOL_OUTPUT, INPUT_RECORD, KEY_EVENT,
+                         LEFT_CTRL_PRESSED, SMALL_RECT};
 
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING: DWORD = 0x0004;
 const DISABLE_NEWLINE_AUTO_RETURN: DWORD = 0x0008;
@@ -44,7 +47,7 @@ extern "C" fn disable_raw_input_mode() {
         let handle = GetStdHandle(STD_OUTPUT_HANDLE);
         WriteConsoleA(
             handle,
-            reset_output.as_ptr() as *const VOID,
+            reset_output.as_ptr() as *const c_void,
             len,
             &mut bytes_written as LPDWORD,
             ptr::null_mut(),
@@ -94,7 +97,7 @@ impl Editor for EditorImpl {
     }
 
     fn read_a_character(&self) -> Option<Key> {
-        use winapi::winuser::*;
+        use winapi::um::winuser::*;
 
         let mut character = None;
         unsafe {
@@ -103,7 +106,7 @@ impl Editor for EditorImpl {
             if waited == WAIT_OBJECT_0 {
                 let empty_record = INPUT_RECORD {
                     EventType: 0,
-                    Event: [0; 4],
+                    Event: zeroed::<INPUT_RECORD_Event>(),
                 };
                 let mut input_records = [empty_record];
                 let mut events_read = 0;
@@ -117,7 +120,7 @@ impl Editor for EditorImpl {
                     if events_read == 1
                         && input_records[0].EventType == KEY_EVENT
                     {
-                        let record = input_records[0].KeyEvent();
+                        let record = input_records[0].Event.KeyEvent();
                         if record.bKeyDown == 1 {
                             character = match record.wVirtualKeyCode as i32 {
                                 VK_UP => Some(Key::ArrowUp),
@@ -150,7 +153,7 @@ impl Editor for EditorImpl {
                                 VK_VOLUME_UP => Some(Key::Escape),
                                 _ => {
                                     let unicode_char =
-                                        record.UnicodeChar as u32;
+                                        *record.uChar.UnicodeChar() as u32;
                                     if record.dwControlKeyState
                                         & LEFT_CTRL_PRESSED
                                         == LEFT_CTRL_PRESSED
