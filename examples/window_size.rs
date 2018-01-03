@@ -1,6 +1,4 @@
 #[cfg(windows)]
-extern crate kernel32;
-#[cfg(windows)]
 extern crate winapi;
 
 extern crate libc;
@@ -27,9 +25,10 @@ fn main() {
 
 #[cfg(not(unix))]
 fn main() {
-    use kernel32::{GetConsoleScreenBufferInfo, GetStdHandle};
-    use winapi::winbase::STD_OUTPUT_HANDLE;
-    use winapi::wincon::{CONSOLE_SCREEN_BUFFER_INFO, COORD, SMALL_RECT};
+    use winapi::um::processenv::GetStdHandle;
+    use winapi::um::winbase::STD_OUTPUT_HANDLE;
+    use winapi::um::wincon::{GetConsoleScreenBufferInfo,
+                             CONSOLE_SCREEN_BUFFER_INFO, COORD, SMALL_RECT};
 
     unsafe {
         let handle = GetStdHandle(STD_OUTPUT_HANDLE);

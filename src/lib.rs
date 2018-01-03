@@ -14,8 +14,6 @@ pub use unix::EditorImpl;
 extern crate errno;
 
 #[cfg(windows)]
-extern crate kernel32;
-#[cfg(windows)]
 extern crate winapi;
 
 #[cfg(windows)]

@@ -4,16 +4,21 @@ version = "0.0.1"
 authors = ["William Roe <git@wjlr.org.uk>"]
 
 [dependencies]
-libc = "*"
+libc = "0.2.34"
 time = "0.1.38"
 lazy_static = "1.0.0"
 
 [target.'cfg(unix)'.dependencies]
-errno = "*"
+errno = "0.2.3"
 
 [target.'cfg(windows)'.dependencies]
-winapi = "*"
-kernel32-sys = "*"
+winapi = { version = "0.3.3", features = [
+  "winbase",
+  "consoleapi",
+  "shellapi",
+  "processenv",
+  "synchapi"
+] }
 
 [[bin]]
 name = "bim"
