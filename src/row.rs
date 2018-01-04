@@ -112,10 +112,10 @@ impl<'a> Row<'a> {
         let mut escaped_quote = false;
         let mut in_highlight: Option<(Highlight, usize)> = None;
         let mut in_comment = previous_ml_comment;
-        for (idx, c) in self.render.chars().enumerate() {
+        for (hl_idx, (idx, c)) in (0..).zip(self.render.char_indices()) {
             let mut cur_hl = None;
-            let prev_hl = if idx > 0 {
-                self.hl.get(idx - 1).cloned().unwrap_or(Normal)
+            let prev_hl = if hl_idx > 0 {
+                self.hl.get(hl_idx - 1).cloned().unwrap_or(Normal)
             } else {
                 Normal
             };
@@ -235,7 +235,7 @@ impl<'a> Row<'a> {
     pub fn text_cursor_to_render(&self, cidx: i32) -> i32 {
         let tab_stop = TAB_STOP as i32;
         let mut ridx: i32 = 0;
-        for (i, source_char) in self.chars.chars().enumerate() {
+        for (i, source_char) in self.chars.char_indices() {
             if i == cidx as usize {
                 break;
             }
@@ -657,7 +657,7 @@ mod test {
     #[test]
     fn test_highlight_mixed_numbers_words() {
         row_with_text_and_filetype!(
-            "123 abc 456\r\n",
+            "123 £abc 456\r\n",
             "HLNumbers",
             syntax,
             row
@@ -665,7 +665,7 @@ mod test {
         row.update_syntax_highlight(false);
         let mut expected = vec![];
         expected.append(&mut vec![Highlight::Number; 3]);
-        expected.append(&mut vec![Highlight::Normal; 5]);
+        expected.append(&mut vec![Highlight::Normal; 6]);
         expected.append(&mut vec![Highlight::Number; 3]);
         assert_eq!(expected, row.hl);
     }
