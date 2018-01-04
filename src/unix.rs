@@ -46,7 +46,10 @@ fn get_window_size_ioctl<'a>() -> Option<Terminal<'a>> {
         if ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut ws) == -1 || ws.ws_col == 0 {
             None
         } else {
-            Some(Terminal::new(ws.ws_col as i32, ws.ws_row as i32))
+            Some(
+                Terminal::new(ws.ws_col as i32, ws.ws_row as i32)
+                    .window_size_method("ioctl"),
+            )
         }
     }
 }
@@ -95,7 +98,10 @@ fn get_window_size_cursor_pos<'a>() -> Option<Terminal<'a>> {
                     {
                         None
                     } else {
-                        Some(Terminal::new(rows, cols))
+                        Some(
+                            Terminal::new(rows, cols)
+                                .window_size_method("cursor"),
+                        )
                     }
                 }
             }
