@@ -33,6 +33,7 @@ impl Status {
 pub struct Terminal<'a> {
     pub screen_cols: i32,
     pub screen_rows: i32,
+    window_size_method: &'a str,
     pub cursor_x: i32,
     pub cursor_y: i32,
     rcursor_x: i32,
@@ -53,6 +54,7 @@ impl<'a> Terminal<'a> {
         Terminal {
             screen_cols,
             screen_rows,
+            window_size_method: "",
             cursor_x: 0,
             cursor_y: 0,
             rcursor_x: 0,
@@ -66,6 +68,11 @@ impl<'a> Terminal<'a> {
             status: None,
             syntax: syntax,
         }
+    }
+
+    pub fn window_size_method(mut self, method: &'a str) -> Self {
+        self.window_size_method = method;
+        self
     }
 
     fn die(&mut self, message: &str) {
@@ -555,6 +562,14 @@ impl<'a> Terminal<'a> {
             let _ =
                 file.write(&format!("bim version {} starting\n", BIM_VERSION)
                     .into_bytes());
+            let _ = file.write(&format!("rows: {}\n", self.screen_rows)
+                .into_bytes());
+            let _ = file.write(&format!("cols: {}\n", self.screen_cols)
+                .into_bytes());
+            let _ = file.write(&format!(
+                "window size method: {}\n",
+                self.window_size_method
+            ).into_bytes());
             let _ = file.flush();
         }
     }
