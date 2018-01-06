@@ -6,6 +6,11 @@ cache: cargo
 before_script:
   - export PATH="$PATH:$HOME/.cargo/bin"
   - curl http://pre-commit.com/install-local.py | python
+  - |
+    if rustup self update 2>&1 | grep "rustfmt" > /dev/null; then
+      echo 'rustfmt already installed via cargo, we will remove it'
+      cargo uninstall rustfmt-nightly
+    fi
   - rustup install nightly
   - rustup component add rustfmt-preview --toolchain nightly
 script:
