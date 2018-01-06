@@ -2,7 +2,11 @@ language: rust
 os:
   - linux
 rust: stable
-cache: cargo
+cache:
+  directories:
+    - "$HOME/.cargo"
+    - "$HOME/.multirust"
+    - target
 before_script:
   - export PATH="$PATH:$HOME/.cargo/bin"
   - curl http://pre-commit.com/install-local.py | python
