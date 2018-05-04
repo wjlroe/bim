@@ -160,13 +160,27 @@ lazy_static! {
                 .multiline_comment_end("*/")
                 .flag(HighlightKeywords)
                 .keywords1(&[
-                    "switch", "if", "while", "for", "break", "continue",
-                    "return", "else", "struct", "union", "typedef", "static",
-                    "enum", "class", "case",
+                    "switch", "if", "while", "for", "break", "continue", "return", "else",
+                    "struct", "union", "typedef", "static", "enum", "class", "case",
                 ])
                 .keywords2(&[
-                    "int", "long", "double", "float", "char", "unsigned",
-                    "signed", "void",
+                    "int", "long", "double", "float", "char", "unsigned", "signed", "void",
+                ])
+                .flag(HighlightNumbers)
+                .flag(HighlightStrings),
+            Syntax::new("Rust")
+                .filematches(&[".rs"])
+                .flag(HighlightComments)
+                .singleline_comment_start("//")
+                .multiline_comment_start("/*")
+                .multiline_comment_end("*/")
+                .flag(HighlightKeywords)
+                .keywords1(&[
+                    "pub", "fn", "struct", "impl", "if", "else", "match", "use", "const", "derive",
+                    "let",
+                ])
+                .keywords2(&[
+                    "i8", "i32", "i64", "u32", "u64", "f32", "f64", "str", "&str", "u8", "Self",
                 ])
                 .flag(HighlightNumbers)
                 .flag(HighlightStrings),
