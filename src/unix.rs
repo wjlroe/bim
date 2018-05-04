@@ -128,7 +128,11 @@ extern "C" fn disable_raw_mode() {
     let len = reset_output.len();
     reset_output.push('\0');
     unsafe {
-        write(STDOUT_FILENO, reset_output.as_ptr() as *const c_void, len);
+        write(
+            STDOUT_FILENO,
+            reset_output.as_ptr() as *const c_void,
+            len,
+        );
     }
 }
 
@@ -151,7 +155,11 @@ fn read_key() -> Option<Key> {
                 return Some(Key::Escape);
             }
 
-            if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) == -1
+            if read(
+                STDIN_FILENO,
+                buf[1..].as_mut_ptr() as *mut c_void,
+                1,
+            ) == -1
             {
                 return Some(Key::Escape);
             }
