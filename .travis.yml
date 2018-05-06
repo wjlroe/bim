@@ -9,7 +9,7 @@ cache:
     - target
 before_script:
   - export PATH="$PATH:$HOME/.cargo/bin"
-  - curl http://pre-commit.com/install-local.py | python
+  - curl https://pre-commit.com/install-local.py | python -
   - |
     if rustup self update 2>&1 | grep "rustfmt" > /dev/null; then
       echo 'rustfmt already installed via cargo, we will remove it'

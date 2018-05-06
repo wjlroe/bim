@@ -22,11 +22,11 @@ mod win;
 #[cfg(windows)]
 pub use win::EditorImpl;
 
-mod keycodes;
-mod commands;
-mod syntax;
-mod highlight;
-mod row;
-pub mod config;
 mod buffer;
+mod commands;
+pub mod config;
+mod highlight;
+mod keycodes;
+mod row;
+mod syntax;
 mod terminal;

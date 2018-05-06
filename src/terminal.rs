@@ -66,7 +66,7 @@ impl<'a> Terminal<'a> {
             dirty: 0,
             quit_times: BIM_QUIT_TIMES,
             status: None,
-            syntax: syntax,
+            syntax,
         }
     }
 
@@ -95,14 +95,17 @@ impl<'a> Terminal<'a> {
 
     fn draw_status_bar(&mut self) {
         self.append_buffer.push_str("\x1b[7m");
-        let filename =
-            self.filename.clone().unwrap_or(String::from("[No Name]"));
+        let filename = self.filename
+            .clone()
+            .unwrap_or(String::from("[No Name]"));
         let file_status = if self.dirty.is_positive() {
             "(modified)"
         } else {
             ""
         };
-        let filetype = self.syntax.map(|x| x.filetype).unwrap_or("no ft");
+        let filetype = self.syntax
+            .map(|x| x.filetype)
+            .unwrap_or("no ft");
 
         let mut status = format!(
             "{0:.20} - {1} lines {2}",
@@ -174,8 +177,8 @@ impl<'a> Terminal<'a> {
         match self.flush() {
             Err(err) => {
                 panic!("oh no! flush failed: {:?}", err);
-            }
-            _ => {}
+            },
+            _ => {},
         }
     }
 
@@ -241,8 +244,8 @@ impl<'a> Terminal<'a> {
         match self.flush() {
             Err(err) => {
                 panic!("oh no! flush failed: {:?}", err);
-            }
-            _ => {}
+            },
+            _ => {},
         }
     }
 
@@ -261,7 +264,7 @@ impl<'a> Terminal<'a> {
                 if self.cursor_y < 0 {
                     self.cursor_y = 0;
                 }
-            }
+            },
             MoveCursor {
                 unit: Rows,
                 direction: Down,
@@ -271,7 +274,7 @@ impl<'a> Terminal<'a> {
                 if self.cursor_y > self.buffer.num_lines() as i32 {
                     self.cursor_y = self.buffer.num_lines() as i32;
                 }
-            }
+            },
             MoveCursor {
                 unit: Rows,
                 direction: Left,
@@ -291,7 +294,7 @@ impl<'a> Terminal<'a> {
                     }
                     left_amount -= 1;
                 }
-            }
+            },
             MoveCursor {
                 unit: Rows,
                 direction: Right,
@@ -314,7 +317,7 @@ impl<'a> Terminal<'a> {
                         break;
                     }
                 }
-            }
+            },
             MoveCursor {
                 unit: Pages,
                 direction: Down,
@@ -322,7 +325,7 @@ impl<'a> Terminal<'a> {
             } => {
                 let amount = amount * self.screen_rows as usize;
                 self.move_cursor(MoveCursor::down(amount));
-            }
+            },
             MoveCursor {
                 unit: Pages,
                 direction: Up,
@@ -330,17 +333,17 @@ impl<'a> Terminal<'a> {
             } => {
                 let amount = amount * self.screen_rows as usize;
                 self.move_cursor(MoveCursor::up(amount));
-            }
+            },
             MoveCursor {
                 unit: Pages,
                 direction: Left,
                 ..
-            } => {}
+            } => {},
             MoveCursor {
                 unit: Pages,
                 direction: Right,
                 ..
-            } => {}
+            } => {},
         }
 
         let rowlen = self.buffer.line_len(self.cursor_y).unwrap_or(0);
@@ -369,7 +372,8 @@ impl<'a> Terminal<'a> {
             return;
         }
         if self.cursor_x > 0 {
-            self.buffer.delete_char(self.cursor_x, self.cursor_y);
+            self.buffer
+                .delete_char(self.cursor_x, self.cursor_y);
             self.cursor_x -= 1;
             self.dirty += 1;
         } else if self.cursor_y > 0 && self.cursor_x == 0 {
@@ -428,12 +432,12 @@ impl<'a> Terminal<'a> {
                     self.reset();
                     exit(0);
                 }
-            }
+            },
             JumpCursorX(new_x) => {
                 if new_x <= self.buffer.line_len(self.cursor_y).unwrap_or(0) {
                     self.cursor_x = new_x as i32;
                 }
-            }
+            },
             JumpCursorY(new_y) => if new_y < self.buffer.num_lines() {
                 self.cursor_y = new_y as i32;
             },
@@ -441,16 +445,16 @@ impl<'a> Terminal<'a> {
             DeleteCharForward => {
                 self.move_cursor(MoveCursor::right(1));
                 self.delete_char();
-            }
+            },
             InsertNewline(row, col) => {
                 self.insert_newline(row, col);
-            }
+            },
             Linebreak(row, col) => {
                 self.insert_newline_and_return(row, col);
-            }
+            },
             Save => self.save_file(),
             InsertChar(c) => self.insert_char(c),
-            Search => {}
+            Search => {},
         }
 
         self.quit_times = BIM_QUIT_TIMES;
@@ -472,9 +476,10 @@ impl<'a> Terminal<'a> {
             End => self.row_end(),
             Delete => Some(DeleteCharForward),
             Backspace => Some(DeleteCharBackward),
-            Return => {
-                Some(Linebreak(self.cursor_y as usize, self.cursor_x as usize))
-            }
+            Return => Some(Linebreak(
+                self.cursor_y as usize,
+                self.cursor_x as usize,
+            )),
             Escape => None,
             Control(None) => None,
             Control(Some(c)) => {
@@ -489,7 +494,7 @@ impl<'a> Terminal<'a> {
                 } else {
                     None
                 }
-            }
+            },
             Other(c) => {
                 self.debug(format!(
                     "other key: {character}, {key_num:x}, {key_num} as u32\n",
@@ -511,7 +516,7 @@ impl<'a> Terminal<'a> {
                 } else {
                     None
                 }
-            }
+            },
         }
     }
 
@@ -539,7 +544,7 @@ impl<'a> Terminal<'a> {
                 self.filename = Some(filename.to_string());
                 self.buffer.open_file(f);
                 self.select_syntax();
-            }
+            },
             Err(e) => self.die(e.description()),
         }
     }
@@ -559,13 +564,12 @@ impl<'a> Terminal<'a> {
             .truncate(true)
             .open(BIM_DEBUG_LOG)
         {
-            let _ =
-                file.write(&format!("bim version {} starting\n", BIM_VERSION)
-                    .into_bytes());
-            let _ = file.write(&format!("rows: {}\n", self.screen_rows)
-                .into_bytes());
-            let _ = file.write(&format!("cols: {}\n", self.screen_cols)
-                .into_bytes());
+            let _ = file.write(&format!(
+                "bim version {} starting\n",
+                BIM_VERSION
+            ).into_bytes());
+            let _ = file.write(&format!("rows: {}\n", self.screen_rows).into_bytes());
+            let _ = file.write(&format!("cols: {}\n", self.screen_cols).into_bytes());
             let _ = file.write(&format!(
                 "window size method: {}\n",
                 self.window_size_method
@@ -575,8 +579,9 @@ impl<'a> Terminal<'a> {
     }
 
     pub fn debug(&self, text: String) {
-        if let Ok(mut file) =
-            OpenOptions::new().append(true).open(BIM_DEBUG_LOG)
+        if let Ok(mut file) = OpenOptions::new()
+            .append(true)
+            .open(BIM_DEBUG_LOG)
         {
             let now = now();
             let _ = file.write(&format!("{}: ", now.rfc822()).into_bytes());
@@ -586,7 +591,10 @@ impl<'a> Terminal<'a> {
     }
 
     pub fn log_debug(&self) {
-        self.debug(format!("rows: {}\r\n", self.screen_rows + UI_ROWS));
+        self.debug(format!(
+            "rows: {}\r\n",
+            self.screen_rows + UI_ROWS
+        ));
         self.debug(format!("cols: {}\r\n", self.screen_cols));
     }
 
@@ -608,7 +616,7 @@ impl<'a> Terminal<'a> {
                         "{} bytes written to disk",
                         bytes_saved
                     ));
-                }
+                },
                 Err(err) => self.set_status_message(format!(
                     "Can't save! Error: {:?}",
                     err
@@ -642,8 +650,12 @@ impl<'a> Terminal<'a> {
 fn test_join_row() {
     let mut terminal = Terminal::new(10, 10);
 
-    terminal.buffer.append_row("this is the first line. \r\n");
-    terminal.buffer.append_row("this is the second line.\r\n");
+    terminal
+        .buffer
+        .append_row("this is the first line. \r\n");
+    terminal
+        .buffer
+        .append_row("this is the second line.\r\n");
     assert_eq!(2, terminal.buffer.num_lines());
 
     terminal.join_row(1);
@@ -655,8 +667,12 @@ fn test_join_row() {
 fn test_backspace_to_join_lines() {
     let mut terminal = Terminal::new(10, 10);
 
-    terminal.buffer.append_row("this is the first line. \r\n");
-    terminal.buffer.append_row("this is second line.\r\n");
+    terminal
+        .buffer
+        .append_row("this is the first line. \r\n");
+    terminal
+        .buffer
+        .append_row("this is second line.\r\n");
     assert_eq!(0, terminal.cursor_x);
     assert_eq!(0, terminal.cursor_y);
     assert_eq!(2, terminal.buffer.num_lines());
@@ -681,8 +697,12 @@ fn test_backspace_to_join_lines() {
 #[test]
 fn test_insert_newline() {
     let mut terminal = Terminal::new(10, 15);
-    terminal.buffer.append_row("what a good first line.\r\n");
-    terminal.buffer.append_row("not a bad second line\r\n");
+    terminal
+        .buffer
+        .append_row("what a good first line.\r\n");
+    terminal
+        .buffer
+        .append_row("not a bad second line\r\n");
     assert_eq!(2, terminal.buffer.num_lines());
 
     terminal.insert_newline(1, 0);
@@ -699,8 +719,12 @@ fn test_insert_newline() {
 #[test]
 fn test_enter_at_eol() {
     let mut terminal = Terminal::new(10, 15);
-    terminal.buffer.append_row("this is line 1.\r\n");
-    terminal.buffer.append_row("this is line 2.\r\n");
+    terminal
+        .buffer
+        .append_row("this is line 1.\r\n");
+    terminal
+        .buffer
+        .append_row("this is line 2.\r\n");
     terminal.process_key(Key::End);
     terminal.process_key(Key::Return);
     assert_eq!(3, terminal.buffer.num_lines());
@@ -714,8 +738,14 @@ fn test_key_to_cmd() {
     use commands::Cmd::*;
 
     let term = Terminal::new(1, 1);
-    assert_eq!(Some(InsertChar('w')), term.key_to_cmd(Key::Other('w')));
-    assert_eq!(Some(Quit), term.key_to_cmd(Key::Other(17 as char)));
+    assert_eq!(
+        Some(InsertChar('w')),
+        term.key_to_cmd(Key::Other('w'))
+    );
+    assert_eq!(
+        Some(Quit),
+        term.key_to_cmd(Key::Other(17 as char))
+    );
     assert_eq!(
         Some(Move(MoveCursor::left(1))),
         term.key_to_cmd(Key::ArrowLeft)
@@ -724,7 +754,10 @@ fn test_key_to_cmd() {
         Some(Move(MoveCursor::right(1))),
         term.key_to_cmd(Key::ArrowRight)
     );
-    assert_eq!(Some(Move(MoveCursor::up(1))), term.key_to_cmd(Key::ArrowUp));
+    assert_eq!(
+        Some(Move(MoveCursor::up(1))),
+        term.key_to_cmd(Key::ArrowUp)
+    );
     assert_eq!(
         Some(Move(MoveCursor::down(1))),
         term.key_to_cmd(Key::ArrowDown)
@@ -738,16 +771,31 @@ fn test_key_to_cmd() {
         term.key_to_cmd(Key::PageDown)
     );
     assert_eq!(Some(JumpCursorX(0)), term.key_to_cmd(Key::Home));
-    assert_eq!(Some(DeleteCharForward), term.key_to_cmd(Key::Delete));
-    assert_eq!(Some(DeleteCharBackward), term.key_to_cmd(Key::Backspace));
-    assert_eq!(Some(Linebreak(0, 0)), term.key_to_cmd(Key::Return));
+    assert_eq!(
+        Some(DeleteCharForward),
+        term.key_to_cmd(Key::Delete)
+    );
+    assert_eq!(
+        Some(DeleteCharBackward),
+        term.key_to_cmd(Key::Backspace)
+    );
+    assert_eq!(
+        Some(Linebreak(0, 0)),
+        term.key_to_cmd(Key::Return)
+    );
     assert_eq!(None, term.key_to_cmd(Key::Escape));
-    assert_eq!(Some(Search), term.key_to_cmd(Key::Other(6 as char)));
+    assert_eq!(
+        Some(Search),
+        term.key_to_cmd(Key::Other(6 as char))
+    );
     assert_eq!(
         Some(DeleteCharBackward),
         term.key_to_cmd(Key::Other(8 as char))
     );
-    assert_eq!(Some(Save), term.key_to_cmd(Key::Other(19 as char)));
+    assert_eq!(
+        Some(Save),
+        term.key_to_cmd(Key::Other(19 as char))
+    );
     for c in 0..5u8 {
         assert_eq!(None, term.key_to_cmd(Key::Other(c as char)));
     }
@@ -767,7 +815,8 @@ fn test_jump_to_end() {
 
     let mut term = Terminal::new(10, 10);
     assert_eq!(None, term.key_to_cmd(Key::End));
-    term.buffer.append_row("this is a line of text.\r\n");
+    term.buffer
+        .append_row("this is a line of text.\r\n");
     assert_eq!(Some(JumpCursorX(23)), term.key_to_cmd(Key::End));
 }
 
@@ -850,7 +899,11 @@ fn test_newline_inside_multiline_comment() {
             .append_buffer
             .contains("\x1b[36mis a multiline comment */")
     );
-    assert!(terminal.append_buffer.contains("\x1b[32mint\x1b[39m"));
+    assert!(
+        terminal
+            .append_buffer
+            .contains("\x1b[32mint\x1b[39m")
+    );
 }
 
 #[test]
@@ -866,5 +919,9 @@ fn test_backspace_inside_multiline_comment() {
     terminal.process_key(Key::ArrowDown);
     terminal.process_key(Key::Backspace);
     terminal.draw_rows();
-    assert!(terminal.append_buffer.contains("\x1b[36m and ending"));
+    assert!(
+        terminal
+            .append_buffer
+            .contains("\x1b[36m and ending")
+    );
 }

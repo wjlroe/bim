@@ -35,29 +35,29 @@ pub trait Editor {
                 match key {
                     Key::Other(c) if !c.is_control() => {
                         entered_text.push(c);
-                    }
+                    },
                     Key::Return if !entered_text.is_empty() => {
                         terminal.set_status_message(String::new());
                         callback(terminal, &entered_text, key);
                         break;
-                    }
+                    },
                     Key::Escape => {
                         terminal.set_status_message(String::new());
                         callback(terminal, &entered_text, key);
                         return None;
-                    }
+                    },
                     Key::Backspace | Key::Delete => {
                         let _ = entered_text.pop();
-                    }
+                    },
                     Key::Control(Some(c)) if ctrl_key('h', c as u32) => {
                         let _ = entered_text.pop();
-                    }
+                    },
                     Key::Control(Some(c)) if ctrl_key('q', c as u32) => {
                         terminal.set_status_message(String::new());
                         callback(terminal, &entered_text, key);
                         return None;
-                    }
-                    _ => {}
+                    },
+                    _ => {},
                 }
 
                 callback(terminal, &entered_text, key);
@@ -100,21 +100,21 @@ pub trait Editor {
                     match key {
                         Key::ArrowLeft | Key::ArrowUp => {
                             direction = SearchDirection::Backwards;
-                        }
+                        },
                         Key::ArrowRight | Key::ArrowDown => {
                             direction = SearchDirection::Forwards;
-                        }
+                        },
                         Key::Return | Key::Escape => {
                             direction = SearchDirection::Forwards;
                             last_match = None;
                             run_search = false;
-                        }
-                        Key::Other(c) if c.is_control() => {}
-                        Key::Control(_) => {}
+                        },
+                        Key::Other(c) if c.is_control() => {},
+                        Key::Control(_) => {},
                         _ => {
                             direction = SearchDirection::Forwards;
                             last_match = None;
-                        }
+                        },
                     };
                     if run_search {
                         last_match =

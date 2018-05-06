@@ -1,9 +1,9 @@
 #![windows_subsystem = "console"]
 extern crate bim;
 
-use bim::EditorImpl;
 use bim::config::RunConfig;
 use bim::editor::Editor;
+use bim::EditorImpl;
 use std::env;
 
 fn run(run_type: RunConfig) {
@@ -15,7 +15,7 @@ fn run(run_type: RunConfig) {
     terminal.init();
     match run_type {
         RunOpenFile(ref filename) => terminal.open(filename),
-        _ => {}
+        _ => {},
     }
 
     if run_type == Debug {

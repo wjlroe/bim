@@ -164,7 +164,7 @@ impl Editor for EditorImpl {
                                         char::from_u32(unicode_char)
                                             .map(Key::Other)
                                     }
-                                }
+                                },
                             };
                         }
                     }

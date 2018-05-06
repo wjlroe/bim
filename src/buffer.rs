@@ -27,7 +27,9 @@ impl<'a> Buffer<'a> {
     }
 
     pub fn line_len(&self, line_num: i32) -> Option<usize> {
-        self.rows.get(line_num as usize).map(|row| row.size)
+        self.rows
+            .get(line_num as usize)
+            .map(|row| row.size)
     }
 
     pub fn text_cursor_to_render(&self, cursor_x: i32, cursor_y: i32) -> i32 {
@@ -53,9 +55,9 @@ impl<'a> Buffer<'a> {
     }
 
     fn update_syntax_highlighting(&mut self) {
-        self.rows
-            .iter_mut()
-            .fold(false, |prev, row| row.update_syntax_highlight(prev));
+        self.rows.iter_mut().fold(false, |prev, row| {
+            row.update_syntax_highlight(prev)
+        });
     }
 
     fn update(&mut self) {
@@ -92,7 +94,7 @@ impl<'a> Buffer<'a> {
             match read_info {
                 Ok(bytes_read) if bytes_read > 0 => {
                     self.append_row(&line);
-                }
+                },
                 _ => break,
             }
         }
@@ -126,7 +128,12 @@ impl<'a> Buffer<'a> {
                 .collect::<Vec<_>>(),
         };
         for y in lines {
-            assert!(y < num_rows, "num_rows = {}, y = {}", num_rows, y);
+            assert!(
+                y < num_rows,
+                "num_rows = {}, y = {}",
+                num_rows,
+                y
+            );
             let row = &mut self.rows[y];
             if let Some(rx) = row.index_of(needle) {
                 let x = row.render_cursor_to_text(rx);
@@ -189,7 +196,8 @@ impl<'a> Buffer<'a> {
         cursor_y: i32,
     ) {
         if cursor_y == self.rows.len() as i32 {
-            self.rows.push(Row::new("", Rc::downgrade(&self.syntax)));
+            self.rows
+                .push(Row::new("", Rc::downgrade(&self.syntax)));
         }
         self.rows[cursor_y as usize].insert_char(cursor_x as usize, character);
         self.update_from(cursor_y as usize);
@@ -233,7 +241,8 @@ impl<'a> Buffer<'a> {
             } else {
                 let onscreen_row = self.rows[filerow as usize]
                     .onscreen_text(col_offset as usize, screen_cols as usize);
-                self.append_buffer.push_str(onscreen_row.as_str());
+                self.append_buffer
+                    .push_str(onscreen_row.as_str());
             }
 
             self.clear_line();
@@ -302,7 +311,12 @@ fn test_insert_newline() {
             .collect::<Vec<_>>()
     );
     assert_eq!(
-        vec!["what a good first line.", "", "not ", "a bad second line"],
+        vec![
+            "what a good first line.",
+            "",
+            "not ",
+            "a bad second line",
+        ],
         buffer
             .rows
             .iter()
@@ -329,7 +343,11 @@ fn test_insert_newline_after_firstline() {
     buffer.insert_char('1', 0, 0);
     buffer.insert_newline(0, 1);
     assert_eq!(2, buffer.num_lines());
-    assert!(buffer.rows[0].as_str().ends_with(DEFAULT_NEWLINE));
+    assert!(
+        buffer.rows[0]
+            .as_str()
+            .ends_with(DEFAULT_NEWLINE)
+    );
 }
 
 #[test]
