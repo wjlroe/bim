@@ -83,11 +83,7 @@ fn process_keypress() {
                 return;
             }
 
-            if read(
-                STDIN_FILENO,
-                buf[1..].as_mut_ptr() as *mut c_void,
-                1,
-            ) == -1
+            if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) == -1
             {
                 return;
             }

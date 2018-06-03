@@ -69,7 +69,8 @@ impl Editor for EditorImpl {
             if GetConsoleMode(handle, &mut ORIG_INPUT_CONSOLE_MODE) != 0 {
                 atexit(disable_raw_input_mode);
                 let mut raw = ORIG_INPUT_CONSOLE_MODE.clone();
-                raw &= !(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT
+                raw &= !(ENABLE_ECHO_INPUT
+                    | ENABLE_LINE_INPUT
                     | ENABLE_PROCESSED_INPUT);
                 if SetConsoleMode(handle, raw) == 0 {
                     panic!("setting console input mode failed!");

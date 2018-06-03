@@ -49,7 +49,8 @@ impl<'a> Syntax<'a> {
 
     pub fn keywords1(mut self, keywords1: &'a [&'a str]) -> Syntax {
         {
-            let keywords = self.keywords
+            let keywords = self
+                .keywords
                 .entry(Highlight::Keyword1)
                 .or_insert(Vec::new());
             for keyword in keywords1 {
@@ -61,7 +62,8 @@ impl<'a> Syntax<'a> {
 
     pub fn keywords2(mut self, keywords2: &'a [&'a str]) -> Syntax {
         {
-            let keywords = self.keywords
+            let keywords = self
+                .keywords
                 .entry(Highlight::Keyword2)
                 .or_insert(Vec::new());
             for keyword in keywords2 {
@@ -92,31 +94,26 @@ impl<'a> Syntax<'a> {
     }
 
     pub fn highlight_numbers(&self) -> bool {
-        self.flags
-            .contains(&SyntaxSetting::HighlightNumbers)
+        self.flags.contains(&SyntaxSetting::HighlightNumbers)
     }
 
     pub fn highlight_strings(&self) -> bool {
-        self.flags
-            .contains(&SyntaxSetting::HighlightStrings)
+        self.flags.contains(&SyntaxSetting::HighlightStrings)
     }
 
     pub fn highlight_singleline_comments(&self) -> bool {
-        self.flags
-            .contains(&SyntaxSetting::HighlightComments)
+        self.flags.contains(&SyntaxSetting::HighlightComments)
             && self.singleline_comment_start.len() > 0
     }
 
     pub fn highlight_multiline_comments(&self) -> bool {
-        self.flags
-            .contains(&SyntaxSetting::HighlightComments)
+        self.flags.contains(&SyntaxSetting::HighlightComments)
             && self.multiline_comment_start.len() > 0
             && self.multiline_comment_end.len() > 0
     }
 
     pub fn highlight_keywords(&self) -> bool {
-        self.flags
-            .contains(&SyntaxSetting::HighlightKeywords)
+        self.flags.contains(&SyntaxSetting::HighlightKeywords)
     }
 
     pub fn starts_with_keyword(
@@ -248,10 +245,7 @@ fn test_starts_with_keyword_keyword1() {
         Some((Highlight::Keyword1, 2)),
         syntax.starts_with_keyword("if something")
     );
-    assert_eq!(
-        None,
-        syntax.starts_with_keyword(" if else blah")
-    );
+    assert_eq!(None, syntax.starts_with_keyword(" if else blah"));
 }
 
 #[test]
