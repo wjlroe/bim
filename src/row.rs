@@ -115,10 +115,7 @@ impl<'a> Row<'a> {
         for (hl_idx, (idx, c)) in (0..).zip(self.render.char_indices()) {
             let mut cur_hl = None;
             let prev_hl = if hl_idx > 0 {
-                self.hl
-                    .get(hl_idx - 1)
-                    .cloned()
-                    .unwrap_or(Normal)
+                self.hl.get(hl_idx - 1).cloned().unwrap_or(Normal)
             } else {
                 Normal
             };
@@ -133,7 +130,8 @@ impl<'a> Row<'a> {
                 continue;
             }
 
-            if syntax.highlight_singleline_comments() && in_string.is_none()
+            if syntax.highlight_singleline_comments()
+                && in_string.is_none()
                 && !in_comment
             {
                 let rest_of_line = &self.render[idx..];
@@ -204,10 +202,8 @@ impl<'a> Row<'a> {
                 if let Some((highlight, keyword_len)) =
                     syntax.starts_with_keyword(rest_of_line)
                 {
-                    let next_char = self.render
-                        .chars()
-                        .skip(idx + keyword_len)
-                        .nth(0);
+                    let next_char =
+                        self.render.chars().skip(idx + keyword_len).nth(0);
                     if next_char.is_none()
                         || self.is_separator(next_char.unwrap())
                     {
@@ -270,11 +266,7 @@ impl<'a> Row<'a> {
     }
 
     fn render_cursor_to_byte_position(&self, at: usize) -> usize {
-        self.chars
-            .chars()
-            .take(at)
-            .map(|c| c.len_utf8())
-            .sum()
+        self.chars.chars().take(at).map(|c| c.len_utf8()).sum()
     }
 
     fn byte_position_to_char_position(&self, at: usize) -> usize {
@@ -300,11 +292,7 @@ impl<'a> Row<'a> {
     }
 
     pub fn delete_char(&mut self, at: usize) {
-        let at = if at >= self.size {
-            self.size - 1
-        } else {
-            at
-        };
+        let at = if at >= self.size { self.size - 1 } else { at };
         let byte_pos = self.render_cursor_to_byte_position(at);
         self.chars.remove(byte_pos);
         self.update();
@@ -348,9 +336,7 @@ impl<'a> Row<'a> {
                 onscreen.push_str(
                     format!(
                         "\x1b[{}m{}",
-                        HL_TO_COLOUR
-                            .get(&hl_or_ol)
-                            .unwrap_or(&DEFAULT_COLOUR),
+                        HL_TO_COLOUR.get(&hl_or_ol).unwrap_or(&DEFAULT_COLOUR),
                         c
                     ).as_str(),
                 );
@@ -441,11 +427,7 @@ mod test {
     fn test_row_with_highlighted_numbers() {
         row_with_text_and_filetype!("123\r\n", "HLNumbers", syntax, row);
         assert!(
-            row.syntax
-                .upgrade()
-                .unwrap()
-                .unwrap()
-                .highlight_numbers(),
+            row.syntax.upgrade().unwrap().unwrap().highlight_numbers(),
             "Should have highlighted numbers"
         );
     }
@@ -538,10 +520,7 @@ mod test {
     fn test_append_text() {
         let mut row = new_row_without_syntax("this is a line of text.\r\n");
         row.append_text("another line.\r\n");
-        assert_eq!(
-            "this is a line of text.another line.\r\n",
-            row.chars
-        );
+        assert_eq!("this is a line of text.another line.\r\n", row.chars);
         let mut row = new_row_without_syntax("££\r\n");
         row.append_text("word\r\n");
         assert_eq!("££word\r\n", row.chars);
@@ -642,10 +621,7 @@ mod test {
             row
         );
         row.update_syntax_highlight(false);
-        assert!(
-            row.syntax.upgrade().is_some(),
-            "Should have valid syntax"
-        );
+        assert!(row.syntax.upgrade().is_some(), "Should have valid syntax");
         let onscreen = row.onscreen_text(0, 11);
         assert!(onscreen.contains("\x1b[31m1"));
         assert!(onscreen.contains("\x1b[39m"));
@@ -800,10 +776,8 @@ mod test {
         use syntax::SyntaxSetting::*;
         let syntax = Syntax::new("test").flag(HighlightComments);
         let rc = Rc::new(Some(&syntax));
-        let mut row = Row::new(
-            "nothing // and a comment\r\n",
-            Rc::downgrade(&rc),
-        );
+        let mut row =
+            Row::new("nothing // and a comment\r\n", Rc::downgrade(&rc));
         row.update_syntax_highlight(false);
         assert_eq!(vec![Highlight::Normal; 24], row.hl);
     }

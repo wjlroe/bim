@@ -14,4 +14,4 @@
         entry: rustup run nightly rustfmt
         language: system
         files: \.rs$
-        args: ['--unstable-features', '--write-mode=overwrite']
+        args: ['--unstable-features', '--check']
