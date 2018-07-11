@@ -10,5 +10,3 @@ build/
 *.VC.*
 *.dSYM
 .*debug
-*.txt
-testfiles/
