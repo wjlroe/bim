@@ -279,11 +279,7 @@ fn test_insert_newline() {
             "\r\n",
             "not a bad second line\r\n",
         ],
-        buffer
-            .rows
-            .iter()
-            .map(|r| r.as_str().clone())
-            .collect::<Vec<_>>()
+        buffer.rows.iter().map(|r| r.as_str().clone()).collect::<Vec<_>>()
     );
 
     buffer.insert_newline(2, 4);
@@ -296,11 +292,7 @@ fn test_insert_newline() {
             "not \r\n",
             "a bad second line\r\n",
         ],
-        buffer
-            .rows
-            .iter()
-            .map(|r| r.as_str().clone())
-            .collect::<Vec<_>>()
+        buffer.rows.iter().map(|r| r.as_str().clone()).collect::<Vec<_>>()
     );
     assert_eq!(
         vec!["what a good first line.", "", "not ", "a bad second line"],
@@ -341,11 +333,7 @@ fn test_insert_char() {
     buffer.insert_char('1', 1, 0);
     assert_eq!(
         vec!["£1"],
-        buffer
-            .rows
-            .iter()
-            .map(|r| r.as_str().clone())
-            .collect::<Vec<_>>()
+        buffer.rows.iter().map(|r| r.as_str().clone()).collect::<Vec<_>>()
     );
 }
 
@@ -354,9 +342,8 @@ fn test_search_match_highlighting() {
     let syntax = Rc::new(None);
     let mut buffer = Buffer::new(syntax);
     buffer.append_row("nothing abc123 nothing\r\n");
-    let match_coords = buffer
-        .search_for(None, SearchDirection::Forwards, "abc123")
-        .unwrap();
+    let match_coords =
+        buffer.search_for(None, SearchDirection::Forwards, "abc123").unwrap();
     let row_idx = match_coords.1;
     let row = &buffer.rows[row_idx];
     let onscreen = row.onscreen_text(0, 22);
@@ -368,9 +355,8 @@ fn test_clearing_search_overlay() {
     let syntax = Rc::new(None);
     let mut buffer = Buffer::new(syntax);
     buffer.append_row("nothing abc123 nothing\r\n");
-    let (_, row_idx) = buffer
-        .search_for(None, SearchDirection::Forwards, "abc123")
-        .unwrap();
+    let (_, row_idx) =
+        buffer.search_for(None, SearchDirection::Forwards, "abc123").unwrap();
     buffer.clear_search_overlay();
     let row = &buffer.rows[row_idx];
     let onscreen = row.onscreen_text(0, 22);

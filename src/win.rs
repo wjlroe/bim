@@ -182,9 +182,18 @@ impl Editor for EditorImpl {
         unsafe {
             let handle = GetStdHandle(STD_OUTPUT_HANDLE);
             let mut info = CONSOLE_SCREEN_BUFFER_INFO {
-                dwSize: COORD { X: 0, Y: 0 },
-                dwCursorPosition: COORD { X: 0, Y: 0 },
-                dwMaximumWindowSize: COORD { X: 0, Y: 0 },
+                dwSize: COORD {
+                    X: 0,
+                    Y: 0,
+                },
+                dwCursorPosition: COORD {
+                    X: 0,
+                    Y: 0,
+                },
+                dwMaximumWindowSize: COORD {
+                    X: 0,
+                    Y: 0,
+                },
                 wAttributes: 0,
                 srWindow: SMALL_RECT {
                     Left: 0,

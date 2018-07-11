@@ -89,8 +89,7 @@ impl<'a> Terminal<'a> {
             self.row_offset,
             self.col_offset,
         );
-        self.append_buffer
-            .push_str(self.buffer.append_buffer.as_str());
+        self.append_buffer.push_str(self.buffer.append_buffer.as_str());
     }
 
     fn draw_status_bar(&mut self) {
@@ -203,9 +202,8 @@ impl<'a> Terminal<'a> {
     fn scroll(&mut self) {
         self.rcursor_x = 0;
         if self.cursor_y < self.buffer.num_lines() as i32 {
-            self.rcursor_x = self
-                .buffer
-                .text_cursor_to_render(self.cursor_x, self.cursor_y);
+            self.rcursor_x =
+                self.buffer.text_cursor_to_render(self.cursor_x, self.cursor_y);
         }
 
         if self.cursor_y < self.row_offset {
@@ -352,8 +350,7 @@ impl<'a> Terminal<'a> {
     }
 
     fn insert_char(&mut self, character: char) {
-        self.buffer
-            .insert_char(character, self.cursor_x, self.cursor_y);
+        self.buffer.insert_char(character, self.cursor_x, self.cursor_y);
         self.cursor_x += 1;
         self.dirty += 1;
     }
@@ -555,10 +552,8 @@ impl<'a> Terminal<'a> {
     }
 
     fn start_debug(&self) {
-        if let Ok(mut file) = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .open(BIM_DEBUG_LOG)
+        if let Ok(mut file) =
+            OpenOptions::new().write(true).truncate(true).open(BIM_DEBUG_LOG)
         {
             let _ = file.write(
                 &format!("bim version {} starting\n", BIM_VERSION).into_bytes(),
@@ -628,14 +623,14 @@ impl<'a> Terminal<'a> {
             "search_for: '{}', direction: {}\r\n",
             needle, direction
         ));
-        self.buffer
-            .search_for(last_match, direction, needle)
-            .and_then(|(x, y)| {
+        self.buffer.search_for(last_match, direction, needle).and_then(
+            |(x, y)| {
                 self.cursor_x = x as i32;
                 self.cursor_y = y as i32;
                 self.row_offset = self.buffer.num_lines() as i32;
                 Some((x, y))
-            })
+            },
+        )
     }
 }
 
@@ -782,18 +777,10 @@ fn test_empty_file() {
 #[test]
 fn test_incremental_search() {
     let mut terminal = Terminal::new(10, 10);
-    terminal
-        .buffer
-        .append_row("line 1. has the search text on it\r\n");
-    terminal
-        .buffer
-        .append_row("line 2. doesn't have anything\r\n");
-    terminal
-        .buffer
-        .append_row("line 3. also has search text here\r\n");
-    terminal
-        .buffer
-        .append_row("line 4. another search text match\r\n");
+    terminal.buffer.append_row("line 1. has the search text on it\r\n");
+    terminal.buffer.append_row("line 2. doesn't have anything\r\n");
+    terminal.buffer.append_row("line 3. also has search text here\r\n");
+    terminal.buffer.append_row("line 4. another search text match\r\n");
     assert_eq!(
         Some((16, 0)),
         terminal.search_for(None, SearchDirection::Forwards, "search text")
@@ -837,9 +824,7 @@ fn test_newline_inside_multiline_comment() {
     let mut terminal = Terminal::new(100, 10);
     terminal.filename = Some("test.c".to_string());
     terminal.select_syntax();
-    terminal
-        .buffer
-        .append_row("/* this is a multiline comment */\r\n");
+    terminal.buffer.append_row("/* this is a multiline comment */\r\n");
     terminal.buffer.append_row("int 1;\r\n");
     for _ in 0..8 {
         terminal.process_key(Key::ArrowRight);
@@ -847,9 +832,7 @@ fn test_newline_inside_multiline_comment() {
     terminal.process_key(Key::Return);
     terminal.draw_rows();
     assert!(
-        terminal
-            .append_buffer
-            .contains("\x1b[36mis a multiline comment */")
+        terminal.append_buffer.contains("\x1b[36mis a multiline comment */")
     );
     assert!(terminal.append_buffer.contains("\x1b[32mint\x1b[39m"));
 }
@@ -859,9 +842,7 @@ fn test_backspace_inside_multiline_comment() {
     let mut terminal = Terminal::new(100, 10);
     terminal.filename = Some("test.c".to_string());
     terminal.select_syntax();
-    terminal
-        .buffer
-        .append_row("/* this is a multiline comment\r\n");
+    terminal.buffer.append_row("/* this is a multiline comment\r\n");
     terminal.buffer.append_row(" carrying on \r\n");
     terminal.buffer.append_row(" and ending */\r\n");
     terminal.process_key(Key::ArrowDown);
