@@ -1,7 +1,5 @@
-kilo
-win_size
+kilo/kilo
 .kilo_debug
-kilo-*.c
 target
 target-unix
 build/
@@ -12,5 +10,3 @@ build/
 *.VC.*
 *.dSYM
 .*debug
-*.txt
-testfiles/
