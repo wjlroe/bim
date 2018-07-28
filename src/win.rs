@@ -7,16 +7,18 @@ use std::ptr;
 use terminal::Terminal;
 use winapi::ctypes::c_void;
 use winapi::shared::minwindef::{DWORD, LPDWORD};
-use winapi::um::consoleapi::{GetConsoleMode, ReadConsoleInputA,
-                             SetConsoleMode, WriteConsoleA};
+use winapi::um::consoleapi::{
+    GetConsoleMode, ReadConsoleInputA, SetConsoleMode, WriteConsoleA,
+};
 use winapi::um::processenv::GetStdHandle;
 use winapi::um::synchapi::WaitForSingleObjectEx;
 use winapi::um::winbase::{WAIT_OBJECT_0, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
-use winapi::um::wincon::{GetConsoleScreenBufferInfo, INPUT_RECORD_Event,
-                         CONSOLE_SCREEN_BUFFER_INFO, COORD, ENABLE_ECHO_INPUT,
-                         ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
-                         ENABLE_WRAP_AT_EOL_OUTPUT, INPUT_RECORD, KEY_EVENT,
-                         LEFT_CTRL_PRESSED, SMALL_RECT};
+use winapi::um::wincon::{
+    GetConsoleScreenBufferInfo, INPUT_RECORD_Event, CONSOLE_SCREEN_BUFFER_INFO,
+    COORD, ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
+    ENABLE_WRAP_AT_EOL_OUTPUT, INPUT_RECORD, KEY_EVENT, LEFT_CTRL_PRESSED,
+    SMALL_RECT,
+};
 
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING: DWORD = 0x0004;
 const DISABLE_NEWLINE_AUTO_RETURN: DWORD = 0x0008;

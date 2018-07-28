@@ -6,9 +6,11 @@ extern crate libc;
 #[cfg(unix)]
 use errno::{errno, Errno};
 #[cfg(unix)]
-use libc::{atexit, c_void, read, tcgetattr, tcsetattr, termios, CS8, BRKINT,
-           EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON,
-           OPOST, STDIN_FILENO, TCSAFLUSH, VMIN, VTIME};
+use libc::{
+    atexit, c_void, read, tcgetattr, tcsetattr, termios, CS8, BRKINT, EAGAIN,
+    ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON, OPOST,
+    STDIN_FILENO, TCSAFLUSH, VMIN, VTIME,
+};
 
 #[cfg(target_os = "linux")]
 static mut ORIG_TERMIOS: termios = termios {

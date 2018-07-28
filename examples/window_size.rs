@@ -27,8 +27,10 @@ fn main() {
 fn main() {
     use winapi::um::processenv::GetStdHandle;
     use winapi::um::winbase::STD_OUTPUT_HANDLE;
-    use winapi::um::wincon::{GetConsoleScreenBufferInfo,
-                             CONSOLE_SCREEN_BUFFER_INFO, COORD, SMALL_RECT};
+    use winapi::um::wincon::{
+        GetConsoleScreenBufferInfo, CONSOLE_SCREEN_BUFFER_INFO, COORD,
+        SMALL_RECT,
+    };
 
     unsafe {
         let handle = GetStdHandle(STD_OUTPUT_HANDLE);
