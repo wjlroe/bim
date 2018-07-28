@@ -231,7 +231,9 @@ impl Editor for EditorImpl {
     }
 
     fn get_window_size(&self) -> Terminal {
-        get_window_size_ioctl().or_else(get_window_size_cursor_pos).unwrap()
+        get_window_size_ioctl()
+            .or_else(get_window_size_cursor_pos)
+            .unwrap()
     }
 
     fn read_a_character(&self) -> Option<Key> {

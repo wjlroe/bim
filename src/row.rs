@@ -292,11 +292,7 @@ impl<'a> Row<'a> {
     }
 
     pub fn delete_char(&mut self, at: usize) {
-        let at = if at >= self.size {
-            self.size - 1
-        } else {
-            at
-        };
+        let at = if at >= self.size { self.size - 1 } else { at };
         let byte_pos = self.render_cursor_to_byte_position(at);
         self.chars.remove(byte_pos);
         self.update();
