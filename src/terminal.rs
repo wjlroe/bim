@@ -89,7 +89,8 @@ impl<'a> Terminal<'a> {
             self.row_offset,
             self.col_offset,
         );
-        self.append_buffer.push_str(self.buffer.append_buffer.as_str());
+        self.append_buffer
+            .push_str(self.buffer.append_buffer.as_str());
     }
 
     fn draw_status_bar(&mut self) {
@@ -173,8 +174,8 @@ impl<'a> Terminal<'a> {
         match self.flush() {
             Err(err) => {
                 panic!("oh no! flush failed: {:?}", err);
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 
@@ -202,8 +203,8 @@ impl<'a> Terminal<'a> {
     fn scroll(&mut self) {
         self.rcursor_x = 0;
         if self.cursor_y < self.buffer.num_lines() as i32 {
-            self.rcursor_x =
-                self.buffer.text_cursor_to_render(self.cursor_x, self.cursor_y);
+            self.rcursor_x = self.buffer
+                .text_cursor_to_render(self.cursor_x, self.cursor_y);
         }
 
         if self.cursor_y < self.row_offset {
@@ -240,8 +241,8 @@ impl<'a> Terminal<'a> {
         match self.flush() {
             Err(err) => {
                 panic!("oh no! flush failed: {:?}", err);
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 
@@ -260,7 +261,7 @@ impl<'a> Terminal<'a> {
                 if self.cursor_y < 0 {
                     self.cursor_y = 0;
                 }
-            },
+            }
             MoveCursor {
                 unit: Rows,
                 direction: Down,
@@ -270,7 +271,7 @@ impl<'a> Terminal<'a> {
                 if self.cursor_y > self.buffer.num_lines() as i32 {
                     self.cursor_y = self.buffer.num_lines() as i32;
                 }
-            },
+            }
             MoveCursor {
                 unit: Rows,
                 direction: Left,
@@ -290,7 +291,7 @@ impl<'a> Terminal<'a> {
                     }
                     left_amount -= 1;
                 }
-            },
+            }
             MoveCursor {
                 unit: Rows,
                 direction: Right,
@@ -313,7 +314,7 @@ impl<'a> Terminal<'a> {
                         break;
                     }
                 }
-            },
+            }
             MoveCursor {
                 unit: Pages,
                 direction: Down,
@@ -321,7 +322,7 @@ impl<'a> Terminal<'a> {
             } => {
                 let amount = amount * self.screen_rows as usize;
                 self.move_cursor(MoveCursor::down(amount));
-            },
+            }
             MoveCursor {
                 unit: Pages,
                 direction: Up,
@@ -329,17 +330,17 @@ impl<'a> Terminal<'a> {
             } => {
                 let amount = amount * self.screen_rows as usize;
                 self.move_cursor(MoveCursor::up(amount));
-            },
+            }
             MoveCursor {
                 unit: Pages,
                 direction: Left,
                 ..
-            } => {},
+            } => {}
             MoveCursor {
                 unit: Pages,
                 direction: Right,
                 ..
-            } => {},
+            } => {}
         }
 
         let rowlen = self.buffer.line_len(self.cursor_y).unwrap_or(0);
@@ -350,7 +351,8 @@ impl<'a> Terminal<'a> {
     }
 
     fn insert_char(&mut self, character: char) {
-        self.buffer.insert_char(character, self.cursor_x, self.cursor_y);
+        self.buffer
+            .insert_char(character, self.cursor_x, self.cursor_y);
         self.cursor_x += 1;
         self.dirty += 1;
     }
@@ -426,12 +428,12 @@ impl<'a> Terminal<'a> {
                     self.reset();
                     exit(0);
                 }
-            },
+            }
             JumpCursorX(new_x) => {
                 if new_x <= self.buffer.line_len(self.cursor_y).unwrap_or(0) {
                     self.cursor_x = new_x as i32;
                 }
-            },
+            }
             JumpCursorY(new_y) => if new_y < self.buffer.num_lines() {
                 self.cursor_y = new_y as i32;
             },
@@ -439,16 +441,16 @@ impl<'a> Terminal<'a> {
             DeleteCharForward => {
                 self.move_cursor(MoveCursor::right(1));
                 self.delete_char();
-            },
+            }
             InsertNewline(row, col) => {
                 self.insert_newline(row, col);
-            },
+            }
             Linebreak(row, col) => {
                 self.insert_newline_and_return(row, col);
-            },
+            }
             Save => self.save_file(),
             InsertChar(c) => self.insert_char(c),
-            Search => {},
+            Search => {}
         }
 
         self.quit_times = BIM_QUIT_TIMES;
@@ -472,7 +474,7 @@ impl<'a> Terminal<'a> {
             Backspace => Some(DeleteCharBackward),
             Return => {
                 Some(Linebreak(self.cursor_y as usize, self.cursor_x as usize))
-            },
+            }
             Escape => None,
             Control(None) => None,
             Control(Some(c)) => {
@@ -487,7 +489,7 @@ impl<'a> Terminal<'a> {
                 } else {
                     None
                 }
-            },
+            }
             Other(c) => {
                 self.debug(format!(
                     "other key: {character}, {key_num:x}, {key_num} as u32\n",
@@ -509,7 +511,7 @@ impl<'a> Terminal<'a> {
                 } else {
                     None
                 }
-            },
+            }
         }
     }
 
@@ -537,7 +539,7 @@ impl<'a> Terminal<'a> {
                 self.filename = Some(filename.to_string());
                 self.buffer.open_file(f);
                 self.select_syntax();
-            },
+            }
             Err(e) => self.die(e.description()),
         }
     }
@@ -552,20 +554,24 @@ impl<'a> Terminal<'a> {
     }
 
     fn start_debug(&self) {
-        if let Ok(mut file) =
-            OpenOptions::new().write(true).truncate(true).open(BIM_DEBUG_LOG)
+        if let Ok(mut file) = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(BIM_DEBUG_LOG)
         {
+            let _ =
+                file.write(&format!("bim version {} starting\n", BIM_VERSION)
+                    .into_bytes());
             let _ = file.write(
-                &format!("bim version {} starting\n", BIM_VERSION).into_bytes(),
+                &format!("rows: {}\n", self.screen_rows).into_bytes()
             );
-            let _ = file
-                .write(&format!("rows: {}\n", self.screen_rows).into_bytes());
-            let _ = file
-                .write(&format!("cols: {}\n", self.screen_cols).into_bytes());
             let _ = file.write(
-                &format!("window size method: {}\n", self.window_size_method)
-                    .into_bytes(),
+                &format!("cols: {}\n", self.screen_cols).into_bytes()
             );
+            let _ = file.write(&format!(
+                "window size method: {}\n",
+                self.window_size_method
+            ).into_bytes());
             let _ = file.flush();
         }
     }
@@ -604,7 +610,7 @@ impl<'a> Terminal<'a> {
                         "{} bytes written to disk",
                         bytes_saved
                     ));
-                },
+                }
                 Err(err) => self.set_status_message(format!(
                     "Can't save! Error: {:?}",
                     err
@@ -623,14 +629,14 @@ impl<'a> Terminal<'a> {
             "search_for: '{}', direction: {}\r\n",
             needle, direction
         ));
-        self.buffer.search_for(last_match, direction, needle).and_then(
-            |(x, y)| {
+        self.buffer
+            .search_for(last_match, direction, needle)
+            .and_then(|(x, y)| {
                 self.cursor_x = x as i32;
                 self.cursor_y = y as i32;
                 self.row_offset = self.buffer.num_lines() as i32;
                 Some((x, y))
-            },
-        )
+            })
     }
 }
 
@@ -777,10 +783,18 @@ fn test_empty_file() {
 #[test]
 fn test_incremental_search() {
     let mut terminal = Terminal::new(10, 10);
-    terminal.buffer.append_row("line 1. has the search text on it\r\n");
-    terminal.buffer.append_row("line 2. doesn't have anything\r\n");
-    terminal.buffer.append_row("line 3. also has search text here\r\n");
-    terminal.buffer.append_row("line 4. another search text match\r\n");
+    terminal
+        .buffer
+        .append_row("line 1. has the search text on it\r\n");
+    terminal
+        .buffer
+        .append_row("line 2. doesn't have anything\r\n");
+    terminal
+        .buffer
+        .append_row("line 3. also has search text here\r\n");
+    terminal
+        .buffer
+        .append_row("line 4. another search text match\r\n");
     assert_eq!(
         Some((16, 0)),
         terminal.search_for(None, SearchDirection::Forwards, "search text")
@@ -824,7 +838,9 @@ fn test_newline_inside_multiline_comment() {
     let mut terminal = Terminal::new(100, 10);
     terminal.filename = Some("test.c".to_string());
     terminal.select_syntax();
-    terminal.buffer.append_row("/* this is a multiline comment */\r\n");
+    terminal
+        .buffer
+        .append_row("/* this is a multiline comment */\r\n");
     terminal.buffer.append_row("int 1;\r\n");
     for _ in 0..8 {
         terminal.process_key(Key::ArrowRight);
@@ -832,7 +848,9 @@ fn test_newline_inside_multiline_comment() {
     terminal.process_key(Key::Return);
     terminal.draw_rows();
     assert!(
-        terminal.append_buffer.contains("\x1b[36mis a multiline comment */")
+        terminal
+            .append_buffer
+            .contains("\x1b[36mis a multiline comment */")
     );
     assert!(terminal.append_buffer.contains("\x1b[32mint\x1b[39m"));
 }
@@ -842,7 +860,9 @@ fn test_backspace_inside_multiline_comment() {
     let mut terminal = Terminal::new(100, 10);
     terminal.filename = Some("test.c".to_string());
     terminal.select_syntax();
-    terminal.buffer.append_row("/* this is a multiline comment\r\n");
+    terminal
+        .buffer
+        .append_row("/* this is a multiline comment\r\n");
     terminal.buffer.append_row(" carrying on \r\n");
     terminal.buffer.append_row(" and ending */\r\n");
     terminal.process_key(Key::ArrowDown);

@@ -1,10 +1,12 @@
 use editor::Editor;
 use errno::{errno, Errno};
 use keycodes::Key;
-use libc::{atexit, c_char, c_void, ioctl, read, sscanf, tcgetattr, tcsetattr,
-           termios, winsize, write, CS8, BRKINT, EAGAIN, ECHO, ICANON, ICRNL,
-           IEXTEN, INPCK, ISIG, ISTRIP, IXON, OPOST, STDIN_FILENO,
-           STDOUT_FILENO, TCSAFLUSH, TIOCGWINSZ, VMIN, VTIME};
+use libc::{
+    atexit, c_char, c_void, ioctl, read, sscanf, tcgetattr, tcsetattr, termios,
+    winsize, write, CS8, BRKINT, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK,
+    ISIG, ISTRIP, IXON, OPOST, STDIN_FILENO, STDOUT_FILENO, TCSAFLUSH,
+    TIOCGWINSZ, VMIN, VTIME,
+};
 use std::char;
 use std::ffi::CString;
 use std::io::{stdout, Write};
@@ -229,7 +231,9 @@ impl Editor for EditorImpl {
     }
 
     fn get_window_size(&self) -> Terminal {
-        get_window_size_ioctl().or_else(get_window_size_cursor_pos).unwrap()
+        get_window_size_ioctl()
+            .or_else(get_window_size_cursor_pos)
+            .unwrap()
     }
 
     fn read_a_character(&self) -> Option<Key> {

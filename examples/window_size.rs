@@ -27,24 +27,17 @@ fn main() {
 fn main() {
     use winapi::um::processenv::GetStdHandle;
     use winapi::um::winbase::STD_OUTPUT_HANDLE;
-    use winapi::um::wincon::{GetConsoleScreenBufferInfo,
-                             CONSOLE_SCREEN_BUFFER_INFO, COORD, SMALL_RECT};
+    use winapi::um::wincon::{
+        GetConsoleScreenBufferInfo, CONSOLE_SCREEN_BUFFER_INFO, COORD,
+        SMALL_RECT,
+    };
 
     unsafe {
         let handle = GetStdHandle(STD_OUTPUT_HANDLE);
         let mut info = CONSOLE_SCREEN_BUFFER_INFO {
-            dwSize: COORD {
-                X: 0,
-                Y: 0,
-            },
-            dwCursorPosition: COORD {
-                X: 0,
-                Y: 0,
-            },
-            dwMaximumWindowSize: COORD {
-                X: 0,
-                Y: 0,
-            },
+            dwSize: COORD { X: 0, Y: 0 },
+            dwCursorPosition: COORD { X: 0, Y: 0 },
+            dwMaximumWindowSize: COORD { X: 0, Y: 0 },
             wAttributes: 0,
             srWindow: SMALL_RECT {
                 Left: 0,

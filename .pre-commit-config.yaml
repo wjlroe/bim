@@ -1,7 +1,7 @@
 exclude: '^(testfiles/)'
 repos:
 -   repo: git://github.com/pre-commit/pre-commit-hooks
-    sha: v1.3.0
+    sha: v1.4.0
     hooks:
     -   id: trailing-whitespace
     -   id: check-case-conflict
@@ -13,7 +13,7 @@ repos:
     -   id: rustfmt
         name: rustfmt
         description: Format files with rustfmt.
-        entry: rustup run nightly rustfmt
+        entry: cargo fmt
         language: system
         files: \.rs$
-        args: ['--unstable-features', '--check']
+        args: ['--', '--write-mode=overwrite']

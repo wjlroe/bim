@@ -15,7 +15,7 @@ fn run(run_type: RunConfig) {
     terminal.init();
     match run_type {
         RunOpenFile(ref filename) => terminal.open(filename),
-        _ => {},
+        _ => {}
     }
 
     if run_type == Debug {
