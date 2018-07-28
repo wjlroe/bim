@@ -1,4 +1,4 @@
-exclude: '^(testfiles/)'
+exclude: '^(testfiles|\.vscode|\.idea|\.vs)/'
 repos:
 -   repo: git://github.com/pre-commit/pre-commit-hooks
     sha: v1.4.0
