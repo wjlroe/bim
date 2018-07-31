@@ -10,3 +10,7 @@ build/
 *.VC.*
 *.dSYM
 .*debug
+*.txt
+testfiles/
+.idea/dbnavigator.xml
+.idea/workspace.xml
