@@ -49,7 +49,8 @@ impl<'a> Syntax<'a> {
 
     pub fn keywords1(mut self, keywords1: &'a [&'a str]) -> Syntax {
         {
-            let keywords = self.keywords
+            let keywords = self
+                .keywords
                 .entry(Highlight::Keyword1)
                 .or_insert(Vec::new());
             for keyword in keywords1 {
@@ -61,7 +62,8 @@ impl<'a> Syntax<'a> {
 
     pub fn keywords2(mut self, keywords2: &'a [&'a str]) -> Syntax {
         {
-            let keywords = self.keywords
+            let keywords = self
+                .keywords
                 .entry(Highlight::Keyword2)
                 .or_insert(Vec::new());
             for keyword in keywords2 {

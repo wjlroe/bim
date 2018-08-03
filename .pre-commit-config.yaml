@@ -16,4 +16,4 @@ repos:
         entry: cargo fmt
         language: system
         files: \.rs$
-        args: ['--', '--write-mode=overwrite']
+        pass_filenames: false
