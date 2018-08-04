@@ -151,7 +151,8 @@ impl<'a> Buffer<'a> {
     }
 
     pub fn insert_newline(&mut self, row: usize, col: usize) {
-        let newline = self.rows
+        let newline = self
+            .rows
             .get(row)
             .map(|r| r.newline())
             .unwrap_or(DEFAULT_NEWLINE.to_string());

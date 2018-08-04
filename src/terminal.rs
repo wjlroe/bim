@@ -203,7 +203,8 @@ impl<'a> Terminal<'a> {
     fn scroll(&mut self) {
         self.rcursor_x = 0;
         if self.cursor_y < self.buffer.num_lines() as i32 {
-            self.rcursor_x = self.buffer
+            self.rcursor_x = self
+                .buffer
                 .text_cursor_to_render(self.cursor_x, self.cursor_y);
         }
 
@@ -559,19 +560,17 @@ impl<'a> Terminal<'a> {
             .truncate(true)
             .open(BIM_DEBUG_LOG)
         {
-            let _ =
-                file.write(&format!("bim version {} starting\n", BIM_VERSION)
-                    .into_bytes());
             let _ = file.write(
-                &format!("rows: {}\n", self.screen_rows).into_bytes()
+                &format!("bim version {} starting\n", BIM_VERSION).into_bytes(),
             );
+            let _ = file
+                .write(&format!("rows: {}\n", self.screen_rows).into_bytes());
+            let _ = file
+                .write(&format!("cols: {}\n", self.screen_cols).into_bytes());
             let _ = file.write(
-                &format!("cols: {}\n", self.screen_cols).into_bytes()
+                &format!("window size method: {}\n", self.window_size_method)
+                    .into_bytes(),
             );
-            let _ = file.write(&format!(
-                "window size method: {}\n",
-                self.window_size_method
-            ).into_bytes());
             let _ = file.flush();
         }
     }
