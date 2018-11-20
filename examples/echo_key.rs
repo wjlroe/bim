@@ -7,7 +7,7 @@ extern crate libc;
 use errno::{errno, Errno};
 #[cfg(unix)]
 use libc::{
-    atexit, c_void, read, tcgetattr, tcsetattr, termios, CS8, BRKINT, EAGAIN,
+    atexit, c_void, read, tcgetattr, tcsetattr, termios, BRKINT, CS8, EAGAIN,
     ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON, OPOST,
     STDIN_FILENO, TCSAFLUSH, VMIN, VTIME,
 };

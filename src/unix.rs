@@ -3,7 +3,7 @@ use errno::{errno, Errno};
 use keycodes::Key;
 use libc::{
     atexit, c_char, c_void, ioctl, read, sscanf, tcgetattr, tcsetattr, termios,
-    winsize, write, CS8, BRKINT, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK,
+    winsize, write, BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK,
     ISIG, ISTRIP, IXON, OPOST, STDIN_FILENO, STDOUT_FILENO, TCSAFLUSH,
     TIOCGWINSZ, VMIN, VTIME,
 };

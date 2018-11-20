@@ -12,7 +12,7 @@ use winapi::um::consoleapi::{
 };
 use winapi::um::processenv::GetStdHandle;
 use winapi::um::synchapi::WaitForSingleObjectEx;
-use winapi::um::winbase::{WAIT_OBJECT_0, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
+use winapi::um::winbase::{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, WAIT_OBJECT_0};
 use winapi::um::wincon::{
     GetConsoleScreenBufferInfo, INPUT_RECORD_Event, CONSOLE_SCREEN_BUFFER_INFO,
     COORD, ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
