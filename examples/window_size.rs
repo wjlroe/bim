@@ -1,8 +1,3 @@
-#[cfg(windows)]
-extern crate winapi;
-
-extern crate libc;
-
 #[cfg(unix)]
 fn main() {
     use libc::{ioctl, winsize, STDOUT_FILENO, TIOCGWINSZ};

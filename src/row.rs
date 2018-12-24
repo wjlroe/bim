@@ -1,7 +1,7 @@
-use editor::DEFAULT_NEWLINE;
-use highlight::{Highlight, DEFAULT_COLOUR, HL_TO_COLOUR};
+use crate::editor::DEFAULT_NEWLINE;
+use crate::highlight::{Highlight, DEFAULT_COLOUR, HL_TO_COLOUR};
+use crate::syntax::Syntax;
 use std::rc::Weak;
-use syntax::Syntax;
 
 const TAB_STOP: usize = 8;
 const SEPARATORS: &str = ",.()+-/*=~%<>[];";
@@ -94,7 +94,7 @@ impl<'a> Row<'a> {
         &mut self,
         previous_ml_comment: bool,
     ) -> bool {
-        use self::Highlight::*;
+        use crate::highlight::Highlight::*;
 
         self.hl.clear();
         let syntax = self.syntax.upgrade();
@@ -334,7 +334,8 @@ impl<'a> Row<'a> {
                         "\x1b[{}m{}",
                         HL_TO_COLOUR.get(&hl_or_ol).unwrap_or(&DEFAULT_COLOUR),
                         c
-                    ).as_str(),
+                    )
+                    .as_str(),
                 );
                 last_highlight = Some(hl_or_ol);
             }
@@ -361,13 +362,14 @@ impl<'a> Row<'a> {
 
 #[cfg(test)]
 mod test {
-    use highlight::Highlight;
-    use row::Row;
+    use crate::highlight::Highlight;
+    use crate::row::Row;
+    use crate::syntax::Syntax;
+    use lazy_static::lazy_static;
     use std::rc::{Rc, Weak};
-    use syntax::Syntax;
 
     fn test_syntaxes() -> Vec<Syntax<'static>> {
-        use syntax::SyntaxSetting::*;
+        use crate::syntax::SyntaxSetting::*;
         vec![
             Syntax::new("HLNumbers").flag(HighlightNumbers),
             Syntax::new("HLStrings").flag(HighlightStrings),
@@ -769,7 +771,7 @@ mod test {
 
     #[test]
     fn test_highlight_ignore_singleline_comments() {
-        use syntax::SyntaxSetting::*;
+        use crate::syntax::SyntaxSetting::*;
         let syntax = Syntax::new("test").flag(HighlightComments);
         let rc = Rc::new(Some(&syntax));
         let mut row =

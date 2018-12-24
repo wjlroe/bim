@@ -1,6 +1,6 @@
-use commands::{Cmd, SearchDirection};
-use keycodes::{ctrl_key, Key};
-use terminal::Terminal;
+use crate::commands::{Cmd, SearchDirection};
+use crate::keycodes::{ctrl_key, Key};
+use crate::terminal::Terminal;
 
 pub const BIM_VERSION: &str = "0.0.1";
 
@@ -67,7 +67,7 @@ pub trait Editor {
     }
 
     fn preprocess_cmd(&self, terminal: &mut Terminal, cmd: Cmd) {
-        use commands::Cmd::*;
+        use crate::commands::Cmd::*;
 
         if cmd == Save && terminal.filename.is_none() {
             if let Some(filename) = self.prompt(

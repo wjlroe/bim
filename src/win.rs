@@ -1,10 +1,10 @@
-use editor::Editor;
-use keycodes::Key;
+use crate::editor::Editor;
+use crate::keycodes::Key;
 use libc::atexit;
 use std::char;
 use std::mem::zeroed;
 use std::ptr;
-use terminal::Terminal;
+use crate::terminal::Terminal;
 use winapi::ctypes::c_void;
 use winapi::shared::minwindef::{DWORD, LPDWORD};
 use winapi::um::consoleapi::{

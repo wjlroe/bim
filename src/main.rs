@@ -1,5 +1,4 @@
 #![windows_subsystem = "console"]
-extern crate bim;
 
 use bim::config::RunConfig;
 use bim::editor::Editor;
@@ -7,7 +6,7 @@ use bim::EditorImpl;
 use std::env;
 
 fn run(run_type: RunConfig) {
-    use RunConfig::*;
+    use bim::config::RunConfig::*;
 
     let editor = EditorImpl {};
     editor.enable_raw_mode();
@@ -31,11 +30,13 @@ fn run(run_type: RunConfig) {
 fn main() {
     let filename_arg = env::args().skip(1).nth(0);
     let run_type = match filename_arg {
-        Some(arg) => if arg == "--debug" {
-            RunConfig::Debug
-        } else {
-            RunConfig::RunOpenFile(arg)
-        },
+        Some(arg) => {
+            if arg == "--debug" {
+                RunConfig::Debug
+            } else {
+                RunConfig::RunOpenFile(arg)
+            }
+        }
         _ => RunConfig::Run,
     };
 
