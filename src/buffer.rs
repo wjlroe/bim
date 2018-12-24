@@ -1,11 +1,11 @@
-use commands::SearchDirection;
-use editor::{BIM_VERSION, DEFAULT_NEWLINE};
-use row::Row;
+use crate::commands::SearchDirection;
+use crate::editor::{BIM_VERSION, DEFAULT_NEWLINE};
+use crate::row::Row;
+use crate::syntax::Syntax;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::rc::Rc;
-use syntax::Syntax;
 
 pub struct Buffer<'a> {
     rows: Vec<Row<'a>>,
@@ -314,7 +314,7 @@ fn test_insert_newline() {
 
 #[test]
 fn test_insert_newline_default() {
-    use editor::DEFAULT_NEWLINE;
+    use crate::editor::DEFAULT_NEWLINE;
     let syntax = Rc::new(None);
     let mut buffer = Buffer::new(syntax);
     buffer.insert_newline(0, 0);
@@ -324,7 +324,7 @@ fn test_insert_newline_default() {
 
 #[test]
 fn test_insert_newline_after_firstline() {
-    use editor::DEFAULT_NEWLINE;
+    use crate::editor::DEFAULT_NEWLINE;
     let syntax = Rc::new(None);
     let mut buffer = Buffer::new(syntax);
     buffer.insert_char('1', 0, 0);

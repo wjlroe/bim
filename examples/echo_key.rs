@@ -1,9 +1,4 @@
 #[cfg(unix)]
-extern crate errno;
-#[cfg(unix)]
-extern crate libc;
-
-#[cfg(unix)]
 use errno::{errno, Errno};
 #[cfg(unix)]
 use libc::{

@@ -1,6 +1,7 @@
-use editor::Editor;
+use crate::editor::Editor;
+use crate::keycodes::Key;
+use crate::terminal::Terminal;
 use errno::{errno, Errno};
-use keycodes::Key;
 use libc::{
     atexit, c_char, c_void, ioctl, read, sscanf, tcgetattr, tcsetattr, termios,
     winsize, write, BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK,
@@ -10,7 +11,6 @@ use libc::{
 use std::char;
 use std::ffi::CString;
 use std::io::{stdout, Write};
-use terminal::Terminal;
 
 pub struct EditorImpl {}
 

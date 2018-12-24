@@ -1,14 +1,14 @@
-use buffer::Buffer;
-use commands::{Cmd, MoveCursor, SearchDirection};
-use editor::BIM_VERSION;
-use keycodes::{ctrl_key, Key};
+use crate::buffer::Buffer;
+use crate::commands::{Cmd, MoveCursor, SearchDirection};
+use crate::editor::BIM_VERSION;
+use crate::keycodes::{ctrl_key, Key};
+use crate::syntax::{Syntax, SYNTAXES};
 use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::{stdout, Write};
 use std::process::exit;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
-use syntax::{Syntax, SYNTAXES};
 use time::now;
 
 const UI_ROWS: i32 = 2;
@@ -248,8 +248,8 @@ impl<'a> Terminal<'a> {
     }
 
     pub fn move_cursor(&mut self, move_cursor: MoveCursor) {
-        use commands::Direction::*;
-        use commands::MoveUnit::*;
+        use crate::commands::Direction::*;
+        use crate::commands::MoveUnit::*;
 
         match move_cursor {
             MoveCursor {
@@ -409,7 +409,7 @@ impl<'a> Terminal<'a> {
     }
 
     pub fn process_cmd(&mut self, cmd: Cmd) {
-        use commands::Cmd::*;
+        use crate::commands::Cmd::*;
 
         match cmd {
             Move(move_cursor) => self.move_cursor(move_cursor),
@@ -435,9 +435,11 @@ impl<'a> Terminal<'a> {
                     self.cursor_x = new_x as i32;
                 }
             }
-            JumpCursorY(new_y) => if new_y < self.buffer.num_lines() {
-                self.cursor_y = new_y as i32;
-            },
+            JumpCursorY(new_y) => {
+                if new_y < self.buffer.num_lines() {
+                    self.cursor_y = new_y as i32;
+                }
+            }
             DeleteCharBackward => self.delete_char(),
             DeleteCharForward => {
                 self.move_cursor(MoveCursor::right(1));
@@ -458,8 +460,8 @@ impl<'a> Terminal<'a> {
     }
 
     pub fn key_to_cmd(&self, key: Key) -> Option<Cmd> {
-        use commands::Cmd::*;
-        use keycodes::Key::*;
+        use crate::commands::Cmd::*;
+        use crate::keycodes::Key::*;
 
         self.debug(format!("key press: {:?}\r\n", key));
         match key {
@@ -712,7 +714,7 @@ fn test_enter_at_eol() {
 
 #[test]
 fn test_key_to_cmd() {
-    use commands::Cmd::*;
+    use crate::commands::Cmd::*;
 
     let term = Terminal::new(1, 1);
     assert_eq!(Some(InsertChar('w')), term.key_to_cmd(Key::Other('w')));
@@ -764,7 +766,7 @@ fn test_key_to_cmd() {
 
 #[test]
 fn test_jump_to_end() {
-    use commands::Cmd::*;
+    use crate::commands::Cmd::*;
 
     let mut term = Terminal::new(10, 10);
     assert_eq!(None, term.key_to_cmd(Key::End));
@@ -846,11 +848,9 @@ fn test_newline_inside_multiline_comment() {
     }
     terminal.process_key(Key::Return);
     terminal.draw_rows();
-    assert!(
-        terminal
-            .append_buffer
-            .contains("\x1b[36mis a multiline comment */")
-    );
+    assert!(terminal
+        .append_buffer
+        .contains("\x1b[36mis a multiline comment */"));
     assert!(terminal.append_buffer.contains("\x1b[32mint\x1b[39m"));
 }
 
