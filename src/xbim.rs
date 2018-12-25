@@ -1,6 +1,6 @@
 use bim::config::RunConfig;
 use gfx::{format, Device};
-use gfx_glyph::{GlyphBrushBuilder, Section};
+use gfx_glyph::{GlyphBrushBuilder, Scale, Section};
 use glutin::{
   ContextBuilder, Event, EventsLoop, KeyboardInput, VirtualKeyCode,
   WindowBuilder, WindowEvent,
@@ -14,12 +14,17 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     .with_dimensions((400, 600).into());
   let context = ContextBuilder::new();
   let (window, mut device, mut factory, mut main_color, mut main_depth) =
-    gfx_window_glutin::init::<format::Srgba8, format::Depth>(
+    gfx_window_glutin::init::<format::Rgba8, format::Depth>(
       window_builder,
       context,
       &event_loop,
     )
     .unwrap();
+
+  unsafe {
+    device.with_gl(|gl| gl.Disable(gfx_gl::FRAMEBUFFER_SRGB));
+  }
+
   let fonts: Vec<&[u8]> = vec![include_bytes!("../iosevka-regular.ttf")];
 
   let mut glyph_brush = GlyphBrushBuilder::using_fonts_bytes(fonts)
@@ -48,7 +53,9 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
       _ => (),
     });
 
-    encoder.clear(&main_color, [0.16078, 0.16471, 0.26667, 1.0]);
+    // Purple background
+    let background = [0.16078, 0.16471, 0.26667, 1.0];
+    encoder.clear(&main_color, background);
     encoder.clear_depth(&main_depth, 1.0);
 
     let (width, height, ..) = main_color.get_dimensions();
@@ -57,7 +64,8 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     glyph_brush.queue(Section {
       bounds: (width, height),
       text: include_str!("../testfiles/kilo-dos2.c"),
-      color: [0.05, 0.05, 0.05, 1.0],
+      color: [0.9, 0.9, 0.9, 1.0],
+      scale: Scale::uniform(30.0),
       z: 1.0,
       ..Section::default()
     });
