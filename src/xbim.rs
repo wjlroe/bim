@@ -12,7 +12,7 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
   let window_builder = WindowBuilder::new()
     .with_title("bim")
     .with_dimensions((400, 600).into());
-  let context = ContextBuilder::new();
+  let context = ContextBuilder::new().with_vsync(true);
   let (window, mut device, mut factory, mut main_color, mut main_depth) =
     gfx_window_glutin::init::<format::Rgba8, format::Depth>(
       window_builder,
