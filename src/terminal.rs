@@ -179,7 +179,7 @@ impl<'a> Terminal<'a> {
         }
     }
 
-    fn flush(&mut self) -> Result<(), Box<Error>> {
+    fn flush(&mut self) -> Result<(), Box<dyn Error>> {
         {
             let output = self.append_buffer.as_bytes();
             let output_size = output.len();
@@ -593,7 +593,7 @@ impl<'a> Terminal<'a> {
         self.debug(format!("cols: {}\r\n", self.screen_cols));
     }
 
-    fn internal_save_file(&self) -> Result<usize, Box<Error>> {
+    fn internal_save_file(&self) -> Result<usize, Box<dyn Error>> {
         if let Some(ref filename) = self.filename {
             self.buffer.save_to_file(filename)
         } else {

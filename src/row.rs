@@ -401,8 +401,8 @@ mod test {
         static ref SYNTAXES: Vec<Syntax<'static>> = test_syntaxes();
     }
 
-    fn new_row_without_syntax(text: &str) -> Row {
-        let syntax: Weak<Option<&Syntax>> = Weak::new();
+    fn new_row_without_syntax(text: &str) -> Row<'_> {
+        let syntax: Weak<Option<&Syntax<'_>>> = Weak::new();
         Row::new(text, syntax)
     }
 

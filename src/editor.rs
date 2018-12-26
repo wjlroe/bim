@@ -11,18 +11,18 @@ pub const DEFAULT_NEWLINE: &str = "\n";
 
 pub trait Editor {
     fn enable_raw_mode(&self);
-    fn get_window_size(&self) -> Terminal;
+    fn get_window_size(&self) -> Terminal<'_>;
     fn read_a_character(&self) -> Option<Key>;
 
     fn prompt<F>(
         &self,
-        terminal: &mut Terminal,
+        terminal: &mut Terminal<'_>,
         status_left: &str,
         status_right: &str,
         mut callback: F,
     ) -> Option<String>
     where
-        F: FnMut(&mut Terminal, &str, Key),
+        F: FnMut(&mut Terminal<'_>, &str, Key),
     {
         let mut entered_text = String::new();
         loop {
@@ -66,7 +66,7 @@ pub trait Editor {
         Some(entered_text)
     }
 
-    fn preprocess_cmd(&self, terminal: &mut Terminal, cmd: Cmd) {
+    fn preprocess_cmd(&self, terminal: &mut Terminal<'_>, cmd: Cmd) {
         use crate::commands::Cmd::*;
 
         if cmd == Save && terminal.filename.is_none() {
@@ -134,7 +134,7 @@ pub trait Editor {
         }
     }
 
-    fn process_keypress(&self, mut terminal: &mut Terminal) {
+    fn process_keypress(&self, mut terminal: &mut Terminal<'_>) {
         if let Some(key) = self.read_a_character() {
             if let Some(cmd) = terminal.key_to_cmd(key) {
                 self.preprocess_cmd(&mut terminal, cmd);

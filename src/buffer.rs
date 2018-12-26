@@ -98,7 +98,7 @@ impl<'a> Buffer<'a> {
         }
     }
 
-    pub fn save_to_file(&self, filename: &str) -> Result<usize, Box<Error>> {
+    pub fn save_to_file(&self, filename: &str) -> Result<usize, Box<dyn Error>> {
         let mut bytes_saved: usize = 0;
         let mut buffer = BufWriter::new(File::create(filename)?);
         for line in &self.rows {

@@ -230,7 +230,7 @@ impl Editor for EditorImpl {
         }
     }
 
-    fn get_window_size(&self) -> Terminal {
+    fn get_window_size(&self) -> Terminal<'_> {
         get_window_size_ioctl()
             .or_else(get_window_size_cursor_pos)
             .unwrap()

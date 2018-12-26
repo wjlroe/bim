@@ -36,19 +36,19 @@ impl<'a> Syntax<'a> {
     }
 
     #[allow(dead_code)]
-    pub fn filematch(mut self, filematch: &'a str) -> Syntax {
+    pub fn filematch(mut self, filematch: &'a str) -> Syntax<'_> {
         self.filematches.push(filematch);
         self
     }
 
-    pub fn filematches(mut self, filematches: &'a [&'a str]) -> Syntax {
+    pub fn filematches(mut self, filematches: &'a [&'a str]) -> Syntax<'_> {
         for filematch in filematches {
             self.filematches.push(filematch);
         }
         self
     }
 
-    pub fn keywords1(mut self, keywords1: &'a [&'a str]) -> Syntax {
+    pub fn keywords1(mut self, keywords1: &'a [&'a str]) -> Syntax<'_> {
         {
             let keywords = self
                 .keywords
@@ -61,7 +61,7 @@ impl<'a> Syntax<'a> {
         self
     }
 
-    pub fn keywords2(mut self, keywords2: &'a [&'a str]) -> Syntax {
+    pub fn keywords2(mut self, keywords2: &'a [&'a str]) -> Syntax<'_> {
         {
             let keywords = self
                 .keywords
@@ -74,17 +74,17 @@ impl<'a> Syntax<'a> {
         self
     }
 
-    pub fn singleline_comment_start(mut self, singleline: &'a str) -> Syntax {
+    pub fn singleline_comment_start(mut self, singleline: &'a str) -> Syntax<'_> {
         self.singleline_comment_start = singleline;
         self
     }
 
-    pub fn multiline_comment_start(mut self, marker: &'a str) -> Syntax {
+    pub fn multiline_comment_start(mut self, marker: &'a str) -> Syntax<'_> {
         self.multiline_comment_start = marker;
         self
     }
 
-    pub fn multiline_comment_end(mut self, marker: &'a str) -> Syntax {
+    pub fn multiline_comment_end(mut self, marker: &'a str) -> Syntax<'_> {
         self.multiline_comment_end = marker;
         self
     }

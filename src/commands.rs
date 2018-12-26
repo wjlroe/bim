@@ -7,7 +7,7 @@ pub enum SearchDirection {
 }
 
 impl fmt::Display for SearchDirection {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             &SearchDirection::Forwards => write!(f, "Forwards"),
             &SearchDirection::Backwards => write!(f, "Backwards"),
