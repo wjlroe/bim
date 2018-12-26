@@ -48,6 +48,14 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             },
           ..
         } => running = false,
+        WindowEvent::Resized(size) => {
+          window.resize(size.to_physical(window.get_hidpi_factor()));
+          gfx_window_glutin::update_views(
+            &window,
+            &mut main_color,
+            &mut main_depth,
+          );
+        }
         _ => (),
       },
       _ => (),
