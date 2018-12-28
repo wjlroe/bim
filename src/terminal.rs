@@ -83,14 +83,41 @@ impl<'a> Terminal<'a> {
     }
 
     fn draw_rows(&mut self) {
-        self.buffer.draw_rows(
-            self.screen_rows,
-            self.screen_cols,
-            self.row_offset,
-            self.col_offset,
-        );
-        self.append_buffer
-            .push_str(self.buffer.append_buffer.as_str());
+        let numrows = self.buffer.num_lines() as i32;
+        for i in 0..self.screen_rows {
+            let filerow = i + self.row_offset;
+            if filerow >= numrows {
+                if numrows == 0 && i == self.screen_rows / 3 {
+                    let mut welcome =
+                        format!("bim editor - version {}", BIM_VERSION);
+                    welcome.truncate(self.screen_cols as usize);
+                    let mut padding =
+                        (self.screen_cols - welcome.len() as i32) / 2;
+                    if padding > 0 {
+                        self.append_buffer.push_str("~");
+                        padding -= 1;
+                    }
+                    // TODO: can we pad with spaces easier?
+                    let padding_str = format!("{:1$}", "", padding as usize);
+                    self.append_buffer.push_str(&padding_str);
+                    self.append_buffer.push_str(&welcome);
+                } else {
+                    self.append_buffer.push_str("~");
+                }
+            } else {
+                if let Some(onscreen_row) = self.buffer.row_onscreen_text(
+                    filerow as usize,
+                    self.col_offset as usize,
+                    self.screen_cols as usize,
+                ) {
+                    self.append_buffer.push_str(onscreen_row.as_str());
+                }
+            }
+
+            self.clear_line();
+
+            self.append_buffer.push_str("\r\n");
+        }
     }
 
     fn draw_status_bar(&mut self) {
@@ -196,7 +223,6 @@ impl<'a> Terminal<'a> {
             }
         }
         self.append_buffer.clear();
-        self.buffer.clear_append_buffer();
         Ok(())
     }
 

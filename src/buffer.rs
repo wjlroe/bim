@@ -1,5 +1,5 @@
 use crate::commands::SearchDirection;
-use crate::editor::{BIM_VERSION, DEFAULT_NEWLINE};
+use crate::editor::DEFAULT_NEWLINE;
 use crate::row::Row;
 use crate::syntax::Syntax;
 use std::error::Error;
@@ -9,7 +9,6 @@ use std::rc::Rc;
 
 pub struct Buffer<'a> {
     rows: Vec<Row<'a>>,
-    pub append_buffer: String,
     syntax: Rc<Option<&'a Syntax<'a>>>,
 }
 
@@ -17,7 +16,6 @@ impl<'a> Buffer<'a> {
     pub fn new(syntax: Rc<Option<&'a Syntax<'a>>>) -> Self {
         Buffer {
             rows: Vec::new(),
-            append_buffer: String::new(),
             syntax,
         }
     }
@@ -28,6 +26,17 @@ impl<'a> Buffer<'a> {
 
     pub fn line_len(&self, line_num: i32) -> Option<usize> {
         self.rows.get(line_num as usize).map(|row| row.size)
+    }
+
+    pub fn row_onscreen_text(
+        &self,
+        line_num: usize,
+        offset: usize,
+        cols: usize,
+    ) -> Option<String> {
+        self.rows
+            .get(line_num)
+            .map(|row| row.onscreen_text(offset, cols))
     }
 
     pub fn text_cursor_to_render(&self, cursor_x: i32, cursor_y: i32) -> i32 {
@@ -98,7 +107,10 @@ impl<'a> Buffer<'a> {
         }
     }
 
-    pub fn save_to_file(&self, filename: &str) -> Result<usize, Box<dyn Error>> {
+    pub fn save_to_file(
+        &self,
+        filename: &str,
+    ) -> Result<usize, Box<dyn Error>> {
         let mut bytes_saved: usize = 0;
         let mut buffer = BufWriter::new(File::create(filename)?);
         for line in &self.rows {
@@ -194,53 +206,6 @@ impl<'a> Buffer<'a> {
         }
         self.rows[cursor_y as usize].insert_char(cursor_x as usize, character);
         self.update_from(cursor_y as usize);
-    }
-
-    pub fn clear_append_buffer(&mut self) {
-        self.append_buffer.clear();
-    }
-
-    fn clear_line(&mut self) {
-        self.append_buffer.push_str("\x1b[K");
-    }
-
-    pub fn draw_rows(
-        &mut self,
-        screen_rows: i32,
-        screen_cols: i32,
-        row_offset: i32,
-        col_offset: i32,
-    ) {
-        let numrows = self.rows.len() as i32;
-        for i in 0..screen_rows {
-            let filerow = i + row_offset;
-            if filerow >= numrows {
-                if numrows == 0 && i == screen_rows / 3 {
-                    let mut welcome =
-                        format!("bim editor - version {}", BIM_VERSION);
-                    welcome.truncate(screen_cols as usize);
-                    let mut padding = (screen_cols - welcome.len() as i32) / 2;
-                    if padding > 0 {
-                        self.append_buffer.push_str("~");
-                        padding -= 1;
-                    }
-                    // TODO: can we pad with spaces easier?
-                    let padding_str = format!("{:1$}", "", padding as usize);
-                    self.append_buffer.push_str(&padding_str);
-                    self.append_buffer.push_str(&welcome);
-                } else {
-                    self.append_buffer.push_str("~");
-                }
-            } else {
-                let onscreen_row = self.rows[filerow as usize]
-                    .onscreen_text(col_offset as usize, screen_cols as usize);
-                self.append_buffer.push_str(onscreen_row.as_str());
-            }
-
-            self.clear_line();
-
-            self.append_buffer.push_str("\r\n");
-        }
     }
 }
 
