@@ -1,20 +1,95 @@
 use bim::config::RunConfig;
+use gfx;
+use gfx::traits::FactoryExt;
+use gfx::*;
 use gfx::{format, Device};
-use gfx_glyph::{GlyphBrushBuilder, Scale, Section};
+use gfx_glyph::{GlyphBrushBuilder, GlyphCruncher, Scale, Section};
+use glutin::dpi::LogicalPosition;
+use glutin::Api::OpenGl;
 use glutin::{
-  ContextBuilder, Event, EventsLoop, KeyboardInput, VirtualKeyCode,
-  WindowBuilder, WindowEvent,
+  ContextBuilder, Event, EventsLoop, GlProfile, GlRequest, KeyboardInput,
+  VirtualKeyCode, WindowBuilder, WindowEvent,
 };
 use std::{env, error::Error};
+
+#[derive(Copy, Clone, Default)]
+struct DrawState {
+  line_height: i32,
+  font_size: f32,
+  font_scale: f32,
+  left_padding: f32,
+  resized: bool,
+}
+
+impl DrawState {
+  fn font_size(&self) -> f32 {
+    self.font_size * self.font_scale
+  }
+
+  fn status_height(&self) -> f32 {
+    self.font_size * self.font_scale
+  }
+
+  fn inc_font_size(&mut self) {
+    self.font_size += 1.0;
+    self.resized = true;
+  }
+
+  fn dec_font_size(&mut self) {
+    self.font_size -= 1.0;
+    self.resized = true;
+  }
+}
+
+pub type ColorFormat = format::Rgba8;
+pub type DepthFormat = format::Depth;
+
+gfx_defines! {
+  vertex Vertex {
+    pos: [f32; 2] = "a_Pos",
+  }
+
+  constant Locals {
+    color: [f32; 3] = "u_Color",
+  }
+
+  pipeline pipe {
+    vbuf: gfx::VertexBuffer<Vertex> = (),
+    locals: gfx::ConstantBuffer<Locals> = "Locals",
+    out_color: gfx::BlendTarget<ColorFormat> = ("Target0", gfx::state::ColorMask::all(), gfx::preset::blend::ALPHA),
+    out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
+  }
+}
+
+const STATUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
+
+fn status_quad(window_height: f32, status_height: f32) -> Vec<Vertex> {
+  let half_height = window_height / 2.0;
+  let status_top = (half_height - status_height) / half_height;
+  let mut vertices = vec![];
+  vertices.reserve(4);
+  vertices.push(Vertex {
+    pos: [-1.0, -status_top],
+  });
+  vertices.push(Vertex { pos: [-1.0, -1.0] });
+  vertices.push(Vertex { pos: [1.0, -1.0] });
+  vertices.push(Vertex {
+    pos: [1.0, -status_top],
+  });
+  vertices
+}
 
 fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
   let mut event_loop = EventsLoop::new();
   let window_builder = WindowBuilder::new()
     .with_title("bim")
-    .with_dimensions((400, 600).into());
-  let context = ContextBuilder::new().with_vsync(true);
+    .with_dimensions((400, 500).into());
+  let context = ContextBuilder::new()
+    .with_gl(GlRequest::Specific(OpenGl, (3, 2)))
+    .with_gl_profile(GlProfile::Core)
+    .with_vsync(true);
   let (window, mut device, mut factory, mut main_color, mut main_depth) =
-    gfx_window_glutin::init::<format::Rgba8, format::Depth>(
+    gfx_window_glutin::init::<ColorFormat, DepthFormat>(
       window_builder,
       context,
       &event_loop,
@@ -25,6 +100,37 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     device.with_gl(|gl| gl.Disable(gfx_gl::FRAMEBUFFER_SRGB));
   }
 
+  window.set_position(LogicalPosition::new(400.0, 50.0));
+
+  let (width, height, ..) = main_color.get_dimensions();
+  let (width, height) = (f32::from(width), f32::from(height));
+
+  let mut draw_state = DrawState::default();
+  draw_state.font_size = 18.0;
+  draw_state.font_scale = 1.5;
+  draw_state.left_padding = 12.0;
+  draw_state.resized = true;
+
+  let quad_pso = factory
+    .create_pipeline_simple(
+      include_bytes!("shaders/quad_150_core.vert"),
+      include_bytes!("shaders/quad_150_core.frag"),
+      pipe::new(),
+    )
+    .expect("quad pso construction to work");
+  let quad_status = status_quad(height, draw_state.status_height());
+  let (quad_vbuf, quad_slice) = factory.create_vertex_buffer_with_slice(
+    &quad_status,
+    &[0u16, 1, 2, 2, 3, 0] as &[u16],
+  );
+  let quad_locals = Locals { color: STATUS_BG };
+  let mut quad_data = pipe::Data {
+    vbuf: quad_vbuf,
+    locals: factory.create_constant_buffer(1),
+    out_color: main_color.clone(),
+    out_depth: main_depth.clone(),
+  };
+
   let fonts: Vec<&[u8]> = vec![include_bytes!("../iosevka-regular.ttf")];
 
   let mut glyph_brush = GlyphBrushBuilder::using_fonts_bytes(fonts)
@@ -33,6 +139,8 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     .build(factory.clone());
 
   let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
+
+  encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
 
   let mut running = true;
 
@@ -48,7 +156,24 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             },
           ..
         } => running = false,
+        WindowEvent::KeyboardInput {
+          input:
+            KeyboardInput {
+              virtual_keycode: Some(VirtualKeyCode::Add),
+              ..
+            },
+          ..
+        } => draw_state.inc_font_size(),
+        WindowEvent::KeyboardInput {
+          input:
+            KeyboardInput {
+              virtual_keycode: Some(VirtualKeyCode::Subtract),
+              ..
+            },
+          ..
+        } => draw_state.dec_font_size(),
         WindowEvent::Resized(size) => {
+          draw_state.resized = true;
           window.resize(size.to_physical(window.get_hidpi_factor()));
           gfx_window_glutin::update_views(
             &window,
@@ -66,19 +191,48 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     encoder.clear(&main_color, background);
     encoder.clear_depth(&main_depth, 1.0);
 
-    let (width, height, ..) = main_color.get_dimensions();
-    let (width, height) = (f32::from(width), f32::from(height));
-
-    glyph_brush.queue(Section {
-      bounds: (width, height),
+    let section = Section {
+      bounds: (
+        width - draw_state.left_padding,
+        height - draw_state.status_height(),
+      ),
+      screen_position: (draw_state.left_padding, 0.0),
       text: include_str!("../testfiles/kilo-dos2.c"),
       color: [0.9, 0.9, 0.9, 1.0],
-      scale: Scale::uniform(30.0),
+      scale: Scale::uniform(draw_state.font_size()),
       z: 1.0,
       ..Section::default()
-    });
+    };
+
+    if draw_state.resized {
+      if let Some(glyph) = glyph_brush.glyphs(section).next() {
+        if let Some(bounding_box) = glyph.pixel_bounding_box() {
+          draw_state.line_height = bounding_box.max.y - bounding_box.min.y;
+          draw_state.resized = false;
+          println!("Line height: {}", draw_state.line_height);
+        }
+      }
+    }
+
+    let status_section = Section {
+      bounds: (width - draw_state.left_padding, draw_state.status_height()),
+      screen_position: (
+        draw_state.left_padding,
+        height - draw_state.status_height(),
+      ),
+      text: "Status",
+      color: [1.0, 1.0, 1.0, 1.0],
+      scale: Scale::uniform(draw_state.font_size()),
+      z: 0.5,
+      ..Section::default()
+    };
+
+    glyph_brush.queue(section);
+    glyph_brush.queue(status_section);
 
     glyph_brush.draw_queued(&mut encoder, &main_color, &main_depth)?;
+
+    encoder.draw(&quad_slice, &quad_pso, &quad_data);
 
     encoder.flush(&mut device);
     window.swap_buffers()?;
