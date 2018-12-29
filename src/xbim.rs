@@ -8,13 +8,15 @@ use gfx_glyph::{GlyphBrushBuilder, GlyphCruncher, Scale, Section};
 use glutin::dpi::LogicalPosition;
 use glutin::Api::OpenGl;
 use glutin::{
-  ContextBuilder, Event, EventsLoop, GlProfile, GlRequest, KeyboardInput,
-  VirtualKeyCode, WindowBuilder, WindowEvent,
+  ContextBuilder, ElementState, Event, EventsLoop, GlProfile, GlRequest,
+  KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent,
 };
 use std::{env, error::Error};
 
 #[derive(Copy, Clone, Default)]
 struct DrawState {
+  window_width: f32,
+  window_height: f32,
   line_height: i32,
   font_size: f32,
   ui_scale: f32,
@@ -31,6 +33,26 @@ impl DrawState {
     self.font_size * self.ui_scale
   }
 
+  fn status_transform(&self) -> Matrix4<f32> {
+    let status_height = self.status_height();
+    let status_scale = Matrix4::from_nonuniform_scale(
+      1.0,
+      status_height / self.window_height,
+      1.0,
+    );
+    let y_move = -((self.window_height - status_height) / status_height);
+    let status_move = Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
+    status_scale * status_move
+  }
+
+  fn inner_width(&self) -> f32 {
+    self.window_width - self.left_padding
+  }
+
+  fn inner_height(&self) -> f32 {
+    self.window_height - self.status_height()
+  }
+
   fn inc_font_size(&mut self) {
     self.font_size += 1.0;
     self.resized = true;
@@ -39,6 +61,12 @@ impl DrawState {
   fn dec_font_size(&mut self) {
     self.font_size -= 1.0;
     self.resized = true;
+  }
+
+  fn set_window_dimensions(&mut self, (width, height): (u16, u16)) {
+    let (width, height) = (f32::from(width), f32::from(height));
+    self.window_height = height;
+    self.window_width = width;
   }
 }
 
@@ -95,10 +123,11 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
   window.set_position(LogicalPosition::new(400.0, 50.0));
 
-  let (width, height, ..) = main_color.get_dimensions();
-  let (width, height) = (f32::from(width), f32::from(height));
-
   let mut draw_state = DrawState::default();
+  {
+    let (width, height, ..) = main_color.get_dimensions();
+    draw_state.set_window_dimensions((width, height));
+  }
   draw_state.font_size = 18.0;
   draw_state.ui_scale = 1.5;
   draw_state.left_padding = 12.0;
@@ -138,6 +167,7 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         WindowEvent::KeyboardInput {
           input:
             KeyboardInput {
+              state: ElementState::Pressed,
               virtual_keycode: Some(VirtualKeyCode::Escape),
               ..
             },
@@ -146,6 +176,7 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         WindowEvent::KeyboardInput {
           input:
             KeyboardInput {
+              state: ElementState::Pressed,
               virtual_keycode: Some(VirtualKeyCode::Add),
               ..
             },
@@ -154,19 +185,40 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         WindowEvent::KeyboardInput {
           input:
             KeyboardInput {
+              state: ElementState::Pressed,
               virtual_keycode: Some(VirtualKeyCode::Subtract),
               ..
             },
           ..
         } => draw_state.dec_font_size(),
+        WindowEvent::KeyboardInput {
+          input:
+            KeyboardInput {
+              state: ElementState::Pressed,
+              virtual_keycode: Some(VirtualKeyCode::M),
+              ..
+            },
+          ..
+        } => {
+          println!(
+            "status_height: {}, inner: ({}, {}), status_transform: {:?}",
+            draw_state.status_height(),
+            draw_state.inner_width(),
+            draw_state.inner_height(),
+            draw_state.status_transform(),
+          );
+        }
         WindowEvent::Resized(size) => {
-          draw_state.resized = true;
           window.resize(size.to_physical(window.get_hidpi_factor()));
           gfx_window_glutin::update_views(
             &window,
             &mut main_color,
             &mut main_depth,
           );
+          {
+            let (width, height, ..) = main_color.get_dimensions();
+            draw_state.set_window_dimensions((width, height));
+          }
         }
         _ => (),
       },
@@ -179,10 +231,7 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     encoder.clear_depth(&main_depth, 1.0);
 
     let section = Section {
-      bounds: (
-        width - draw_state.left_padding,
-        height - draw_state.status_height(),
-      ),
+      bounds: (draw_state.inner_width(), draw_state.inner_height()),
       screen_position: (draw_state.left_padding, 0.0),
       text: include_str!("../testfiles/kilo-dos2.c"),
       color: [0.9, 0.9, 0.9, 1.0],
@@ -201,11 +250,8 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     }
 
     let status_section = Section {
-      bounds: (width - draw_state.left_padding, draw_state.status_height()),
-      screen_position: (
-        draw_state.left_padding,
-        height - draw_state.status_height(),
-      ),
+      bounds: (draw_state.inner_width(), draw_state.status_height()),
+      screen_position: (draw_state.left_padding, draw_state.inner_height()),
       text: "Status",
       color: [1.0, 1.0, 1.0, 1.0],
       scale: Scale::uniform(draw_state.font_size()),
@@ -218,18 +264,11 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     glyph_brush.draw_queued(&mut encoder, &main_color, &main_depth)?;
 
-    let status_scale = Matrix4::from_nonuniform_scale(
-      1.0,
-      draw_state.status_height() / height,
-      1.0,
-    );
-    let y_move = -(( height - draw_state.status_height() ) / draw_state.status_height());
-    let status_move = Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
-    let status_transform = status_scale * status_move;
     let quad_locals = Locals {
       color: STATUS_BG,
-      transform: status_transform.into(),
+      transform: draw_state.status_transform().into(),
     };
+    // FIXME: Only update if they've changed
     encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
 
     encoder.draw(&quad_slice, &quad_pso, &quad_data);
