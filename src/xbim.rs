@@ -1,4 +1,5 @@
 use bim::config::RunConfig;
+use cgmath::{Matrix4, Vector3};
 use gfx;
 use gfx::traits::FactoryExt;
 use gfx::*;
@@ -16,18 +17,18 @@ use std::{env, error::Error};
 struct DrawState {
   line_height: i32,
   font_size: f32,
-  font_scale: f32,
+  ui_scale: f32,
   left_padding: f32,
   resized: bool,
 }
 
 impl DrawState {
   fn font_size(&self) -> f32 {
-    self.font_size * self.font_scale
+    self.font_size * self.ui_scale
   }
 
   fn status_height(&self) -> f32 {
-    self.font_size * self.font_scale
+    self.font_size * self.ui_scale
   }
 
   fn inc_font_size(&mut self) {
@@ -50,6 +51,7 @@ gfx_defines! {
   }
 
   constant Locals {
+    transform: [[f32; 4]; 4] = "u_Transform",
     color: [f32; 3] = "u_Color",
   }
 
@@ -63,21 +65,12 @@ gfx_defines! {
 
 const STATUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
 
-fn status_quad(window_height: f32, status_height: f32) -> Vec<Vertex> {
-  let half_height = window_height / 2.0;
-  let status_top = (half_height - status_height) / half_height;
-  let mut vertices = vec![];
-  vertices.reserve(4);
-  vertices.push(Vertex {
-    pos: [-1.0, -status_top],
-  });
-  vertices.push(Vertex { pos: [-1.0, -1.0] });
-  vertices.push(Vertex { pos: [1.0, -1.0] });
-  vertices.push(Vertex {
-    pos: [1.0, -status_top],
-  });
-  vertices
-}
+const QUAD: [Vertex; 4] = [
+  Vertex { pos: [-1.0, 1.0] },
+  Vertex { pos: [-1.0, -1.0] },
+  Vertex { pos: [1.0, -1.0] },
+  Vertex { pos: [1.0, 1.0] },
+];
 
 fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
   let mut event_loop = EventsLoop::new();
@@ -107,7 +100,7 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
   let mut draw_state = DrawState::default();
   draw_state.font_size = 18.0;
-  draw_state.font_scale = 1.5;
+  draw_state.ui_scale = 1.5;
   draw_state.left_padding = 12.0;
   draw_state.resized = true;
 
@@ -118,15 +111,11 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
       pipe::new(),
     )
     .expect("quad pso construction to work");
-  let quad_status = status_quad(height, draw_state.status_height());
-  let (quad_vbuf, quad_slice) = factory.create_vertex_buffer_with_slice(
-    &quad_status,
-    &[0u16, 1, 2, 2, 3, 0] as &[u16],
-  );
-  let quad_locals = Locals { color: STATUS_BG };
-  let mut quad_data = pipe::Data {
+  let (quad_vbuf, quad_slice) = factory
+    .create_vertex_buffer_with_slice(&QUAD, &[0u16, 1, 2, 2, 3, 0] as &[u16]);
+  let quad_data = pipe::Data {
     vbuf: quad_vbuf,
-    locals: factory.create_constant_buffer(1),
+    locals: factory.create_constant_buffer(2),
     out_color: main_color.clone(),
     out_depth: main_depth.clone(),
   };
@@ -139,8 +128,6 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     .build(factory.clone());
 
   let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
-
-  encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
 
   let mut running = true;
 
@@ -209,7 +196,6 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         if let Some(bounding_box) = glyph.pixel_bounding_box() {
           draw_state.line_height = bounding_box.max.y - bounding_box.min.y;
           draw_state.resized = false;
-          println!("Line height: {}", draw_state.line_height);
         }
       }
     }
@@ -231,6 +217,20 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     glyph_brush.queue(status_section);
 
     glyph_brush.draw_queued(&mut encoder, &main_color, &main_depth)?;
+
+    let status_scale = Matrix4::from_nonuniform_scale(
+      1.0,
+      draw_state.status_height() / height,
+      1.0,
+    );
+    let y_move = -(( height - draw_state.status_height() ) / draw_state.status_height());
+    let status_move = Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
+    let status_transform = status_scale * status_move;
+    let quad_locals = Locals {
+      color: STATUS_BG,
+      transform: status_transform.into(),
+    };
+    encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
 
     encoder.draw(&quad_slice, &quad_pso, &quad_data);
 
