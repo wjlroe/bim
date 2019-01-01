@@ -74,7 +74,10 @@ impl<'a> Syntax<'a> {
         self
     }
 
-    pub fn singleline_comment_start(mut self, singleline: &'a str) -> Syntax<'_> {
+    pub fn singleline_comment_start(
+        mut self,
+        singleline: &'a str,
+    ) -> Syntax<'_> {
         self.singleline_comment_start = singleline;
         self
     }
