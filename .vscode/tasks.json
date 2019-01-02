@@ -6,7 +6,7 @@
   },
   "tasks": [
     {
-      "taskName": "cargo build",
+      "label": "cargo build",
       "type": "shell",
       "command": "cargo",
       "args": [
@@ -16,7 +16,7 @@
       "problemMatcher": "$rustc"
     },
     {
-      "taskName": "cargo run",
+      "label": "cargo run",
       "type": "shell",
       "command": "cargo",
       "args": [
@@ -25,7 +25,7 @@
       "problemMatcher": "$rustc"
     },
     {
-      "taskName": "cargo test",
+      "label": "cargo test",
       "type": "shell",
       "command": "cargo",
       "args": [
@@ -38,7 +38,7 @@
       "problemMatcher": "$rustc"
     },
     {
-      "taskName": "cargo clean",
+      "label": "cargo clean",
       "type": "shell",
       "command": "cargo",
       "args": [

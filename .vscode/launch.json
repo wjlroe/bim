@@ -5,11 +5,34 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "xbim",
+      "type": "cppdbg",
+      "request": "launch",
+      "cwd": "${workspaceRoot}",
+      "environment": [],
+      "externalConsole": false,
+      "preLaunchTask": "cargo build",
+      "program": "${workspaceRoot}/target/debug/xbim",
+      "args": [
+        "testfiles/kilo-dos2.c"
+      ],
+      "stopAtEntry": false,
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    },
+    {
       "name": "(gdb) Bash on Windows Launch",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/kilo",
-      "args": ["kilo-unix2.c"],
+      "args": [
+        "kilo-unix2.c"
+      ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
@@ -33,7 +56,9 @@
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${workspaceFolder}/target/debug/bim.exe",
-      "args": ["kilo-dos2.c"],
+      "args": [
+        "kilo-dos2.c"
+      ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
