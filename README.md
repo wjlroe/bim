@@ -2,6 +2,8 @@
 
 Experiments in text editing.
 
+![Random line colours!](https://i.imgur.com/QfEqRa4l.png)
+
 ## The kilo code
 
 This originally was my code following through the [kilo tutorial](http://viewsourcecode.org/snaptoken/kilo/).
