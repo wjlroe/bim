@@ -5,13 +5,18 @@ use gfx::traits::FactoryExt;
 use gfx::*;
 use gfx::{format, Device};
 use gfx_glyph::{GlyphBrushBuilder, GlyphCruncher, Scale, Section};
-use glutin::dpi::LogicalPosition;
+use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::Api::OpenGl;
 use glutin::{
     ContextBuilder, ElementState, Event, EventsLoop, GlProfile, GlRequest,
     KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent,
 };
 use std::{env, error::Error};
+
+enum Action {
+    ResizeWindow,
+    Quit,
+}
 
 #[derive(Copy, Clone, Default)]
 struct DrawState {
@@ -52,6 +57,16 @@ impl DrawState {
 
     fn inner_height(&self) -> f32 {
         self.window_height - self.status_height()
+    }
+
+    fn print_info(&self) {
+        println!(
+            "status_height: {}, inner: ({}, {}), status_transform: {:?}",
+            self.status_height(),
+            self.inner_width(),
+            self.inner_height(),
+            self.status_transform()
+        );
     }
 
     fn inc_font_size(&mut self) {
@@ -102,10 +117,15 @@ const QUAD: [Vertex; 4] = [
 ];
 
 fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
+    let mut draw_state = DrawState::default();
     let mut event_loop = EventsLoop::new();
+    let mut logical_size = LogicalSize::new(400.0, 500.0);
+    if let Some(monitor) = event_loop.get_available_monitors().next() {
+        draw_state.ui_scale = monitor.get_hidpi_factor() as f32;
+    }
     let window_builder = WindowBuilder::new()
         .with_title("bim")
-        .with_dimensions((400, 500).into());
+        .with_dimensions(logical_size);
     let context = ContextBuilder::new()
         .with_gl(GlRequest::Specific(OpenGl, (3, 2)))
         .with_gl_profile(GlProfile::Core)
@@ -124,13 +144,11 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     window.set_position(LogicalPosition::new(400.0, 50.0));
 
-    let mut draw_state = DrawState::default();
     {
         let (width, height, ..) = main_color.get_dimensions();
         draw_state.set_window_dimensions((width, height));
     }
     draw_state.font_size = 18.0;
-    draw_state.ui_scale = 1.5;
     draw_state.left_padding = 12.0;
     draw_state.resized = true;
 
@@ -164,11 +182,13 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     let mut running = true;
 
+    let mut action_queue = vec![];
+
     while running {
         event_loop.poll_events(|event| match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested | WindowEvent::Destroyed => {
-                    running = false
+                    action_queue.push(Action::Quit)
                 }
                 WindowEvent::KeyboardInput {
                     input:
@@ -178,7 +198,7 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                             ..
                         },
                     ..
-                } => running = false,
+                } => action_queue.push(Action::Quit),
                 WindowEvent::KeyboardInput {
                     input:
                         KeyboardInput {
@@ -205,17 +225,28 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                             ..
                         },
                     ..
-                } => {
-                    println!(
-            "status_height: {}, inner: ({}, {}), status_transform: {:?}",
-            draw_state.status_height(),
-            draw_state.inner_width(),
-            draw_state.inner_height(),
-            draw_state.status_transform(),
-          );
+                } => draw_state.print_info(),
+                WindowEvent::Resized(new_logical_size) => {
+                    println!("Resized to: {:?}", new_logical_size);
+                    logical_size = new_logical_size;
+                    action_queue.push(Action::ResizeWindow);
                 }
-                WindowEvent::Resized(size) => {
-                    window.resize(size.to_physical(window.get_hidpi_factor()));
+                WindowEvent::HiDpiFactorChanged(new_dpi) => {
+                    println!("DPI changed: {}", new_dpi);
+                    draw_state.ui_scale = new_dpi as f32;
+                    action_queue.push(Action::ResizeWindow);
+                }
+                _ => (),
+            },
+            _ => (),
+        });
+
+        while let Some(action) = action_queue.pop() {
+            match action {
+                Action::ResizeWindow => {
+                    window.resize(
+                        logical_size.to_physical(draw_state.ui_scale as f64),
+                    );
                     gfx_window_glutin::update_views(
                         &window,
                         &mut main_color,
@@ -226,10 +257,9 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         draw_state.set_window_dimensions((width, height));
                     }
                 }
-                _ => (),
-            },
-            _ => (),
-        });
+                Action::Quit => running = false,
+            }
+        }
 
         // Purple background
         let background = [0.16078, 0.16471, 0.26667, 1.0];
