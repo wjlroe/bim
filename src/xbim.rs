@@ -1,16 +1,22 @@
 use bim::config::RunConfig;
+use bim::editor::BIM_VERSION;
 use cgmath::{Matrix4, Vector3};
 use gfx;
 use gfx::traits::FactoryExt;
 use gfx::*;
 use gfx::{format, Device};
-use gfx_glyph::{GlyphBrushBuilder, GlyphCruncher, Scale, Section};
+use gfx_glyph::{
+    GlyphBrushBuilder, GlyphCruncher, Scale, Section, SectionText,
+    VariedSection,
+};
 use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::Api::OpenGl;
 use glutin::{
     ContextBuilder, ElementState, Event, EventsLoop, GlProfile, GlRequest,
     KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent,
 };
+use rand::thread_rng;
+use rand::Rng;
 use std::{env, error::Error};
 
 enum Action {
@@ -184,6 +190,39 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     let mut action_queue = vec![];
 
+    let status_text = format!("bim editor - version {}", BIM_VERSION);
+
+    let file_text = include_str!("../testfiles/kilo-dos2.c");
+    let mut line_indices = vec![];
+    let mut line_begin = true;
+    #[derive(Copy, Clone)]
+    struct LineIndices {
+        start: usize,
+        end: usize,
+        color: [f32; 4],
+    };
+    let mut rng = thread_rng();
+    let mut current_line = LineIndices {
+        start: 0,
+        end: 0,
+        color: [0.9, 0.9, 0.9, 1.0],
+    };
+    for (idx, ch) in file_text.char_indices() {
+        if line_begin {
+            line_begin = false;
+            current_line.start = idx;
+        }
+        if ch == '\n' {
+            current_line.end = idx;
+            current_line.color[0] = rng.gen::<f32>();
+            current_line.color[1] = rng.gen::<f32>();
+            current_line.color[2] = rng.gen::<f32>();
+            line_indices.push(current_line.clone());
+            line_begin = true;
+        }
+    }
+    // FIXME: will ignore the last line if there's no newline on it
+
     while running {
         event_loop.poll_events(|event| match event {
             Event::WindowEvent { event, .. } => match event {
@@ -266,18 +305,26 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         encoder.clear(&main_color, background);
         encoder.clear_depth(&main_depth, 1.0);
 
-        let section = Section {
+        let section_texts = line_indices
+            .iter()
+            .map(|line_index| SectionText {
+                text: &file_text[line_index.start..line_index.end + 1],
+                scale: Scale::uniform(draw_state.font_size()),
+                color: line_index.color,
+                ..SectionText::default()
+            })
+            .collect::<Vec<_>>();
+
+        let section = VariedSection {
             bounds: (draw_state.inner_width(), draw_state.inner_height()),
             screen_position: (draw_state.left_padding, 0.0),
-            text: include_str!("../testfiles/kilo-dos2.c"),
-            color: [0.9, 0.9, 0.9, 1.0],
-            scale: Scale::uniform(draw_state.font_size()),
+            text: section_texts,
             z: 1.0,
-            ..Section::default()
+            ..VariedSection::default()
         };
 
         if draw_state.resized {
-            if let Some(glyph) = glyph_brush.glyphs(section).next() {
+            if let Some(glyph) = glyph_brush.glyphs(section.clone()).next() {
                 if let Some(bounding_box) = glyph.pixel_bounding_box() {
                     draw_state.line_height =
                         bounding_box.max.y - bounding_box.min.y;
@@ -292,7 +339,7 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                 draw_state.left_padding,
                 draw_state.inner_height(),
             ),
-            text: "Status",
+            text: &status_text,
             color: [1.0, 1.0, 1.0, 1.0],
             scale: Scale::uniform(draw_state.font_size()),
             z: 0.5,
