@@ -23,7 +23,10 @@
           "text": "-enable-pretty-printing",
           "ignoreFailures": true
         }
-      ]
+      ],
+      "windows": {
+        "type": "cppvsdbg"
+      }
     },
     {
       "name": "(gdb) Bash on Windows Launch",
