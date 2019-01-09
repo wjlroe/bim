@@ -24,6 +24,10 @@
           "ignoreFailures": true
         }
       ],
+      "osx": {
+        "type": "lldb-mi",
+        "target": "${workspaceRoot}/target/debug/xbim"
+      },
       "windows": {
         "type": "cppvsdbg"
       }
