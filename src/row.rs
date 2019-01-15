@@ -9,9 +9,9 @@ const SEPARATORS: &str = ",.()+-/*=~%<>[];";
 pub struct Row<'a> {
     chars: String,
     pub size: usize,
-    render: String,
+    pub render: String,
     rsize: usize,
-    hl: Vec<Highlight>,
+    pub hl: Vec<Highlight>,
     overlay: Vec<Option<Highlight>>,
     syntax: Weak<Option<&'a Syntax<'a>>>,
     pub hl_open_comment: bool,

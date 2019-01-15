@@ -12,10 +12,10 @@ pub use crate::unix::EditorImpl;
 #[cfg(windows)]
 pub use crate::win::EditorImpl;
 
-mod buffer;
+pub mod buffer;
 mod commands;
 pub mod config;
-mod highlight;
+pub mod highlight;
 mod keycodes;
 mod row;
 mod syntax;

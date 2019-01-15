@@ -1,5 +1,7 @@
+use bim::buffer::Buffer;
 use bim::config::RunConfig;
 use bim::editor::BIM_VERSION;
+use bim::highlight::Highlight;
 use cgmath::{Matrix4, Vector3};
 use gfx;
 use gfx::traits::FactoryExt;
@@ -15,8 +17,6 @@ use glutin::{
     ContextBuilder, ElementState, Event, EventsLoop, GlProfile, GlRequest,
     KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent,
 };
-use rand::thread_rng;
-use rand::Rng;
 use std::{env, error::Error};
 
 enum Action {
@@ -122,7 +122,25 @@ const QUAD: [Vertex; 4] = [
     Vertex { pos: [1.0, 1.0] },
 ];
 
-fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
+fn highlight_to_color(hl: Highlight) -> [f32; 4] {
+    use self::Highlight::*;
+
+    match hl {
+        Normal => [232.0 / 255.0, 230.0 / 255.0, 237.0 / 255.0, 1.0],
+        Number => [221.0 / 255.0, 119.0 / 255.0, 85.0 / 255.0, 1.0],
+        String => [191.0 / 255.0, 156.0 / 255.0, 249.0 / 255.0, 1.0],
+        Comment | MultilineComment => {
+            [86.0 / 255.0, 211.0 / 255.0, 194.0 / 255.0, 1.0]
+        }
+        Keyword1 => [242.0 / 255.0, 231.0 / 255.0, 183.0 / 255.0, 1.0],
+        Keyword2 => [4.0 / 255.0, 219.0 / 255.0, 181.0 / 255.0, 1.0],
+        _ => [0.9, 0.4, 0.2, 1.0],
+    }
+}
+
+fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
+    use bim::config::RunConfig::*;
+
     let mut draw_state = DrawState::default();
     let mut event_loop = EventsLoop::new();
     let mut logical_size = LogicalSize::new(400.0, 500.0);
@@ -190,38 +208,47 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     let mut action_queue = vec![];
 
+    let mut buffer = Buffer::new();
+    let filename = match run_type {
+        RunOpenFile(ref filename_arg) => filename_arg,
+        _ => "../testfiles/kilo-dos2.c",
+    };
+    match buffer.open(filename) {
+        Err(e) => panic!("Error: {}", e),
+        _ => {}
+    };
     let status_text = format!("bim editor - version {}", BIM_VERSION);
 
-    let file_text = include_str!("../testfiles/kilo-dos2.c");
-    let mut line_indices = vec![];
-    let mut line_begin = true;
-    #[derive(Copy, Clone)]
-    struct LineIndices {
-        start: usize,
-        end: usize,
-        color: [f32; 4],
+    #[derive(Clone)]
+    struct HighlightedSection {
+        text: String,
+        highlight: Option<Highlight>,
     };
-    let mut rng = thread_rng();
-    let mut current_line = LineIndices {
-        start: 0,
-        end: 0,
-        color: [0.9, 0.9, 0.9, 1.0],
+    let mut current_section = HighlightedSection {
+        text: String::new(),
+        highlight: None,
     };
-    for (idx, ch) in file_text.char_indices() {
-        if line_begin {
-            line_begin = false;
-            current_line.start = idx;
+    let mut highlighted_sections = vec![];
+    for row in buffer.rows {
+        let mut highlights = row.hl.iter();
+        for c in row.render.chars() {
+            let hl = highlights.next().cloned().unwrap_or(Highlight::Normal);
+            if current_section.highlight.is_none() {
+                current_section.highlight = Some(hl);
+            }
+            if current_section.highlight == Some(hl) {
+                current_section.text.push(c);
+            } else {
+                highlighted_sections.push(current_section.clone());
+                current_section.text.clear();
+                current_section.highlight = None;
+            }
         }
-        if ch == '\n' {
-            current_line.end = idx;
-            current_line.color[0] = rng.gen::<f32>();
-            current_line.color[1] = rng.gen::<f32>();
-            current_line.color[2] = rng.gen::<f32>();
-            line_indices.push(current_line.clone());
-            line_begin = true;
-        }
+        current_section.text.push('\n');
     }
-    // FIXME: will ignore the last line if there's no newline on it
+    if current_section.text != "" {
+        highlighted_sections.push(current_section.clone());
+    }
 
     while running {
         event_loop.poll_events(|event| match event {
@@ -305,12 +332,14 @@ fn run(_run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         encoder.clear(&main_color, background);
         encoder.clear_depth(&main_depth, 1.0);
 
-        let section_texts = line_indices
+        let section_texts = highlighted_sections
             .iter()
-            .map(|line_index| SectionText {
-                text: &file_text[line_index.start..line_index.end + 1],
+            .map(|hl_section| SectionText {
+                text: &hl_section.text,
                 scale: Scale::uniform(draw_state.font_size()),
-                color: line_index.color,
+                color: highlight_to_color(
+                    hl_section.highlight.unwrap_or(Highlight::Normal),
+                ),
                 ..SectionText::default()
             })
             .collect::<Vec<_>>();
