@@ -242,6 +242,7 @@ fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                 highlighted_sections.push(current_section.clone());
                 current_section.text.clear();
                 current_section.highlight = None;
+                current_section.text.push(c);
             }
         }
         current_section.text.push('\n');
