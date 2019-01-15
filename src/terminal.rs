@@ -2,12 +2,10 @@ use crate::buffer::Buffer;
 use crate::commands::{Cmd, MoveCursor, SearchDirection};
 use crate::editor::BIM_VERSION;
 use crate::keycodes::{ctrl_key, Key};
-use crate::syntax::{Syntax, SYNTAXES};
 use std::error::Error;
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::{stdout, Write};
 use std::process::exit;
-use std::rc::Rc;
 use std::time::{Duration, Instant};
 use time::now;
 
@@ -41,16 +39,13 @@ pub struct Terminal<'a> {
     append_buffer: String,
     pub row_offset: i32,
     pub col_offset: i32,
-    pub filename: Option<String>,
     dirty: i32,
     quit_times: i8,
     status: Option<Status>,
-    syntax: Rc<Option<&'a Syntax<'a>>>,
 }
 
 impl<'a> Terminal<'a> {
     pub fn new(screen_cols: i32, screen_rows: i32) -> Self {
-        let syntax = Rc::new(None);
         Terminal {
             screen_cols,
             screen_rows,
@@ -58,15 +53,13 @@ impl<'a> Terminal<'a> {
             cursor_x: 0,
             cursor_y: 0,
             rcursor_x: 0,
-            buffer: Buffer::new(Rc::clone(&syntax)),
+            buffer: Buffer::new(),
             append_buffer: String::new(),
             row_offset: 0,
             col_offset: 0,
-            filename: None,
             dirty: 0,
             quit_times: BIM_QUIT_TIMES,
             status: None,
-            syntax,
         }
     }
 
@@ -122,14 +115,17 @@ impl<'a> Terminal<'a> {
 
     fn draw_status_bar(&mut self) {
         self.append_buffer.push_str("\x1b[7m");
-        let filename =
-            self.filename.clone().unwrap_or(String::from("[No Name]"));
+        let filename = self
+            .buffer
+            .filename
+            .clone()
+            .unwrap_or(String::from("[No Name]"));
         let file_status = if self.dirty.is_positive() {
             "(modified)"
         } else {
             ""
         };
-        let filetype = self.syntax.map(|x| x.filetype).unwrap_or("no ft");
+        let filetype = self.buffer.get_filetype();
 
         let mut status = format!(
             "{0:.20} - {1} lines {2}",
@@ -553,24 +549,19 @@ impl<'a> Terminal<'a> {
         self.status = Some(status);
     }
 
-    fn select_syntax(&mut self) {
-        if let Some(ref filename) = self.filename {
-            *Rc::make_mut(&mut self.syntax) = SYNTAXES
-                .iter()
-                .find(|syntax| syntax.matches_filename(&filename));
-            self.buffer.set_syntax(Rc::clone(&self.syntax));
+    pub fn open(&mut self, filename: &str) {
+        match self.buffer.open(filename) {
+            Err(e) => self.die(e.description()),
+            _ => {}
         }
     }
 
-    pub fn open(&mut self, filename: &str) {
-        match File::open(filename) {
-            Ok(f) => {
-                self.filename = Some(filename.to_string());
-                self.buffer.open_file(f);
-                self.select_syntax();
-            }
-            Err(e) => self.die(e.description()),
-        }
+    pub fn has_filename(&self) -> bool {
+        self.buffer.filename.is_some()
+    }
+
+    pub fn set_filename(&mut self, filename: String) {
+        self.buffer.set_filename(filename);
     }
 
     pub fn init(&mut self) {
@@ -620,28 +611,20 @@ impl<'a> Terminal<'a> {
     }
 
     fn internal_save_file(&self) -> Result<usize, Box<dyn Error>> {
-        if let Some(ref filename) = self.filename {
-            self.buffer.save_to_file(filename)
-        } else {
-            Ok(0)
-        }
+        self.buffer.save_to_file()
     }
 
     pub fn save_file(&mut self) {
-        if self.filename.is_some() {
-            self.select_syntax();
-            match self.internal_save_file() {
-                Ok(bytes_saved) => {
-                    self.dirty = 0;
-                    self.set_status_message(format!(
-                        "{} bytes written to disk",
-                        bytes_saved
-                    ));
-                }
-                Err(err) => self.set_status_message(format!(
-                    "Can't save! Error: {:?}",
-                    err
-                )),
+        match self.internal_save_file() {
+            Ok(bytes_saved) => {
+                self.dirty = 0;
+                self.set_status_message(format!(
+                    "{} bytes written to disk",
+                    bytes_saved
+                ));
+            }
+            Err(err) => {
+                self.set_status_message(format!("Can't save! Error: {:?}", err))
             }
         }
     }
@@ -863,8 +846,7 @@ fn test_incremental_search() {
 #[test]
 fn test_newline_inside_multiline_comment() {
     let mut terminal = Terminal::new(100, 10);
-    terminal.filename = Some("test.c".to_string());
-    terminal.select_syntax();
+    terminal.buffer.set_filename("test.c".to_string());
     terminal
         .buffer
         .append_row("/* this is a multiline comment */\r\n");
@@ -883,8 +865,7 @@ fn test_newline_inside_multiline_comment() {
 #[test]
 fn test_backspace_inside_multiline_comment() {
     let mut terminal = Terminal::new(100, 10);
-    terminal.filename = Some("test.c".to_string());
-    terminal.select_syntax();
+    terminal.buffer.set_filename("test.c".to_string());
     terminal
         .buffer
         .append_row("/* this is a multiline comment\r\n");

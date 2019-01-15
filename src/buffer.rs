@@ -1,22 +1,25 @@
 use crate::commands::SearchDirection;
 use crate::editor::DEFAULT_NEWLINE;
 use crate::row::Row;
-use crate::syntax::Syntax;
+use crate::syntax::{Syntax, SYNTAXES};
+use simple_error::bail;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::rc::Rc;
 
 pub struct Buffer<'a> {
-    rows: Vec<Row<'a>>,
+    pub filename: Option<String>,
+    pub rows: Vec<Row<'a>>,
     syntax: Rc<Option<&'a Syntax<'a>>>,
 }
 
 impl<'a> Buffer<'a> {
-    pub fn new(syntax: Rc<Option<&'a Syntax<'a>>>) -> Self {
+    pub fn new() -> Self {
         Buffer {
+            filename: None,
             rows: Vec::new(),
-            syntax,
+            syntax: Rc::new(None),
         }
     }
 
@@ -91,6 +94,15 @@ impl<'a> Buffer<'a> {
         }
     }
 
+    fn select_syntax(&mut self) {
+        if let Some(ref filename) = self.filename {
+            *Rc::make_mut(&mut self.syntax) = SYNTAXES
+                .iter()
+                .find(|syntax| syntax.matches_filename(&filename));
+            self.set_syntax();
+        }
+    }
+
     pub fn open_file(&mut self, file: File) {
         self.clear();
 
@@ -105,19 +117,41 @@ impl<'a> Buffer<'a> {
                 _ => break,
             }
         }
+
+        self.select_syntax();
     }
 
-    pub fn save_to_file(
-        &self,
-        filename: &str,
-    ) -> Result<usize, Box<dyn Error>> {
-        let mut bytes_saved: usize = 0;
-        let mut buffer = BufWriter::new(File::create(filename)?);
-        for line in &self.rows {
-            bytes_saved += buffer.write(line.as_str().as_bytes())?;
+    pub fn get_filetype(&self) -> String {
+        self.syntax
+            .map(|x| x.filetype.to_string())
+            .unwrap_or("no ft".to_string())
+    }
+
+    pub fn open(&mut self, filename: &str) -> Result<(), Box<dyn Error>> {
+        let f = File::open(filename)?;
+        self.filename = Some(filename.to_string());
+        self.open_file(f);
+        self.select_syntax();
+        Ok(())
+    }
+
+    pub fn set_filename(&mut self, filename: String) {
+        self.filename = Some(filename);
+        self.select_syntax();
+    }
+
+    pub fn save_to_file(&self) -> Result<usize, Box<dyn Error>> {
+        if let Some(filename) = self.filename.clone() {
+            let mut bytes_saved: usize = 0;
+            let mut buffer = BufWriter::new(File::create(filename)?);
+            for line in &self.rows {
+                bytes_saved += buffer.write(line.as_str().as_bytes())?;
+            }
+            buffer.flush()?;
+            Ok(bytes_saved)
+        } else {
+            bail!("No filename!")
         }
-        buffer.flush()?;
-        Ok(bytes_saved)
     }
 
     pub fn search_for(
@@ -149,8 +183,7 @@ impl<'a> Buffer<'a> {
         None
     }
 
-    pub fn set_syntax(&mut self, syntax: Rc<Option<&'a Syntax<'a>>>) {
-        self.syntax = syntax;
+    pub fn set_syntax(&mut self) {
         for row in self.rows.iter_mut() {
             row.set_syntax(Rc::downgrade(&self.syntax));
         }
@@ -211,8 +244,7 @@ impl<'a> Buffer<'a> {
 
 #[test]
 fn test_join_row() {
-    let syntax = Rc::new(None);
-    let mut buffer = Buffer::new(syntax);
+    let mut buffer = Buffer::new();
 
     buffer.append_row("this is the first line. \r\n");
     buffer.append_row("this is the second line.\r\n");
@@ -229,8 +261,7 @@ fn test_join_row() {
 
 #[test]
 fn test_insert_newline() {
-    let syntax = Rc::new(None);
-    let mut buffer = Buffer::new(syntax);
+    let mut buffer = Buffer::new();
     buffer.append_row("what a good first line.\r\n");
     buffer.append_row("not a bad second line\r\n");
     assert_eq!(2, buffer.num_lines());
@@ -280,8 +311,7 @@ fn test_insert_newline() {
 #[test]
 fn test_insert_newline_default() {
     use crate::editor::DEFAULT_NEWLINE;
-    let syntax = Rc::new(None);
-    let mut buffer = Buffer::new(syntax);
+    let mut buffer = Buffer::new();
     buffer.insert_newline(0, 0);
     assert_eq!(1, buffer.num_lines());
     assert_eq!(DEFAULT_NEWLINE, buffer.rows[0].as_str());
@@ -290,8 +320,7 @@ fn test_insert_newline_default() {
 #[test]
 fn test_insert_newline_after_firstline() {
     use crate::editor::DEFAULT_NEWLINE;
-    let syntax = Rc::new(None);
-    let mut buffer = Buffer::new(syntax);
+    let mut buffer = Buffer::new();
     buffer.insert_char('1', 0, 0);
     buffer.insert_newline(0, 1);
     assert_eq!(2, buffer.num_lines());
@@ -300,8 +329,7 @@ fn test_insert_newline_after_firstline() {
 
 #[test]
 fn test_insert_char() {
-    let syntax = Rc::new(None);
-    let mut buffer = Buffer::new(syntax);
+    let mut buffer = Buffer::new();
     buffer.insert_char('£', 0, 0);
     buffer.insert_char('1', 1, 0);
     assert_eq!(
@@ -316,8 +344,7 @@ fn test_insert_char() {
 
 #[test]
 fn test_search_match_highlighting() {
-    let syntax = Rc::new(None);
-    let mut buffer = Buffer::new(syntax);
+    let mut buffer = Buffer::new();
     buffer.append_row("nothing abc123 nothing\r\n");
     let match_coords = buffer
         .search_for(None, SearchDirection::Forwards, "abc123")
@@ -330,8 +357,7 @@ fn test_search_match_highlighting() {
 
 #[test]
 fn test_clearing_search_overlay() {
-    let syntax = Rc::new(None);
-    let mut buffer = Buffer::new(syntax);
+    let mut buffer = Buffer::new();
     buffer.append_row("nothing abc123 nothing\r\n");
     let (_, row_idx) = buffer
         .search_for(None, SearchDirection::Forwards, "abc123")

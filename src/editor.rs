@@ -69,14 +69,14 @@ pub trait Editor {
     fn preprocess_cmd(&self, terminal: &mut Terminal<'_>, cmd: Cmd) {
         use crate::commands::Cmd::*;
 
-        if cmd == Save && terminal.filename.is_none() {
+        if cmd == Save && !terminal.has_filename() {
             if let Some(filename) = self.prompt(
                 terminal,
                 "Save as:",
                 "(ESC to cancel)",
                 |_, _, _| {},
             ) {
-                terminal.filename = Some(filename);
+                terminal.set_filename(filename);
             }
         } else if cmd == Search {
             let saved_cx = terminal.cursor_x;
