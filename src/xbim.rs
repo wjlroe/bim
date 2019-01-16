@@ -143,7 +143,7 @@ fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     let mut draw_state = DrawState::default();
     let mut event_loop = EventsLoop::new();
-    let mut logical_size = LogicalSize::new(400.0, 800.0);
+    let mut logical_size = LogicalSize::new(600.0, 800.0);
     if let Some(monitor) = event_loop.get_available_monitors().next() {
         draw_state.ui_scale = monitor.get_hidpi_factor() as f32;
     }
