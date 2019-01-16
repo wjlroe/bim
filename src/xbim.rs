@@ -319,6 +319,14 @@ fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         &mut main_color,
                         &mut main_depth,
                     );
+                    let (width, height): (u32, u32) = logical_size
+                        .to_physical(draw_state.ui_scale as f64)
+                        .into();
+                    unsafe {
+                        device.with_gl(|gl| {
+                            gl.Viewport(0, 0, width as i32, height as i32)
+                        });
+                    }
                     {
                         let (width, height, ..) = main_color.get_dimensions();
                         draw_state.set_window_dimensions((width, height));
