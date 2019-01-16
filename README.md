@@ -2,7 +2,7 @@
 
 Experiments in text editing.
 
-![Random line colours!](https://i.imgur.com/QfEqRa4l.png)
+![Basic syntax highlighting!](https://i.imgur.com/uSDZ2Wn.png)
 
 ## The kilo code
 
