@@ -26,3 +26,8 @@
   starting with the basic movement commands (hjkl).
 * TODO Multiple buffers: Allow having multiple files open at once, and have
   some way of switching between them.
+
+## GUI
+
+* TODO gfx (gfx_device_gl) is broken on resize. It calls glViewport with the
+  original window dimensions rather than new ones. Try to update gfx libraries.
