@@ -319,16 +319,12 @@ fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         &mut main_color,
                         &mut main_depth,
                     );
-                    let (width, height): (u32, u32) = logical_size
-                        .to_physical(draw_state.ui_scale as f64)
-                        .into();
-                    unsafe {
-                        device.with_gl(|gl| {
-                            gl.Viewport(0, 0, width as i32, height as i32)
-                        });
-                    }
                     {
                         let (width, height, ..) = main_color.get_dimensions();
+                        println!(
+                            "main_color.get_dimensions: ({}x{})",
+                            width, height
+                        );
                         draw_state.set_window_dimensions((width, height));
                     }
                 }
@@ -393,6 +389,7 @@ fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             color: STATUS_BG,
             transform: draw_state.status_transform().into(),
         };
+
         // FIXME: Only update if they've changed
         encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
 
