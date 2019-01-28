@@ -143,7 +143,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     let mut buffer = Buffer::new();
     let filename = match run_type {
         RunOpenFile(ref filename_arg) => filename_arg,
-        _ => "../testfiles/kilo-dos2.c",
+        _ => "testfiles/kilo-dos2.c",
     };
     match buffer.open(filename) {
         Err(e) => panic!("Error: {}", e),
