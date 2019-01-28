@@ -2,7 +2,7 @@ use crate::buffer::Buffer;
 use crate::config::RunConfig;
 use crate::editor::BIM_VERSION;
 use crate::gui::draw_state::DrawState;
-use crate::highlight::Highlight;
+use crate::highlight::{Highlight, HighlightedSection};
 use gfx;
 use gfx::traits::FactoryExt;
 use gfx::*;
@@ -151,11 +151,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     };
     let status_text = format!("bim editor - version {}", BIM_VERSION);
 
-    #[derive(Clone)]
-    struct HighlightedSection {
-        text: String,
-        highlight: Option<Highlight>,
-    };
     let mut current_section = HighlightedSection {
         text: String::new(),
         highlight: None,

@@ -31,3 +31,9 @@ lazy_static! {
         m
     };
 }
+
+#[derive(Clone)]
+pub struct HighlightedSection {
+    pub text: String,
+    pub highlight: Option<Highlight>,
+}
