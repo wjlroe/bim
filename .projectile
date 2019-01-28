@@ -6,5 +6,6 @@
 - *.ilk
 - *.db
 - *.bk
+- .idea/
 - build/
-- win_size
+- target/
