@@ -1,10 +1,34 @@
-use crate::editor::DEFAULT_NEWLINE;
 use crate::highlight::{Highlight, DEFAULT_COLOUR, HL_TO_COLOUR};
 use crate::syntax::Syntax;
+use std::fmt;
 use std::rc::Weak;
 
 const TAB_STOP: usize = 8;
 const SEPARATORS: &str = ",.()+-/*=~%<>[];";
+const UNIX_NEWLINE: &str = "\n";
+const DOS_NEWLINE: &str = "\r\n";
+
+#[allow(dead_code)]
+pub enum Newline {
+    Unix,
+    Dos,
+    Unknown,
+}
+
+impl fmt::Display for Newline {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Newline::Unix => write!(f, "{}", UNIX_NEWLINE),
+            Newline::Dos => write!(f, "{}", DOS_NEWLINE),
+            Newline::Unknown => write!(f, "{}", DEFAULT_NEWLINE.to_string()),
+        }
+    }
+}
+
+#[cfg(windows)]
+pub const DEFAULT_NEWLINE: Newline = Newline::Dos;
+#[cfg(not(windows))]
+pub const DEFAULT_NEWLINE: Newline = Newline::Unix;
 
 pub struct Row<'a> {
     chars: String,
@@ -298,7 +322,7 @@ impl<'a> Row<'a> {
         let byte_pos = self.render_cursor_to_byte_position(self.size);
         let newline = String::from(&self.chars[byte_pos..]);
         if newline.is_empty() {
-            String::from(DEFAULT_NEWLINE)
+            DEFAULT_NEWLINE.to_string()
         } else {
             newline
         }
@@ -363,7 +387,7 @@ impl<'a> Row<'a> {
 #[cfg(test)]
 mod test {
     use crate::highlight::Highlight;
-    use crate::row::Row;
+    use crate::row::{Row, DEFAULT_NEWLINE};
     use crate::syntax::Syntax;
     use lazy_static::lazy_static;
     use std::rc::{Rc, Weak};
@@ -532,6 +556,8 @@ mod test {
         assert_eq!("\n", row.newline());
         let row = new_row_without_syntax("££££\r\n");
         assert_eq!("\r\n", row.newline());
+        let row = new_row_without_syntax("no newline");
+        assert_eq!(DEFAULT_NEWLINE.to_string(), row.newline());
     }
 
     #[test]

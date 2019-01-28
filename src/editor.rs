@@ -4,11 +4,6 @@ use crate::terminal::Terminal;
 
 pub const BIM_VERSION: &str = "0.0.1";
 
-#[cfg(windows)]
-pub const DEFAULT_NEWLINE: &str = "\r\n";
-#[cfg(not(windows))]
-pub const DEFAULT_NEWLINE: &str = "\n";
-
 pub trait Editor {
     fn enable_raw_mode(&self);
     fn get_window_size(&self) -> Terminal<'_>;

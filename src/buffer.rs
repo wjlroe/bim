@@ -1,6 +1,5 @@
 use crate::commands::SearchDirection;
-use crate::editor::DEFAULT_NEWLINE;
-use crate::row::Row;
+use crate::row::{Row, DEFAULT_NEWLINE};
 use crate::syntax::{Syntax, SYNTAXES};
 use simple_error::bail;
 use std::error::Error;
@@ -210,6 +209,8 @@ impl<'a> Buffer<'a> {
         }
     }
 
+    // pub fn default_newline(&self) -> &str {}
+
     pub fn join_row(&mut self, at: usize) -> bool {
         if at > 0 && at < self.num_lines() {
             let row = self.rows.remove(at);
@@ -310,21 +311,25 @@ fn test_insert_newline() {
 
 #[test]
 fn test_insert_newline_default() {
-    use crate::editor::DEFAULT_NEWLINE;
+    use crate::row::DEFAULT_NEWLINE;
+
     let mut buffer = Buffer::new();
     buffer.insert_newline(0, 0);
     assert_eq!(1, buffer.num_lines());
-    assert_eq!(DEFAULT_NEWLINE, buffer.rows[0].as_str());
+    assert_eq!(DEFAULT_NEWLINE.to_string(), buffer.rows[0].as_str());
 }
 
 #[test]
 fn test_insert_newline_after_firstline() {
-    use crate::editor::DEFAULT_NEWLINE;
+    use crate::row::DEFAULT_NEWLINE;
+
     let mut buffer = Buffer::new();
     buffer.insert_char('1', 0, 0);
     buffer.insert_newline(0, 1);
     assert_eq!(2, buffer.num_lines());
-    assert!(buffer.rows[0].as_str().ends_with(DEFAULT_NEWLINE));
+    assert!(buffer.rows[0]
+        .as_str()
+        .ends_with(&DEFAULT_NEWLINE.to_string()));
 }
 
 #[test]
