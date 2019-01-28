@@ -76,9 +76,8 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     let mut draw_state = DrawState::default();
     let mut event_loop = EventsLoop::new();
     let mut logical_size = LogicalSize::new(600.0, 800.0);
-    if let Some(monitor) = event_loop.get_available_monitors().next() {
-        draw_state.ui_scale = monitor.get_hidpi_factor() as f32;
-    }
+    let monitor = event_loop.get_primary_monitor();
+    draw_state.ui_scale = monitor.get_hidpi_factor() as f32;
     let window_builder = WindowBuilder::new()
         .with_title("bim")
         .with_dimensions(logical_size);
@@ -252,6 +251,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                             "main_color.get_dimensions: ({}x{})",
                             width, height
                         );
+                        println!("DPI: {}", draw_state.ui_scale);
                         draw_state.set_window_dimensions((width, height));
                     }
                 }
