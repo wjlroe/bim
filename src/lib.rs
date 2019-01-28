@@ -20,3 +20,5 @@ mod keycodes;
 mod row;
 mod syntax;
 mod terminal;
+
+pub mod gui;
