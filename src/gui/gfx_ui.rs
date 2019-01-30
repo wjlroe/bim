@@ -85,7 +85,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         .with_gl(GlRequest::Specific(OpenGl, (3, 2)))
         .with_gl_profile(GlProfile::Core)
         .with_vsync(true);
-    let (window, mut device, mut factory, mut main_color, mut main_depth) =
+    let (window, mut device, mut factory, main_color, main_depth) =
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(
             window_builder,
             context,
@@ -118,11 +118,11 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         &QUAD,
         &[0u16, 1, 2, 2, 3, 0] as &[u16],
     );
-    let quad_data = pipe::Data {
+    let mut quad_data = pipe::Data {
         vbuf: quad_vbuf,
         locals: factory.create_constant_buffer(2),
-        out_color: main_color.clone(),
-        out_depth: main_depth.clone(),
+        out_color: main_color,
+        out_depth: main_depth,
     };
 
     let fonts: Vec<&[u8]> = vec![include_bytes!("iosevka-regular.ttf")];
@@ -242,11 +242,12 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                     );
                     gfx_window_glutin::update_views(
                         &window,
-                        &mut main_color,
-                        &mut main_depth,
+                        &mut quad_data.out_color,
+                        &mut quad_data.out_depth,
                     );
                     {
-                        let (width, height, ..) = main_color.get_dimensions();
+                        let (width, height, ..) =
+                            quad_data.out_color.get_dimensions();
                         println!(
                             "main_color.get_dimensions: ({}x{})",
                             width, height
@@ -261,8 +262,8 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
         // Purple background
         let background = [0.16078, 0.16471, 0.26667, 1.0];
-        encoder.clear(&main_color, background);
-        encoder.clear_depth(&main_depth, 1.0);
+        encoder.clear(&quad_data.out_color, background);
+        encoder.clear_depth(&quad_data.out_depth, 1.0);
 
         let section_texts = highlighted_sections
             .iter()
@@ -310,7 +311,11 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         glyph_brush.queue(section);
         glyph_brush.queue(status_section);
 
-        glyph_brush.draw_queued(&mut encoder, &main_color, &main_depth)?;
+        glyph_brush.draw_queued(
+            &mut encoder,
+            &quad_data.out_color,
+            &quad_data.out_depth,
+        )?;
 
         let quad_locals = Locals {
             color: STATUS_BG,
