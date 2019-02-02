@@ -1,6 +1,22 @@
 use cgmath::{Matrix4, Vector3};
 
 #[derive(Copy, Clone, Default)]
+pub struct RenderedCursor {
+    pub text_row: i32,
+    pub text_col: i32,
+}
+
+impl RenderedCursor {
+    pub fn move_right(&mut self, amount: i32) {
+        self.text_col += amount;
+    }
+
+    pub fn move_down(&mut self, amount: i32) {
+        self.text_row += amount;
+    }
+}
+
+#[derive(Copy, Clone, Default)]
 pub struct DrawState {
     pub window_width: f32,
     pub window_height: f32,
@@ -9,6 +25,7 @@ pub struct DrawState {
     pub ui_scale: f32,
     pub left_padding: f32,
     pub resized: bool,
+    pub cursor: RenderedCursor,
 }
 
 impl DrawState {

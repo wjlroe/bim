@@ -46,6 +46,7 @@ gfx_defines! {
 }
 
 const STATUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
+const CURSOR_BG: [f32; 3] = [250.0 / 256.0, 250.0 / 256.0, 250.0 / 256.0];
 
 const QUAD: [Vertex; 4] = [
     Vertex { pos: [-1.0, 1.0] },
@@ -153,9 +154,11 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     let mut current_section = HighlightedSection {
         text: String::new(),
         highlight: None,
+        start_row_idx: 0,
+        end_row_idx: 0,
     };
     let mut highlighted_sections = vec![];
-    for row in buffer.rows {
+    for (row_idx, row) in buffer.rows.iter().enumerate() {
         let mut highlights = row.hl.iter();
         for c in row.render.chars() {
             let hl = highlights.next().cloned().unwrap_or(Highlight::Normal);
@@ -165,12 +168,15 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             if current_section.highlight == Some(hl) {
                 current_section.text.push(c);
             } else {
+                current_section.end_row_idx = row_idx;
                 highlighted_sections.push(current_section.clone());
                 current_section.text.clear();
                 current_section.highlight = None;
                 current_section.text.push(c);
+                current_section.start_row_idx = row_idx;
             }
         }
+        current_section.end_row_idx = row_idx;
         current_section.text.push('\n');
     }
     if current_section.text != "" {
@@ -265,17 +271,18 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         encoder.clear(&quad_data.out_color, background);
         encoder.clear_depth(&quad_data.out_depth, 1.0);
 
-        let section_texts = highlighted_sections
-            .iter()
-            .map(|hl_section| SectionText {
-                text: &hl_section.text,
+        let mut section_texts = vec![];
+        for highlighted_section in highlighted_sections.iter() {
+            let section = SectionText {
+                text: &highlighted_section.text,
                 scale: Scale::uniform(draw_state.font_size()),
                 color: highlight_to_color(
-                    hl_section.highlight.unwrap_or(Highlight::Normal),
+                    highlighted_section.highlight.unwrap_or(Highlight::Normal),
                 ),
                 ..SectionText::default()
-            })
-            .collect::<Vec<_>>();
+            };
+            section_texts.push(section);
+        }
 
         let section = VariedSection {
             bounds: (draw_state.inner_width(), draw_state.inner_height()),
@@ -317,15 +324,31 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             &quad_data.out_depth,
         )?;
 
-        let quad_locals = Locals {
-            color: STATUS_BG,
-            transform: draw_state.status_transform().into(),
-        };
+        {
+            // Render cursor
+            // from top of line of text to bottom of line of text
+            // from left of character to right of character
+            let quad_locals = Locals {
+                color: CURSOR_BG,
+                transform: draw_state.status_transform().into(),
+            };
 
-        // FIXME: Only update if they've changed
-        encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
+            // FIXME: Only update if they've changed
+            encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
+            encoder.draw(&quad_slice, &quad_pso, &quad_data);
+        }
 
-        encoder.draw(&quad_slice, &quad_pso, &quad_data);
+        {
+            // Render status background
+            let quad_locals = Locals {
+                color: STATUS_BG,
+                transform: draw_state.status_transform().into(),
+            };
+
+            // FIXME: Only update if they've changed
+            encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
+            encoder.draw(&quad_slice, &quad_pso, &quad_data);
+        }
 
         encoder.flush(&mut device);
         window.swap_buffers()?;
