@@ -74,16 +74,15 @@ fn highlight_to_color(hl: Highlight) -> [f32; 4] {
 pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     use crate::config::RunConfig::*;
 
-    let mut draw_state = DrawState::default();
     let mut event_loop = EventsLoop::new();
     let mut logical_size = LogicalSize::new(600.0, 800.0);
     let monitor = event_loop.get_primary_monitor();
-    draw_state.ui_scale = monitor.get_hidpi_factor() as f32;
+    let mut dpi = monitor.get_hidpi_factor() as f32;
     let window_builder = WindowBuilder::new()
         .with_title("bim")
         .with_dimensions(logical_size);
     let context = ContextBuilder::new()
-        .with_gl(GlRequest::Specific(OpenGl, (3, 2)))
+        .with_gl(GlRequest::Specific(OpenGl, (4, 3)))
         .with_gl_profile(GlProfile::Core)
         .with_vsync(true);
     let (window, mut device, mut factory, main_color, main_depth) =
@@ -100,13 +99,9 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     window.set_position(LogicalPosition::new(400.0, 50.0));
 
-    {
-        let (width, height, ..) = main_color.get_dimensions();
-        draw_state.set_window_dimensions((width, height));
-    }
-    draw_state.font_size = 18.0;
-    draw_state.left_padding = 12.0;
-    draw_state.resized = true;
+    let (window_width, window_height, ..) = main_color.get_dimensions();
+    let mut draw_state =
+        DrawState::new(window_width as f32, window_height as f32, 18.0, dpi);
 
     let quad_pso = factory
         .create_pipeline_simple(
@@ -137,6 +132,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         factory.create_command_buffer().into();
 
     let mut running = true;
+    let mut window_resized = true;
 
     let mut action_queue = vec![];
 
@@ -225,6 +221,15 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         },
                     ..
                 } => draw_state.print_info(),
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Down),
+                            ..
+                        },
+                    ..
+                } => draw_state.move_cursor_col(1),
                 WindowEvent::Resized(new_logical_size) => {
                     println!("Resized to: {:?}", new_logical_size);
                     logical_size = new_logical_size;
@@ -232,7 +237,8 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                 }
                 WindowEvent::HiDpiFactorChanged(new_dpi) => {
                     println!("DPI changed: {}", new_dpi);
-                    draw_state.ui_scale = new_dpi as f32;
+                    draw_state.set_ui_scale(new_dpi as f32);
+                    dpi = new_dpi as f32;
                     action_queue.push(Action::ResizeWindow);
                 }
                 _ => (),
@@ -243,9 +249,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         while let Some(action) = action_queue.pop() {
             match action {
                 Action::ResizeWindow => {
-                    window.resize(
-                        logical_size.to_physical(draw_state.ui_scale as f64),
-                    );
+                    window.resize(logical_size.to_physical(dpi as f64));
                     gfx_window_glutin::update_views(
                         &window,
                         &mut quad_data.out_color,
@@ -258,9 +262,10 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                             "main_color.get_dimensions: ({}x{})",
                             width, height
                         );
-                        println!("DPI: {}", draw_state.ui_scale);
+                        println!("DPI: {}", dpi);
                         draw_state.set_window_dimensions((width, height));
                     }
+                    window_resized = true;
                 }
                 Action::Quit => running = false,
             }
@@ -275,7 +280,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         for highlighted_section in highlighted_sections.iter() {
             let section = SectionText {
                 text: &highlighted_section.text,
-                scale: Scale::uniform(draw_state.font_size()),
+                scale: Scale::uniform(draw_state.font_scale()),
                 color: highlight_to_color(
                     highlighted_section.highlight.unwrap_or(Highlight::Normal),
                 ),
@@ -286,31 +291,32 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
         let section = VariedSection {
             bounds: (draw_state.inner_width(), draw_state.inner_height()),
-            screen_position: (draw_state.left_padding, 0.0),
+            screen_position: (draw_state.left_padding(), 0.0),
             text: section_texts,
             z: 1.0,
             ..VariedSection::default()
         };
 
-        if draw_state.resized {
+        if window_resized {
             if let Some(glyph) = glyph_brush.glyphs(section.clone()).next() {
                 if let Some(bounding_box) = glyph.pixel_bounding_box() {
-                    draw_state.line_height =
-                        bounding_box.max.y - bounding_box.min.y;
-                    draw_state.resized = false;
+                    draw_state.set_line_height(
+                        bounding_box.max.y - bounding_box.min.y,
+                    );
                 }
             }
+            window_resized = false;
         }
 
         let status_section = Section {
-            bounds: (draw_state.inner_width(), draw_state.status_height()),
+            bounds: (draw_state.inner_width(), draw_state.line_height() as f32),
             screen_position: (
-                draw_state.left_padding,
+                draw_state.left_padding(),
                 draw_state.inner_height(),
             ),
             text: &status_text,
             color: [1.0, 1.0, 1.0, 1.0],
-            scale: Scale::uniform(draw_state.font_size()),
+            scale: Scale::uniform(draw_state.font_scale()),
             z: 0.5,
             ..Section::default()
         };
@@ -328,14 +334,27 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             // Render cursor
             // from top of line of text to bottom of line of text
             // from left of character to right of character
+            unsafe {
+                device.with_gl(|gl| {
+                    gl.PushDebugGroup(
+                        gfx_gl::DEBUG_SOURCE_APPLICATION,
+                        1,
+                        -1,
+                        std::ffi::CString::new("Cursor").unwrap().as_ptr(),
+                    );
+                });
+            }
             let quad_locals = Locals {
                 color: CURSOR_BG,
-                transform: draw_state.status_transform().into(),
+                transform: draw_state.cursor_transform().into(),
             };
 
             // FIXME: Only update if they've changed
             encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
             encoder.draw(&quad_slice, &quad_pso, &quad_data);
+            unsafe {
+                device.with_gl(|gl| gl.PopDebugGroup());
+            }
         }
 
         {
