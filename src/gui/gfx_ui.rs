@@ -229,7 +229,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                             ..
                         },
                     ..
-                } => draw_state.move_cursor_col(1),
+                } => draw_state.move_cursor_row(1),
                 WindowEvent::KeyboardInput {
                     input:
                         KeyboardInput {
@@ -238,7 +238,25 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                             ..
                         },
                     ..
+                } => draw_state.move_cursor_row(-1),
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Left),
+                            ..
+                        },
+                    ..
                 } => draw_state.move_cursor_col(-1),
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Right),
+                            ..
+                        },
+                    ..
+                } => draw_state.move_cursor_col(1),
                 WindowEvent::Resized(new_logical_size) => {
                     println!("Resized to: {:?}", new_logical_size);
                     logical_size = new_logical_size;
@@ -311,7 +329,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                 bounds: (draw_state.inner_width(), draw_state.inner_height()),
                 screen_position: (draw_state.left_padding(), 0.0),
                 text: vec![SectionText {
-                    text: "A\nB\n",
+                    text: "A\nBC\n",
                     scale: Scale::uniform(draw_state.font_scale()),
                     ..SectionText::default()
                 }],
@@ -319,18 +337,20 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             };
 
             let test_glyphs = glyph_brush.glyphs(test_section);
-            let tops = test_glyphs
-                .map(|glyph| {
-                    glyph
-                        .pixel_bounding_box()
-                        .map(|bounding_box| bounding_box.min.y)
-                })
+            let bounding_boxes = test_glyphs
+                .map(|glyph| glyph.pixel_bounding_box())
                 .collect::<Vec<_>>();
-            let first_line_min_y = tops[0].unwrap();
-            let secon_line_min_y = tops[1].unwrap();
+            // .map(|bounding_box| bounding_box.min.y)
+            let first_line_min_y = bounding_boxes[0].unwrap().min.y;
+            let secon_line_min_y = bounding_boxes[1].unwrap().min.y;
             let line_height = secon_line_min_y - first_line_min_y;
             println!("Calculated line_height: {}", line_height);
             draw_state.set_line_height(line_height);
+            let b_min_x = bounding_boxes[1].unwrap().min.x;
+            let c_min_x = bounding_boxes[2].unwrap().min.x;
+            let character_width = c_min_x - b_min_x;
+            println!("Calculated character_width: {}", character_width);
+            draw_state.set_character_width(character_width);
             window_resized = false;
         }
 

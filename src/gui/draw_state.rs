@@ -11,11 +11,7 @@ impl RenderedCursor {
         self.text_col += amount;
     }
 
-    pub fn move_right(&mut self, amount: i32) {
-        self.text_col += amount;
-    }
-
-    pub fn move_down(&mut self, amount: i32) {
+    pub fn move_row(&mut self, amount: i32) {
         self.text_row += amount;
     }
 }
@@ -25,6 +21,7 @@ pub struct DrawState {
     window_width: f32,
     window_height: f32,
     line_height: i32,
+    character_width: i32,
     font_size: f32,
     ui_scale: f32,
     left_padding: f32,
@@ -44,6 +41,7 @@ impl DrawState {
             window_width,
             window_height,
             line_height: 0,
+            character_width: 0,
             font_size,
             ui_scale,
             left_padding: 12.0,
@@ -59,6 +57,10 @@ impl DrawState {
 
     pub fn line_height(&self) -> i32 {
         self.line_height
+    }
+
+    pub fn character_width(&self) -> i32 {
+        self.character_width
     }
 
     pub fn font_scale(&self) -> f32 {
@@ -91,10 +93,12 @@ impl DrawState {
     }
 
     fn update_cursor_transform(&mut self) {
-        let cursor_y = self.cursor.text_col as f32;
+        let cursor_y = self.cursor.text_row as f32;
+        let cursor_x = self.cursor.text_col as f32;
         let cursor_height = self.line_height() as f32;
+        let cursor_width = self.character_width() as f32;
         let cursor_scale = Matrix4::from_nonuniform_scale(
-            1.0,
+            cursor_width / self.window_width,
             cursor_height / self.window_height,
             1.0,
         );
@@ -103,8 +107,15 @@ impl DrawState {
             * 2.0
             - 1.0);
         println!("cursor row: {}, cursor y_move: {:?}", cursor_y, y_move);
+        let x_move = (((cursor_width * cursor_x)
+            + cursor_width / 2.0
+            + self.left_padding)
+            / self.window_width)
+            * 2.0
+            - 1.0;
+        println!("cursor col: {}, cursor x_move: {:?}", cursor_x, x_move);
         let cursor_move =
-            Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
+            Matrix4::from_translation(Vector3::new(x_move, y_move, 0.0));
         self.cursor_transform = cursor_move * cursor_scale;
     }
 
@@ -148,6 +159,11 @@ impl DrawState {
         self.update();
     }
 
+    pub fn move_cursor_row(&mut self, amount: i32) {
+        self.cursor.move_row(amount);
+        self.update();
+    }
+
     pub fn set_ui_scale(&mut self, dpi: f32) {
         self.ui_scale = dpi;
         self.update();
@@ -155,6 +171,11 @@ impl DrawState {
 
     pub fn set_line_height(&mut self, height: i32) {
         self.line_height = height;
+        self.update();
+    }
+
+    pub fn set_character_width(&mut self, width: i32) {
+        self.character_width = width;
         self.update();
     }
 }
