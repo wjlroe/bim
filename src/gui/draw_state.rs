@@ -92,7 +92,7 @@ impl DrawState {
 
     fn update_cursor_transform(&mut self) {
         let cursor_y = self.cursor.text_col as f32;
-        let cursor_height = self.font_scale();
+        let cursor_height = self.line_height() as f32;
         let cursor_scale = Matrix4::from_nonuniform_scale(
             1.0,
             cursor_height / self.window_height,

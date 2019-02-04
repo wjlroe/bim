@@ -230,6 +230,15 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         },
                     ..
                 } => draw_state.move_cursor_col(1),
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Up),
+                            ..
+                        },
+                    ..
+                } => draw_state.move_cursor_col(-1),
                 WindowEvent::Resized(new_logical_size) => {
                     println!("Resized to: {:?}", new_logical_size);
                     logical_size = new_logical_size;
@@ -298,13 +307,30 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         };
 
         if window_resized {
-            if let Some(glyph) = glyph_brush.glyphs(section.clone()).next() {
-                if let Some(bounding_box) = glyph.pixel_bounding_box() {
-                    draw_state.set_line_height(
-                        bounding_box.max.y - bounding_box.min.y,
-                    );
-                }
-            }
+            let test_section = VariedSection {
+                bounds: (draw_state.inner_width(), draw_state.inner_height()),
+                screen_position: (draw_state.left_padding(), 0.0),
+                text: vec![SectionText {
+                    text: "A\nB\n",
+                    scale: Scale::uniform(draw_state.font_scale()),
+                    ..SectionText::default()
+                }],
+                ..VariedSection::default()
+            };
+
+            let test_glyphs = glyph_brush.glyphs(test_section);
+            let tops = test_glyphs
+                .map(|glyph| {
+                    glyph
+                        .pixel_bounding_box()
+                        .map(|bounding_box| bounding_box.min.y)
+                })
+                .collect::<Vec<_>>();
+            let first_line_min_y = tops[0].unwrap();
+            let secon_line_min_y = tops[1].unwrap();
+            let line_height = secon_line_min_y - first_line_min_y;
+            println!("Calculated line_height: {}", line_height);
+            draw_state.set_line_height(line_height);
             window_resized = false;
         }
 
