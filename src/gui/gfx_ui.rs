@@ -276,7 +276,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             let bounding_boxes = test_glyphs
                 .map(|glyph| glyph.pixel_bounding_box())
                 .collect::<Vec<_>>();
-            // .map(|bounding_box| bounding_box.min.y)
             let first_line_min_y = bounding_boxes[0].unwrap().min.y;
             let secon_line_min_y = bounding_boxes[1].unwrap().min.y;
             let line_height = secon_line_min_y - first_line_min_y;
