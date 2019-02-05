@@ -1,23 +1,27 @@
+use crate::buffer::Buffer;
+use crate::highlight::{Highlight, HighlightedSection};
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 
 #[derive(Copy, Clone, Default)]
 pub struct RenderedCursor {
     pub text_row: i32,
     pub text_col: i32,
+    pub moved: bool,
 }
 
 impl RenderedCursor {
     pub fn move_col(&mut self, amount: i32) {
         self.text_col += amount;
+        self.moved = true;
     }
 
     pub fn move_row(&mut self, amount: i32) {
         self.text_row += amount;
+        self.moved = true;
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct DrawState {
+pub struct DrawState<'a> {
     window_width: f32,
     window_height: f32,
     line_height: i32,
@@ -28,16 +32,19 @@ pub struct DrawState {
     cursor: RenderedCursor,
     cursor_transform: Matrix4<f32>,
     status_transform: Matrix4<f32>,
+    buffer: Buffer<'a>,
+    pub highlighted_sections: Vec<HighlightedSection>,
 }
 
-impl DrawState {
+impl<'a> DrawState<'a> {
     pub fn new(
         window_width: f32,
         window_height: f32,
         font_size: f32,
         ui_scale: f32,
+        buffer: Buffer<'a>,
     ) -> Self {
-        DrawState {
+        let mut state = DrawState {
             window_width,
             window_height,
             line_height: 0,
@@ -48,9 +55,15 @@ impl DrawState {
             cursor: RenderedCursor::default(),
             cursor_transform: Matrix4::identity(),
             status_transform: Matrix4::identity(),
-        }
+            buffer: buffer,
+            highlighted_sections: vec![],
+        };
+        state.update_highlighted_sections();
+        state
     }
+
     pub fn update(&mut self) {
+        self.update_highlighted_sections();
         self.update_status_transform();
         self.update_cursor_transform();
     }
@@ -77,6 +90,46 @@ impl DrawState {
 
     pub fn cursor_transform(&self) -> Matrix4<f32> {
         self.cursor_transform
+    }
+
+    fn update_highlighted_sections(&mut self) {
+        self.highlighted_sections.clear();
+        let mut current_section = HighlightedSection {
+            text: String::new(),
+            highlight: None,
+            start_row_idx: 0,
+            end_row_idx: 0,
+        };
+        for (row_idx, row) in self.buffer.rows.iter().enumerate() {
+            let mut highlights = row.hl.iter();
+            for (col_idx, c) in row.render.chars().enumerate() {
+                let mut hl =
+                    highlights.next().cloned().unwrap_or(Highlight::Normal);
+                if row_idx as i32 == self.cursor.text_row
+                    && col_idx as i32 == self.cursor.text_col
+                {
+                    hl = Highlight::Cursor;
+                }
+                if current_section.highlight.is_none() {
+                    current_section.highlight = Some(hl);
+                }
+                if current_section.highlight == Some(hl) {
+                    current_section.text.push(c);
+                } else {
+                    current_section.end_row_idx = row_idx;
+                    self.highlighted_sections.push(current_section.clone());
+                    current_section.text.clear();
+                    current_section.highlight = None;
+                    current_section.text.push(c);
+                    current_section.start_row_idx = row_idx;
+                }
+            }
+            current_section.end_row_idx = row_idx;
+            current_section.text.push('\n');
+        }
+        if current_section.text != "" {
+            self.highlighted_sections.push(current_section.clone());
+        }
     }
 
     fn update_status_transform(&mut self) {

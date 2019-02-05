@@ -2,7 +2,7 @@ use crate::buffer::Buffer;
 use crate::config::RunConfig;
 use crate::editor::BIM_VERSION;
 use crate::gui::draw_state::DrawState;
-use crate::highlight::{Highlight, HighlightedSection};
+use crate::highlight::{highlight_to_color, Highlight};
 use gfx;
 use gfx::traits::FactoryExt;
 use gfx::*;
@@ -55,22 +55,6 @@ const QUAD: [Vertex; 4] = [
     Vertex { pos: [1.0, 1.0] },
 ];
 
-fn highlight_to_color(hl: Highlight) -> [f32; 4] {
-    use self::Highlight::*;
-
-    match hl {
-        Normal => [232.0 / 255.0, 230.0 / 255.0, 237.0 / 255.0, 1.0],
-        Number => [221.0 / 255.0, 119.0 / 255.0, 85.0 / 255.0, 1.0],
-        String => [191.0 / 255.0, 156.0 / 255.0, 249.0 / 255.0, 1.0],
-        Comment | MultilineComment => {
-            [86.0 / 255.0, 211.0 / 255.0, 194.0 / 255.0, 1.0]
-        }
-        Keyword1 => [242.0 / 255.0, 231.0 / 255.0, 183.0 / 255.0, 1.0],
-        Keyword2 => [4.0 / 255.0, 219.0 / 255.0, 181.0 / 255.0, 1.0],
-        _ => [0.9, 0.4, 0.2, 1.0],
-    }
-}
-
 pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     use crate::config::RunConfig::*;
 
@@ -100,8 +84,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     window.set_position(LogicalPosition::new(400.0, 50.0));
 
     let (window_width, window_height, ..) = main_color.get_dimensions();
-    let mut draw_state =
-        DrawState::new(window_width as f32, window_height as f32, 18.0, dpi);
 
     let quad_pso = factory
         .create_pipeline_simple(
@@ -145,39 +127,14 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         Err(e) => panic!("Error: {}", e),
         _ => {}
     };
+    let mut draw_state = DrawState::new(
+        window_width as f32,
+        window_height as f32,
+        18.0,
+        dpi,
+        buffer,
+    );
     let status_text = format!("bim editor - version {}", BIM_VERSION);
-
-    let mut current_section = HighlightedSection {
-        text: String::new(),
-        highlight: None,
-        start_row_idx: 0,
-        end_row_idx: 0,
-    };
-    let mut highlighted_sections = vec![];
-    for (row_idx, row) in buffer.rows.iter().enumerate() {
-        let mut highlights = row.hl.iter();
-        for c in row.render.chars() {
-            let hl = highlights.next().cloned().unwrap_or(Highlight::Normal);
-            if current_section.highlight.is_none() {
-                current_section.highlight = Some(hl);
-            }
-            if current_section.highlight == Some(hl) {
-                current_section.text.push(c);
-            } else {
-                current_section.end_row_idx = row_idx;
-                highlighted_sections.push(current_section.clone());
-                current_section.text.clear();
-                current_section.highlight = None;
-                current_section.text.push(c);
-                current_section.start_row_idx = row_idx;
-            }
-        }
-        current_section.end_row_idx = row_idx;
-        current_section.text.push('\n');
-    }
-    if current_section.text != "" {
-        highlighted_sections.push(current_section.clone());
-    }
 
     while running {
         event_loop.poll_events(|event| match event {
@@ -303,27 +260,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         encoder.clear(&quad_data.out_color, background);
         encoder.clear_depth(&quad_data.out_depth, 1.0);
 
-        let mut section_texts = vec![];
-        for highlighted_section in highlighted_sections.iter() {
-            let section = SectionText {
-                text: &highlighted_section.text,
-                scale: Scale::uniform(draw_state.font_scale()),
-                color: highlight_to_color(
-                    highlighted_section.highlight.unwrap_or(Highlight::Normal),
-                ),
-                ..SectionText::default()
-            };
-            section_texts.push(section);
-        }
-
-        let section = VariedSection {
-            bounds: (draw_state.inner_width(), draw_state.inner_height()),
-            screen_position: (draw_state.left_padding(), 0.0),
-            text: section_texts,
-            z: 1.0,
-            ..VariedSection::default()
-        };
-
         if window_resized {
             let test_section = VariedSection {
                 bounds: (draw_state.inner_width(), draw_state.inner_height()),
@@ -367,6 +303,26 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             ..Section::default()
         };
 
+        let mut section_texts = vec![];
+        for highlighted_section in draw_state.highlighted_sections.iter() {
+            let section = SectionText {
+                text: &highlighted_section.text,
+                scale: Scale::uniform(draw_state.font_scale()),
+                color: highlight_to_color(
+                    highlighted_section.highlight.unwrap_or(Highlight::Normal),
+                ),
+                ..SectionText::default()
+            };
+            section_texts.push(section);
+        }
+
+        let section = VariedSection {
+            bounds: (draw_state.inner_width(), draw_state.inner_height()),
+            screen_position: (draw_state.left_padding(), 0.0),
+            text: section_texts,
+            z: 1.0,
+            ..VariedSection::default()
+        };
         glyph_brush.queue(section);
         glyph_brush.queue(status_section);
 

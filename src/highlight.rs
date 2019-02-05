@@ -11,6 +11,7 @@ pub enum Highlight {
     MultilineComment,
     Keyword1,
     Keyword2,
+    Cursor,
 }
 
 pub const DEFAULT_COLOUR: u8 = 39;
@@ -30,6 +31,23 @@ lazy_static! {
         m.insert(Keyword2, 32);
         m
     };
+}
+
+pub fn highlight_to_color(hl: Highlight) -> [f32; 4] {
+    use self::Highlight::*;
+
+    match hl {
+        Normal => [232.0 / 255.0, 230.0 / 255.0, 237.0 / 255.0, 1.0],
+        Number => [221.0 / 255.0, 119.0 / 255.0, 85.0 / 255.0, 1.0],
+        String => [191.0 / 255.0, 156.0 / 255.0, 249.0 / 255.0, 1.0],
+        Comment | MultilineComment => {
+            [86.0 / 255.0, 211.0 / 255.0, 194.0 / 255.0, 1.0]
+        }
+        Keyword1 => [242.0 / 255.0, 231.0 / 255.0, 183.0 / 255.0, 1.0],
+        Keyword2 => [4.0 / 255.0, 219.0 / 255.0, 181.0 / 255.0, 1.0],
+        Cursor => [10.0 / 255.0, 10.0 / 255.0, 10.0 / 255.0, 1.0],
+        _ => [0.9, 0.4, 0.2, 1.0],
+    }
 }
 
 #[derive(Clone)]
