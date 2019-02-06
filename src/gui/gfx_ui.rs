@@ -288,6 +288,33 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             window_resized = false;
         }
 
+        {
+            // Render cursor
+            // from top of line of text to bottom of line of text
+            // from left of character to right of character
+            unsafe {
+                device.with_gl(|gl| {
+                    gl.PushDebugGroup(
+                        gfx_gl::DEBUG_SOURCE_APPLICATION,
+                        1,
+                        -1,
+                        std::ffi::CString::new("Cursor").unwrap().as_ptr(),
+                    );
+                });
+            }
+            let quad_locals = Locals {
+                color: CURSOR_BG,
+                transform: draw_state.cursor_transform().into(),
+            };
+
+            // FIXME: Only update if they've changed
+            encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
+            encoder.draw(&quad_slice, &quad_pso, &quad_data);
+            unsafe {
+                device.with_gl(|gl| gl.PopDebugGroup());
+            }
+        }
+
         let status_section = Section {
             bounds: (draw_state.inner_width(), draw_state.line_height() as f32),
             screen_position: (
@@ -329,34 +356,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             &quad_data.out_color,
             &quad_data.out_depth,
         )?;
-
-        {
-            // Render cursor
-            // from top of line of text to bottom of line of text
-            // from left of character to right of character
-            let cursor_debug_name = std::ffi::CString::new("Cursor").unwrap();
-            unsafe {
-                device.with_gl(|gl| {
-                    gl.PushDebugGroup(
-                        gfx_gl::DEBUG_SOURCE_APPLICATION,
-                        1,
-                        -1,
-                        cursor_debug_name.as_ptr(),
-                    );
-                });
-            }
-            let quad_locals = Locals {
-                color: CURSOR_BG,
-                transform: draw_state.cursor_transform().into(),
-            };
-
-            // FIXME: Only update if they've changed
-            encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
-            encoder.draw(&quad_slice, &quad_pso, &quad_data);
-            unsafe {
-                device.with_gl(|gl| gl.PopDebugGroup());
-            }
-        }
 
         {
             // Render status background

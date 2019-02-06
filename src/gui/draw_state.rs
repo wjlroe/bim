@@ -108,6 +108,7 @@ impl<'a> DrawState<'a> {
                 if row_idx as i32 == self.cursor.text_row
                     && col_idx as i32 == self.cursor.text_col
                 {
+                    println!("Cursor is at: ({},{}) on char '{}'", col_idx, row_idx, c);
                     hl = Highlight::Cursor;
                 }
                 if current_section.highlight.is_none() {
@@ -168,7 +169,7 @@ impl<'a> DrawState<'a> {
             - 1.0;
         println!("cursor col: {}, cursor x_move: {:?}", cursor_x, x_move);
         let cursor_move =
-            Matrix4::from_translation(Vector3::new(x_move, y_move, 0.0));
+            Matrix4::from_translation(Vector3::new(x_move, y_move, 0.2));
         self.cursor_transform = cursor_move * cursor_scale;
     }
 
@@ -208,11 +209,17 @@ impl<'a> DrawState<'a> {
 
     pub fn move_cursor_col(&mut self, amount: i32) {
         self.cursor.move_col(amount);
+        if self.cursor.text_col < 0 {
+            self.cursor.text_col = 0;
+        }
         self.update();
     }
 
     pub fn move_cursor_row(&mut self, amount: i32) {
         self.cursor.move_row(amount);
+        if self.cursor.text_row < 0 {
+            self.cursor.text_row = 0;
+        }
         self.update();
     }
 
