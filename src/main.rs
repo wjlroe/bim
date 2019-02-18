@@ -12,10 +12,9 @@ fn run(run_type: RunConfig) {
     editor.enable_raw_mode();
     let mut terminal = editor.get_window_size();
     terminal.init();
-    match run_type {
-        RunOpenFile(ref filename) => terminal.open(filename),
-        _ => {}
-    }
+    if let RunOpenFile(ref filename) = run_type {
+        terminal.open(filename);
+    };
 
     if run_type == Debug {
         terminal.log_debug();

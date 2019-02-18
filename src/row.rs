@@ -205,20 +205,18 @@ impl<'a> Row<'a> {
                     } else if string_char == c {
                         in_string = None;
                     }
-                } else {
-                    if c == '\'' || c == '"' {
-                        in_string = Some(c);
-                        cur_hl = Some(String);
-                    }
+                } else if c == '\'' || c == '"' {
+                    in_string = Some(c);
+                    cur_hl = Some(String);
                 }
             }
 
-            if syntax.highlight_numbers() && cur_hl.is_none() {
-                if (c.is_digit(10) && (prev_sep || prev_hl == Number))
-                    || (c == '.' && prev_hl == Number)
-                {
-                    cur_hl = Some(Number);
-                }
+            if syntax.highlight_numbers()
+                && cur_hl.is_none()
+                && ((c.is_digit(10) && (prev_sep || prev_hl == Number))
+                    || (c == '.' && prev_hl == Number))
+            {
+                cur_hl = Some(Number);
             }
 
             if syntax.highlight_keywords() && prev_sep {
@@ -294,7 +292,7 @@ impl<'a> Row<'a> {
     }
 
     fn byte_position_to_char_position(&self, at: usize) -> usize {
-        self.render[0..at + 1].chars().count() - 1
+        self.render[0..=at].chars().count() - 1
     }
 
     pub fn insert_char(&mut self, at: usize, character: char) {
@@ -430,7 +428,7 @@ mod test {
         Row::new(text, syntax)
     }
 
-    #[cfg_attr(rustfmt, rustfmt_skip)]
+    #[rustfmt::skip]
     macro_rules! row_with_text_and_filetype {
         ($text:expr, $filetype:expr, $syntax:ident, $row:ident) => (
             let syntax_val = SYNTAXES.iter().find(|s| s.filetype == $filetype);

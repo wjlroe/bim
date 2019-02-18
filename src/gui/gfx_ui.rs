@@ -118,18 +118,17 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     let mut action_queue = vec![];
 
-    let mut buffer = Buffer::new();
+    let mut buffer = Buffer::default();
     let filename = match run_type {
         RunOpenFile(ref filename_arg) => filename_arg,
         _ => "testfiles/kilo-dos2.c",
     };
-    match buffer.open(filename) {
-        Err(e) => panic!("Error: {}", e),
-        _ => {}
+    if let Err(e) = buffer.open(filename) {
+        panic!("Error: {}", e);
     };
     let mut draw_state = DrawState::new(
-        window_width as f32,
-        window_height as f32,
+        window_width.into(),
+        window_height.into(),
         18.0,
         dpi,
         buffer,
@@ -221,8 +220,8 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                 }
                 WindowEvent::HiDpiFactorChanged(new_dpi) => {
                     println!("DPI changed: {}", new_dpi);
-                    draw_state.set_ui_scale(new_dpi as f32);
                     dpi = new_dpi as f32;
+                    draw_state.set_ui_scale(dpi);
                     action_queue.push(Action::ResizeWindow);
                 }
                 _ => (),
@@ -233,7 +232,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         while let Some(action) = action_queue.pop() {
             match action {
                 Action::ResizeWindow => {
-                    window.resize(logical_size.to_physical(dpi as f64));
+                    window.resize(logical_size.to_physical(dpi.into()));
                     gfx_window_glutin::update_views(
                         &window,
                         &mut quad_data.out_color,
@@ -335,13 +334,14 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             // Render cursor
             // from top of line of text to bottom of line of text
             // from left of character to right of character
+            let cursor_debug_name = std::ffi::CString::new("Cursor").unwrap();
             unsafe {
                 device.with_gl(|gl| {
                     gl.PushDebugGroup(
                         gfx_gl::DEBUG_SOURCE_APPLICATION,
                         1,
                         -1,
-                        std::ffi::CString::new("Cursor").unwrap().as_ptr(),
+                        cursor_debug_name.as_ptr(),
                     );
                 });
             }

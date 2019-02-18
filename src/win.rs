@@ -70,7 +70,7 @@ impl Editor for EditorImpl {
             let handle = GetStdHandle(STD_INPUT_HANDLE);
             if GetConsoleMode(handle, &mut ORIG_INPUT_CONSOLE_MODE) != 0 {
                 atexit(disable_raw_input_mode);
-                let mut raw = ORIG_INPUT_CONSOLE_MODE.clone();
+                let mut raw = ORIG_INPUT_CONSOLE_MODE;
                 raw &= !(ENABLE_ECHO_INPUT
                     | ENABLE_LINE_INPUT
                     | ENABLE_PROCESSED_INPUT);
@@ -86,7 +86,7 @@ impl Editor for EditorImpl {
             let handle = GetStdHandle(STD_OUTPUT_HANDLE);
             if GetConsoleMode(handle, &mut ORIG_OUTPUT_CONSOLE_MODE) != 0 {
                 atexit(disable_raw_output_mode);
-                let mut raw = ORIG_OUTPUT_CONSOLE_MODE.clone();
+                let mut raw = ORIG_OUTPUT_CONSOLE_MODE;
                 raw &= !(ENABLE_WRAP_AT_EOL_OUTPUT);
                 raw |= DISABLE_NEWLINE_AUTO_RETURN
                     | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
@@ -125,7 +125,8 @@ impl Editor for EditorImpl {
                     {
                         let record = input_records[0].Event.KeyEvent();
                         if record.bKeyDown == 1 {
-                            character = match record.wVirtualKeyCode as i32 {
+                            character = match i32::from(record.wVirtualKeyCode)
+                            {
                                 VK_UP => Some(Key::ArrowUp),
                                 VK_DOWN => Some(Key::ArrowDown),
                                 VK_LEFT => Some(Key::ArrowLeft),
@@ -156,7 +157,7 @@ impl Editor for EditorImpl {
                                 VK_VOLUME_UP => Some(Key::Escape),
                                 _ => {
                                     let unicode_char =
-                                        *record.uChar.UnicodeChar() as u32;
+                                        u32::from(*record.uChar.UnicodeChar());
                                     if record.dwControlKeyState
                                         & LEFT_CTRL_PRESSED
                                         == LEFT_CTRL_PRESSED
@@ -198,7 +199,7 @@ impl Editor for EditorImpl {
             if GetConsoleScreenBufferInfo(handle, &mut info) != 0 {
                 let x = info.srWindow.Right - info.srWindow.Left + 1;
                 let y = info.srWindow.Bottom - info.srWindow.Top + 1;
-                Terminal::new(x as i32, y as i32)
+                Terminal::new(x.into(), y.into())
             } else {
                 panic!("GetConsoleScreenBufferInfo failed to get window size!");
             }

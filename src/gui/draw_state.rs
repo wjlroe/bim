@@ -55,7 +55,7 @@ impl<'a> DrawState<'a> {
             cursor: RenderedCursor::default(),
             cursor_transform: Matrix4::identity(),
             status_transform: Matrix4::identity(),
-            buffer: buffer,
+            buffer,
             highlighted_sections: vec![],
         };
         state.update_highlighted_sections();
@@ -201,9 +201,8 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn set_window_dimensions(&mut self, (width, height): (u16, u16)) {
-        let (width, height) = (f32::from(width), f32::from(height));
-        self.window_height = height;
-        self.window_width = width;
+        self.window_height = height.into();
+        self.window_width = width.into();
         self.update();
     }
 

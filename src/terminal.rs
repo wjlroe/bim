@@ -53,7 +53,7 @@ impl<'a> Terminal<'a> {
             cursor_x: 0,
             cursor_y: 0,
             rcursor_x: 0,
-            buffer: Buffer::new(),
+            buffer: Buffer::default(),
             append_buffer: String::new(),
             row_offset: 0,
             col_offset: 0,
@@ -97,14 +97,12 @@ impl<'a> Terminal<'a> {
                 } else {
                     self.append_buffer.push_str("~");
                 }
-            } else {
-                if let Some(onscreen_row) = self.buffer.row_onscreen_text(
-                    filerow as usize,
-                    self.col_offset as usize,
-                    self.screen_cols as usize,
-                ) {
-                    self.append_buffer.push_str(onscreen_row.as_str());
-                }
+            } else if let Some(onscreen_row) = self.buffer.row_onscreen_text(
+                filerow as usize,
+                self.col_offset as usize,
+                self.screen_cols as usize,
+            ) {
+                self.append_buffer.push_str(onscreen_row.as_str());
             }
 
             self.clear_line();
@@ -119,7 +117,7 @@ impl<'a> Terminal<'a> {
             .buffer
             .filename
             .clone()
-            .unwrap_or(String::from("[No Name]"));
+            .unwrap_or_else(|| String::from("[No Name]"));
         let file_status = if self.dirty.is_positive() {
             "(modified)"
         } else {
@@ -194,12 +192,9 @@ impl<'a> Terminal<'a> {
     pub fn reset(&mut self) {
         self.clear();
         self.goto_origin();
-        match self.flush() {
-            Err(err) => {
-                panic!("oh no! flush failed: {:?}", err);
-            }
-            _ => {}
-        }
+        if let Err(err) = self.flush() {
+            panic!("oh no! flush failed: {:?}", err);
+        };
     }
 
     fn flush(&mut self) -> Result<(), Box<dyn Error>> {
@@ -208,7 +203,7 @@ impl<'a> Terminal<'a> {
             let output_size = output.len();
             let written_bytes = stdout().write(output)?;
             if written_bytes == output_size {
-                let _ = stdout().flush()?;
+                stdout().flush()?;
             } else {
                 let failed = "Failed to write all the output.";
                 let err_desc = format!(
@@ -261,12 +256,9 @@ impl<'a> Terminal<'a> {
 
         self.show_cursor();
 
-        match self.flush() {
-            Err(err) => {
-                panic!("oh no! flush failed: {:?}", err);
-            }
-            _ => {}
-        }
+        if let Err(err) = self.flush() {
+            panic!("oh no! flush failed: {:?}", err);
+        };
     }
 
     pub fn move_cursor(&mut self, move_cursor: MoveCursor) {
@@ -550,10 +542,9 @@ impl<'a> Terminal<'a> {
     }
 
     pub fn open(&mut self, filename: &str) {
-        match self.buffer.open(filename) {
-            Err(e) => self.die(e.description()),
-            _ => {}
-        }
+        if let Err(e) = self.buffer.open(filename) {
+            self.die(e.description());
+        };
     }
 
     pub fn has_filename(&self) -> bool {
