@@ -2,31 +2,17 @@ use crate::buffer::Buffer;
 use crate::commands::{Cmd, MoveCursor, SearchDirection};
 use crate::editor::BIM_VERSION;
 use crate::keycodes::{ctrl_key, Key};
+use crate::status::Status;
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::{stdout, Write};
 use std::process::exit;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use time::now;
 
 const UI_ROWS: i32 = 2;
 const BIM_QUIT_TIMES: i8 = 3;
 const BIM_DEBUG_LOG: &str = ".bim_debug";
-
-#[derive(PartialEq, Eq)]
-struct Status {
-    message: String,
-    time: Instant,
-}
-
-impl Status {
-    fn new(message: String) -> Self {
-        Status {
-            message,
-            time: Instant::now(),
-        }
-    }
-}
 
 pub struct Terminal<'a> {
     pub screen_cols: i32,
@@ -152,10 +138,12 @@ impl<'a> Terminal<'a> {
     fn draw_message_bar(&mut self) {
         self.clear_line();
         if let Some(ref status) = self.status {
-            if status.time.elapsed() < Duration::from_secs(5) {
+            if status.is_valid() {
                 let mut msg = status.message.clone();
                 msg.truncate(self.screen_cols as usize);
                 self.append_buffer.push_str(&msg);
+            } else {
+                self.status = None;
             }
         }
     }
@@ -537,7 +525,7 @@ impl<'a> Terminal<'a> {
     }
 
     pub fn set_status_message(&mut self, message: String) {
-        let status = Status::new(message);
+        let status = Status::new_with_timeout(message, Duration::from_secs(5));
         self.status = Some(status);
     }
 

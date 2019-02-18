@@ -18,6 +18,7 @@ pub mod config;
 pub mod highlight;
 mod keycodes;
 mod row;
+mod status;
 mod syntax;
 mod terminal;
 
