@@ -17,10 +17,55 @@ use glutin::{
     ContextBuilder, ElementState, Event, EventsLoop, GlProfile, GlRequest,
     KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent,
 };
+use serde::{Deserialize, Serialize};
 use std::error::Error;
+use std::fs;
+use std::io::Read;
 
 pub type ColorFormat = format::Rgba8;
 pub type DepthFormat = format::Depth;
+
+#[derive(Serialize, Deserialize)]
+struct PersistWindowState {
+    logical_position: LogicalPosition,
+}
+
+impl PersistWindowState {
+    fn save(&self) {
+        if let Ok(config_string) = toml::to_string(self) {
+            fs::write(Self::config_filename(), config_string).unwrap();
+        }
+    }
+
+    fn restore() -> Self {
+        match fs::File::open(Self::config_filename()) {
+            Ok(mut f) => {
+                let mut config = String::new();
+                match f.read_to_string(&mut config) {
+                    Ok(_) => match toml::from_str::<Self>(&config) {
+                        Ok(persised) => return persised,
+                        _ => {}
+                    },
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+        Self::default()
+    }
+
+    fn config_filename() -> String {
+        String::from(".bim_persist_state.toml")
+    }
+}
+
+impl Default for PersistWindowState {
+    fn default() -> Self {
+        Self {
+            logical_position: LogicalPosition::new(400.0, 50.0),
+        }
+    }
+}
 
 enum Action {
     ResizeWindow,
@@ -58,6 +103,8 @@ const QUAD: [Vertex; 4] = [
 pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     use crate::config::RunConfig::*;
 
+    let mut persist_window_state = PersistWindowState::restore();
+
     let mut event_loop = EventsLoop::new();
     let mut logical_size = LogicalSize::new(600.0, 800.0);
     let monitor = event_loop.get_primary_monitor();
@@ -81,7 +128,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         device.with_gl(|gl| gl.Disable(gfx_gl::FRAMEBUFFER_SRGB));
     }
 
-    window.set_position(LogicalPosition::new(400.0, 50.0));
+    window.set_position(persist_window_state.logical_position);
 
     let (window_width, window_height, ..) = main_color.get_dimensions();
 
@@ -224,6 +271,11 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                     dpi = new_dpi as f32;
                     draw_state.set_ui_scale(dpi);
                     action_queue.push(Action::ResizeWindow);
+                }
+                WindowEvent::Moved(new_logical_position) => {
+                    persist_window_state.logical_position =
+                        new_logical_position;
+                    persist_window_state.save();
                 }
                 _ => (),
             },
