@@ -270,21 +270,32 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                 }],
                 ..VariedSection::default()
             };
+            println!("Font scale: {:?}", draw_state.font_scale());
 
             let test_glyphs = glyph_brush.glyphs(test_section);
-            let bounding_boxes = test_glyphs
-                .map(|glyph| glyph.pixel_bounding_box())
+            let positions = test_glyphs
+                .map(|glyph| {
+                    (glyph.position(), glyph.pixel_bounding_box().unwrap())
+                })
                 .collect::<Vec<_>>();
-            let first_line_min_y = bounding_boxes[0].unwrap().min.y;
-            let secon_line_min_y = bounding_boxes[1].unwrap().min.y;
+            // .map(|bounding_box| bounding_box.min.y)
+            let first_line_min_y = positions[0].0.y;
+            let secon_line_min_y = positions[1].0.y;
             let line_height = secon_line_min_y - first_line_min_y;
-            println!("Calculated line_height: {}", line_height);
-            draw_state.set_line_height(line_height);
-            let b_min_x = bounding_boxes[1].unwrap().min.x;
-            let c_min_x = bounding_boxes[2].unwrap().min.x;
+            println!("Calculated line_height: {:?}", line_height);
+            draw_state.set_line_height(line_height as i32);
+
+            let fst_line_bound_min_y = positions[0].1.min.y;
+            let snd_line_bound_min_y = positions[1].1.min.y;
+            let bound_box_line_height =
+                snd_line_bound_min_y - fst_line_bound_min_y;
+            println!("Bound box calc line height: {:?}", bound_box_line_height);
+
+            let b_min_x = positions[1].0.x;
+            let c_min_x = positions[2].0.x;
             let character_width = c_min_x - b_min_x;
-            println!("Calculated character_width: {}", character_width);
-            draw_state.set_character_width(character_width);
+            println!("Calculated character_width: {:?}", character_width);
+            draw_state.set_character_width(character_width as i32);
             window_resized = false;
         }
 
@@ -330,12 +341,11 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
         let mut section_texts = vec![];
         for highlighted_section in draw_state.highlighted_sections.iter() {
+            let hl = highlighted_section.highlight.unwrap_or(Highlight::Normal);
             let section = SectionText {
                 text: &highlighted_section.text,
                 scale: Scale::uniform(draw_state.font_scale()),
-                color: highlight_to_color(
-                    highlighted_section.highlight.unwrap_or(Highlight::Normal),
-                ),
+                color: highlight_to_color(hl),
                 ..SectionText::default()
             };
             section_texts.push(section);
