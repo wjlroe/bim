@@ -33,7 +33,7 @@ struct PersistWindowState {
 
 impl PersistWindowState {
     fn save(&self) {
-        match toml::to_string(self) {
+        match serde_yaml::to_string(self) {
             Ok(config_string) => {
                 fs::write(Self::config_filename(), config_string).unwrap();
             }
@@ -48,7 +48,7 @@ impl PersistWindowState {
             Ok(mut f) => {
                 let mut config = String::new();
                 match f.read_to_string(&mut config) {
-                    Ok(_) => match toml::from_str::<Self>(&config) {
+                    Ok(_) => match serde_yaml::from_str::<Self>(&config) {
                         Ok(persised) => return persised,
                         Err(e) => {
                             println!("Error deserializing config: {:?}", e)
@@ -63,7 +63,7 @@ impl PersistWindowState {
     }
 
     fn config_filename() -> String {
-        String::from(".bim_persist_state.toml")
+        String::from(".bim_persist_state.yaml")
     }
 }
 

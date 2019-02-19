@@ -18,7 +18,7 @@ cgmath = "0.17.0"
 rand = "0.6.4"
 simple-error = "0.1.13"
 serde = { version = "1", features = ["derive"] }
-toml = "0.4"
+serde_yaml = "0.8"
 
 [target.'cfg(unix)'.dependencies]
 errno = "0.2.4"
