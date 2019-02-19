@@ -136,6 +136,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     let status_text = format!("bim editor - version {}", BIM_VERSION);
 
     while running {
+        #[allow(clippy::single_match)]
         event_loop.poll_events(|event| match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested | WindowEvent::Destroyed => {
@@ -303,13 +304,14 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             // Render cursor
             // from top of line of text to bottom of line of text
             // from left of character to right of character
+            let cursor_debug_name = std::ffi::CString::new("Cursor").unwrap();
             unsafe {
                 device.with_gl(|gl| {
                     gl.PushDebugGroup(
                         gfx_gl::DEBUG_SOURCE_APPLICATION,
                         1,
                         -1,
-                        std::ffi::CString::new("Cursor").unwrap().as_ptr(),
+                        cursor_debug_name.as_ptr(),
                     );
                 });
             }

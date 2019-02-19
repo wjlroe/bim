@@ -102,13 +102,17 @@ impl<'a> DrawState<'a> {
         };
         for (row_idx, row) in self.buffer.rows.iter().enumerate() {
             let mut highlights = row.hl.iter();
+            #[allow(clippy::useless_let_if_seq)]
             for (col_idx, c) in row.render.chars().enumerate() {
                 let mut hl =
                     highlights.next().cloned().unwrap_or(Highlight::Normal);
                 if row_idx as i32 == self.cursor.text_row
                     && col_idx as i32 == self.cursor.text_col
                 {
-                    println!("Cursor is at: ({},{}) on char '{}'", col_idx, row_idx, c);
+                    println!(
+                        "Cursor is at: ({},{}) on char '{}'",
+                        col_idx, row_idx, c
+                    );
                     hl = Highlight::Cursor;
                 }
                 if current_section.highlight.is_none() {

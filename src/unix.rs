@@ -49,7 +49,7 @@ fn get_window_size_ioctl<'a>() -> Option<Terminal<'a>> {
             None
         } else {
             Some(
-                Terminal::new(ws.ws_col as i32, ws.ws_row as i32)
+                Terminal::new(ws.ws_col.into(), ws.ws_row.into())
                     .window_size_method("ioctl"),
             )
         }
@@ -60,7 +60,7 @@ fn get_window_size_cursor_pos<'a>() -> Option<Terminal<'a>> {
     if let Ok(12) = stdout().write(b"\x1b[999C\x1b[999B") {
         stdout().flush().unwrap();
         if let Ok(4) = stdout().write(b"\x1b[6n") {
-            stdout().write(b"\r\n").unwrap();
+            stdout().write_all(b"\r\n").unwrap();
             stdout().flush().unwrap();
 
             let mut buf = vec![0u8; 32];
@@ -77,14 +77,14 @@ fn get_window_size_cursor_pos<'a>() -> Option<Terminal<'a>> {
                         break;
                     }
                 }
-                if buf[i] == 'R' as u8 {
+                if buf[i] == b'R' {
                     break;
                 }
                 i += 1;
             }
-            buf[i] = '\0' as u8;
+            buf[i] = b'\0';
 
-            if buf[0] != '\x1b' as u8 || buf[1] != '[' as u8 {
+            if buf[0] != b'\x1b' || buf[1] != b'[' {
                 None
             } else {
                 let mut rows = 0;
@@ -216,7 +216,7 @@ impl Editor for EditorImpl {
                 panic!("tcgetattr");
             }
             atexit(disable_raw_mode);
-            let mut raw = ORIG_TERMIOS.clone();
+            let mut raw = ORIG_TERMIOS;
             raw.c_iflag &= !(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
             raw.c_oflag &= !(OPOST);
             raw.c_cflag |= CS8;
