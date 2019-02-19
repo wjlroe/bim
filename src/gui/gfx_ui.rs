@@ -27,13 +27,19 @@ pub type DepthFormat = format::Depth;
 
 #[derive(Serialize, Deserialize)]
 struct PersistWindowState {
+    monitor_name: Option<String>,
     logical_position: LogicalPosition,
 }
 
 impl PersistWindowState {
     fn save(&self) {
-        if let Ok(config_string) = toml::to_string(self) {
-            fs::write(Self::config_filename(), config_string).unwrap();
+        match toml::to_string(self) {
+            Ok(config_string) => {
+                fs::write(Self::config_filename(), config_string).unwrap();
+            }
+            Err(e) => {
+                println!("Error saving config to string: {:?}", e);
+            }
         }
     }
 
@@ -44,12 +50,14 @@ impl PersistWindowState {
                 match f.read_to_string(&mut config) {
                     Ok(_) => match toml::from_str::<Self>(&config) {
                         Ok(persised) => return persised,
-                        _ => {}
+                        Err(e) => {
+                            println!("Error deserializing config: {:?}", e)
+                        }
                     },
-                    _ => {}
+                    Err(e) => println!("Error reading config file: {:?}", e),
                 }
             }
-            _ => {}
+            Err(e) => println!("Error opening config file: {:?}", e),
         }
         Self::default()
     }
@@ -63,6 +71,7 @@ impl Default for PersistWindowState {
     fn default() -> Self {
         Self {
             logical_position: LogicalPosition::new(400.0, 50.0),
+            monitor_name: None,
         }
     }
 }
@@ -107,7 +116,20 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     let mut event_loop = EventsLoop::new();
     let mut logical_size = LogicalSize::new(600.0, 800.0);
-    let monitor = event_loop.get_primary_monitor();
+    let mut monitor = event_loop.get_primary_monitor();
+    if let Some(previous_monitor_name) =
+        persist_window_state.monitor_name.as_ref()
+    {
+        for available_monitor in event_loop.get_available_monitors() {
+            if let Some(avail_monitor_name) =
+                available_monitor.get_name().as_ref()
+            {
+                if avail_monitor_name == previous_monitor_name {
+                    monitor = available_monitor;
+                }
+            }
+        }
+    }
     let mut dpi = monitor.get_hidpi_factor() as f32;
     let window_builder = WindowBuilder::new()
         .with_title("bim")
@@ -273,6 +295,12 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                     action_queue.push(Action::ResizeWindow);
                 }
                 WindowEvent::Moved(new_logical_position) => {
+                    println!("Moved to {:?}", new_logical_position);
+                    if let Some(monitor_name) =
+                        window.get_current_monitor().get_name()
+                    {
+                        persist_window_state.monitor_name = Some(monitor_name);
+                    }
                     persist_window_state.logical_position =
                         new_logical_position;
                     persist_window_state.save();
