@@ -15,7 +15,7 @@ gfx_gl = "0.5.0"
 gfx_window_glutin = "0.28.0"
 glutin = { version = "0.19.0", features = ["serde"] }
 cgmath = "0.17.0"
-rand = "0.6.4"
+rand = "0.6"
 simple-error = "0.1.13"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
