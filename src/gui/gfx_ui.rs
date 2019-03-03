@@ -101,6 +101,7 @@ gfx_defines! {
 
 const STATUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
 const CURSOR_BG: [f32; 3] = [250.0 / 256.0, 250.0 / 256.0, 250.0 / 256.0];
+const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
 
 const QUAD: [Vertex; 4] = [
     Vertex { pos: [-1.0, 1.0] },
@@ -296,6 +297,16 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         },
                     ..
                 } => draw_state.move_cursor_col(1),
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Space),
+                            modifiers: ModifiersState { ctrl: true, .. },
+                            ..
+                        },
+                    ..
+                } => draw_state.clone_cursor(),
                 WindowEvent::Resized(new_logical_size) => {
                     println!("Resized to: {:?}", new_logical_size);
                     logical_size = new_logical_size;
@@ -416,6 +427,19 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             // FIXME: Only update if they've changed
             encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
             encoder.draw(&quad_slice, &quad_pso, &quad_data);
+
+            if let Some(cursor_transform) = draw_state.other_cursor_transform()
+            {
+                let quad_locals = Locals {
+                    color: OTHER_CURSOR_BG,
+                    transform: cursor_transform.into(),
+                };
+
+                // FIXME: Only update if they've changed
+                encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
+                encoder.draw(&quad_slice, &quad_pso, &quad_data);
+            }
+
             unsafe {
                 device.with_gl(|gl| gl.PopDebugGroup());
             }

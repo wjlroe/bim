@@ -32,6 +32,8 @@ pub struct DrawState<'a> {
     pub mouse_position: (f64, f64),
     cursor: RenderedCursor,
     cursor_transform: Matrix4<f32>,
+    other_cursor: Option<RenderedCursor>,
+    other_cursor_transform: Option<Matrix4<f32>>,
     status_transform: Matrix4<f32>,
     buffer: Buffer<'a>,
     pub highlighted_sections: Vec<HighlightedSection>,
@@ -56,6 +58,8 @@ impl<'a> DrawState<'a> {
             mouse_position: (0.0, 0.0),
             cursor: RenderedCursor::default(),
             cursor_transform: Matrix4::identity(),
+            other_cursor: None,
+            other_cursor_transform: None,
             status_transform: Matrix4::identity(),
             buffer,
             highlighted_sections: vec![],
@@ -96,6 +100,10 @@ impl<'a> DrawState<'a> {
 
     pub fn cursor_transform(&self) -> Matrix4<f32> {
         self.cursor_transform
+    }
+
+    pub fn other_cursor_transform(&self) -> Option<Matrix4<f32>> {
+        self.other_cursor_transform
     }
 
     fn update_highlighted_sections(&mut self) {
@@ -157,8 +165,32 @@ impl<'a> DrawState<'a> {
     }
 
     fn update_cursor_transform(&mut self) {
-        let cursor_y = self.cursor.text_row as f32;
-        let cursor_x = self.cursor.text_col as f32;
+        self.cursor_transform = self.transform_for_cursor(&self.cursor);
+        if let Some(other_cursor) = self.other_cursor {
+            self.other_cursor_transform =
+                Some(self.transform_for_cursor(&other_cursor));
+        } else {
+            self.other_cursor_transform = None;
+        }
+    }
+
+    pub fn onscreen_cursor(&self, cursor: &RenderedCursor) -> (f32, f32) {
+        let cursor_width = self.character_width() as f32;
+        let cursor_height = self.line_height() as f32;
+
+        let cursor_y = cursor.text_row as f32;
+        let cursor_x = cursor.text_col as f32;
+        let x_on_screen =
+            (cursor_width * cursor_x) + cursor_width / 2.0 + self.left_padding;
+        let y_on_screen = (cursor_height * cursor_y) + cursor_height / 2.0;
+        println!(
+            "Cursor ({},{}) is on screen at: ({},{})",
+            cursor_x, cursor_y, x_on_screen, y_on_screen
+        );
+        (x_on_screen, y_on_screen)
+    }
+
+    fn transform_for_cursor(&self, cursor: &RenderedCursor) -> Matrix4<f32> {
         let cursor_height = self.line_height() as f32;
         let cursor_width = self.character_width() as f32;
         let cursor_scale = Matrix4::from_nonuniform_scale(
@@ -166,21 +198,12 @@ impl<'a> DrawState<'a> {
             cursor_height / self.window_height,
             1.0,
         );
-        let y_move = -((((cursor_height * cursor_y) + cursor_height / 2.0)
-            / self.window_height)
-            * 2.0
-            - 1.0);
-        println!("cursor row: {}, cursor y_move: {:?}", cursor_y, y_move);
-        let x_move = (((cursor_width * cursor_x)
-            + cursor_width / 2.0
-            + self.left_padding)
-            / self.window_width)
-            * 2.0
-            - 1.0;
-        println!("cursor col: {}, cursor x_move: {:?}", cursor_x, x_move);
+        let (x_on_screen, y_on_screen) = self.onscreen_cursor(cursor);
+        let y_move = -((y_on_screen / self.window_height) * 2.0 - 1.0);
+        let x_move = (x_on_screen / self.window_width) * 2.0 - 1.0;
         let cursor_move =
             Matrix4::from_translation(Vector3::new(x_move, y_move, 0.2));
-        self.cursor_transform = cursor_move * cursor_scale;
+        cursor_move * cursor_scale
     }
 
     pub fn inner_width(&self) -> f32 {
@@ -230,6 +253,11 @@ impl<'a> DrawState<'a> {
         if self.cursor.text_row < 0 {
             self.cursor.text_row = 0;
         }
+        self.update();
+    }
+
+    pub fn clone_cursor(&mut self) {
+        self.other_cursor = Some(self.cursor.clone());
         self.update();
     }
 
