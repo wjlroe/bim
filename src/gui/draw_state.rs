@@ -211,7 +211,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn inner_height(&self) -> f32 {
-        self.window_height
+        self.window_height - self.line_height as f32
     }
 
     pub fn print_info(&self) {
