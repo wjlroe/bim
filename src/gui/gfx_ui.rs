@@ -15,7 +15,7 @@ use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::Api::OpenGl;
 use glutin::{
     ContextBuilder, ElementState, Event, EventsLoop, GlProfile, GlRequest,
-    KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent,
+    KeyboardInput, ModifiersState, VirtualKeyCode, WindowBuilder, WindowEvent,
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -208,6 +208,19 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         #[allow(clippy::single_match)]
         event_loop.poll_events(|event| match event {
             Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CursorMoved { position, .. } => {
+                    draw_state.mouse_position = position.into()
+                }
+                WindowEvent::MouseInput {
+                    state: ElementState::Pressed,
+                    ..
+                } => {
+                    let real_position: (f64, f64) =
+                        LogicalPosition::from(draw_state.mouse_position)
+                            .to_physical(draw_state.ui_scale().into())
+                            .into();
+                    println!("Mouse click at: {:?}", real_position);
+                }
                 WindowEvent::CloseRequested | WindowEvent::Destroyed => {
                     action_queue.push(Action::Quit)
                 }

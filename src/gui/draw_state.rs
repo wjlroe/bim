@@ -29,6 +29,7 @@ pub struct DrawState<'a> {
     font_size: f32,
     ui_scale: f32,
     left_padding: f32,
+    pub mouse_position: (f64, f64),
     cursor: RenderedCursor,
     cursor_transform: Matrix4<f32>,
     status_transform: Matrix4<f32>,
@@ -52,6 +53,7 @@ impl<'a> DrawState<'a> {
             font_size,
             ui_scale,
             left_padding: 12.0,
+            mouse_position: (0.0, 0.0),
             cursor: RenderedCursor::default(),
             cursor_transform: Matrix4::identity(),
             status_transform: Matrix4::identity(),
@@ -74,6 +76,10 @@ impl<'a> DrawState<'a> {
 
     pub fn character_width(&self) -> i32 {
         self.character_width
+    }
+
+    pub fn ui_scale(&self) -> f32 {
+        self.ui_scale
     }
 
     pub fn font_scale(&self) -> f32 {
