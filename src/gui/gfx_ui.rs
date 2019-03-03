@@ -445,19 +445,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             }
         }
 
-        let status_section = Section {
-            bounds: (draw_state.inner_width(), draw_state.line_height() as f32),
-            screen_position: (
-                draw_state.left_padding(),
-                draw_state.inner_height(),
-            ),
-            text: &status_text,
-            color: [1.0, 1.0, 1.0, 1.0],
-            scale: Scale::uniform(draw_state.font_scale()),
-            z: 0.5,
-            ..Section::default()
-        };
-
         let mut section_texts = vec![];
         for highlighted_section in draw_state.highlighted_sections.iter() {
             let hl = highlighted_section.highlight.unwrap_or(Highlight::Normal);
@@ -478,7 +465,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             ..VariedSection::default()
         };
         glyph_brush.queue(section);
-        glyph_brush.queue(status_section);
 
         glyph_brush.draw_queued(
             &mut encoder,
@@ -497,6 +483,25 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
             encoder.draw(&quad_slice, &quad_pso, &quad_data);
         }
+
+        let status_section = Section {
+            bounds: (draw_state.inner_width(), draw_state.line_height() as f32),
+            screen_position: (
+                draw_state.left_padding(),
+                draw_state.inner_height(),
+            ),
+            text: &status_text,
+            color: [1.0, 1.0, 1.0, 1.0],
+            scale: Scale::uniform(draw_state.font_scale()),
+            z: 0.5,
+            ..Section::default()
+        };
+        glyph_brush.queue(status_section);
+        glyph_brush.draw_queued(
+            &mut encoder,
+            &quad_data.out_color,
+            &quad_data.out_depth,
+        )?;
 
         encoder.flush(&mut device);
         window.swap_buffers()?;
