@@ -15,7 +15,8 @@ use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::Api::OpenGl;
 use glutin::{
     ContextBuilder, ElementState, Event, EventsLoop, GlProfile, GlRequest,
-    KeyboardInput, ModifiersState, VirtualKeyCode, WindowBuilder, WindowEvent,
+    Icon, KeyboardInput, ModifiersState, VirtualKeyCode, WindowBuilder,
+    WindowEvent,
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -132,8 +133,11 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         }
     }
     let mut dpi = monitor.get_hidpi_factor() as f32;
+    // If there's an icon.png lying about, use it as the window_icon...
+    let icon = "icon.png";
     let window_builder = WindowBuilder::new()
         .with_title("bim")
+        .with_window_icon(Icon::from_path(icon).ok())
         .with_dimensions(logical_size);
     let context = ContextBuilder::new()
         .with_gl(GlRequest::Specific(OpenGl, (4, 3)))

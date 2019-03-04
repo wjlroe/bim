@@ -15,3 +15,5 @@ testfiles/
 .idea/dbnavigator.xml
 .idea/workspace.xml
 .bim_persist_state.yaml
+icon.png
+bim.ico
