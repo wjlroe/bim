@@ -1,12 +1,12 @@
 use crate::buffer::Buffer;
 use crate::config::RunConfig;
 use crate::editor::BIM_VERSION;
+use crate::gui::draw_quad::DrawQuad;
 use crate::gui::draw_state::DrawState;
+use crate::gui::{ColorFormat, DepthFormat};
 use crate::highlight::{highlight_to_color, Highlight};
 use gfx;
-use gfx::traits::FactoryExt;
-use gfx::*;
-use gfx::{format, Device};
+use gfx::Device;
 use gfx_glyph::{
     GlyphBrushBuilder, GlyphCruncher, Scale, Section, SectionText,
     VariedSection,
@@ -22,9 +22,6 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs;
 use std::io::Read;
-
-pub type ColorFormat = format::Rgba8;
-pub type DepthFormat = format::Depth;
 
 #[derive(Serialize, Deserialize)]
 struct PersistWindowState {
@@ -82,34 +79,9 @@ enum Action {
     Quit,
 }
 
-gfx_defines! {
-  vertex Vertex {
-    pos: [f32; 2] = "a_Pos",
-  }
-
-  constant Locals {
-    transform: [[f32; 4]; 4] = "u_Transform",
-    color: [f32; 3] = "u_Color",
-  }
-
-  pipeline pipe {
-    vbuf: gfx::VertexBuffer<Vertex> = (),
-    locals: gfx::ConstantBuffer<Locals> = "Locals",
-    out_color: gfx::BlendTarget<ColorFormat> = ("Target0", gfx::state::ColorMask::all(), gfx::preset::blend::ALPHA),
-    out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
-  }
-}
-
 const STATUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
 const CURSOR_BG: [f32; 3] = [250.0 / 256.0, 250.0 / 256.0, 250.0 / 256.0];
 const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
-
-const QUAD: [Vertex; 4] = [
-    Vertex { pos: [-1.0, 1.0] },
-    Vertex { pos: [-1.0, -1.0] },
-    Vertex { pos: [1.0, -1.0] },
-    Vertex { pos: [1.0, 1.0] },
-];
 
 pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     use crate::config::RunConfig::*;
@@ -159,24 +131,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     let (window_width, window_height, ..) = main_color.get_dimensions();
 
-    let quad_pso = factory
-        .create_pipeline_simple(
-            include_bytes!("shaders/quad_150_core.vert"),
-            include_bytes!("shaders/quad_150_core.frag"),
-            pipe::new(),
-        )
-        .expect("quad pso construction to work");
-    let (quad_vbuf, quad_slice) = factory.create_vertex_buffer_with_slice(
-        &QUAD,
-        &[0u16, 1, 2, 2, 3, 0] as &[u16],
-    );
-    let mut quad_data = pipe::Data {
-        vbuf: quad_vbuf,
-        locals: factory.create_constant_buffer(2),
-        out_color: main_color,
-        out_depth: main_depth,
-    };
-
+    let mut draw_quad = DrawQuad::new(&mut factory, main_color, main_depth);
     let fonts: Vec<&[u8]> = vec![include_bytes!("iosevka-regular.ttf")];
 
     let mut glyph_brush = GlyphBrushBuilder::using_fonts_bytes(fonts)
@@ -344,12 +299,12 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                     window.resize(logical_size.to_physical(dpi.into()));
                     gfx_window_glutin::update_views(
                         &window,
-                        &mut quad_data.out_color,
-                        &mut quad_data.out_depth,
+                        &mut draw_quad.data.out_color,
+                        &mut draw_quad.data.out_depth,
                     );
                     {
                         let (width, height, ..) =
-                            quad_data.out_color.get_dimensions();
+                            draw_quad.data.out_color.get_dimensions();
                         println!(
                             "main_color.get_dimensions: ({}x{})",
                             width, height
@@ -365,8 +320,8 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
         // Purple background
         let background = [0.16078, 0.16471, 0.26667, 1.0];
-        encoder.clear(&quad_data.out_color, background);
-        encoder.clear_depth(&quad_data.out_depth, 1.0);
+        encoder.clear(&draw_quad.data.out_color, background);
+        encoder.clear_depth(&draw_quad.data.out_depth, 1.0);
 
         if window_resized {
             let test_section = VariedSection {
@@ -412,40 +367,15 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             // Render cursor
             // from top of line of text to bottom of line of text
             // from left of character to right of character
-            let cursor_debug_name = std::ffi::CString::new("Cursor").unwrap();
-            unsafe {
-                device.with_gl(|gl| {
-                    gl.PushDebugGroup(
-                        gfx_gl::DEBUG_SOURCE_APPLICATION,
-                        1,
-                        -1,
-                        cursor_debug_name.as_ptr(),
-                    );
-                });
-            }
-            let quad_locals = Locals {
-                color: CURSOR_BG,
-                transform: draw_state.cursor_transform().into(),
-            };
-
-            // FIXME: Only update if they've changed
-            encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
-            encoder.draw(&quad_slice, &quad_pso, &quad_data);
+            draw_quad.draw(
+                &mut encoder,
+                CURSOR_BG,
+                draw_state.cursor_transform(),
+            );
 
             if let Some(cursor_transform) = draw_state.other_cursor_transform()
             {
-                let quad_locals = Locals {
-                    color: OTHER_CURSOR_BG,
-                    transform: cursor_transform.into(),
-                };
-
-                // FIXME: Only update if they've changed
-                encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
-                encoder.draw(&quad_slice, &quad_pso, &quad_data);
-            }
-
-            unsafe {
-                device.with_gl(|gl| gl.PopDebugGroup());
+                draw_quad.draw(&mut encoder, OTHER_CURSOR_BG, cursor_transform);
             }
         }
 
@@ -472,20 +402,17 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
         glyph_brush.draw_queued(
             &mut encoder,
-            &quad_data.out_color,
-            &quad_data.out_depth,
+            &draw_quad.data.out_color,
+            &draw_quad.data.out_depth,
         )?;
 
         {
             // Render status background
-            let quad_locals = Locals {
-                color: STATUS_BG,
-                transform: draw_state.status_transform().into(),
-            };
-
-            // FIXME: Only update if they've changed
-            encoder.update_constant_buffer(&quad_data.locals, &quad_locals);
-            encoder.draw(&quad_slice, &quad_pso, &quad_data);
+            draw_quad.draw(
+                &mut encoder,
+                STATUS_BG,
+                draw_state.status_transform(),
+            );
         }
 
         let status_section = Section {
@@ -503,8 +430,8 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         glyph_brush.queue(status_section);
         glyph_brush.draw_queued(
             &mut encoder,
-            &quad_data.out_color,
-            &quad_data.out_depth,
+            &draw_quad.data.out_color,
+            &draw_quad.data.out_depth,
         )?;
 
         encoder.flush(&mut device);
