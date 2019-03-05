@@ -3,6 +3,7 @@ use crate::config::RunConfig;
 use crate::editor::BIM_VERSION;
 use crate::gui::draw_quad::DrawQuad;
 use crate::gui::draw_state::DrawState;
+use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::{ColorFormat, DepthFormat};
 use crate::highlight::{highlight_to_color, Highlight};
 use gfx;
@@ -18,61 +19,7 @@ use glutin::{
     Icon, KeyboardInput, ModifiersState, VirtualKeyCode, WindowBuilder,
     WindowEvent,
 };
-use serde::{Deserialize, Serialize};
 use std::error::Error;
-use std::fs;
-use std::io::Read;
-
-#[derive(Serialize, Deserialize)]
-struct PersistWindowState {
-    monitor_name: Option<String>,
-    logical_position: LogicalPosition,
-}
-
-impl PersistWindowState {
-    fn save(&self) {
-        match serde_yaml::to_string(self) {
-            Ok(config_string) => {
-                fs::write(Self::config_filename(), config_string).unwrap();
-            }
-            Err(e) => {
-                println!("Error saving config to string: {:?}", e);
-            }
-        }
-    }
-
-    fn restore() -> Self {
-        match fs::File::open(Self::config_filename()) {
-            Ok(mut f) => {
-                let mut config = String::new();
-                match f.read_to_string(&mut config) {
-                    Ok(_) => match serde_yaml::from_str::<Self>(&config) {
-                        Ok(persised) => return persised,
-                        Err(e) => {
-                            println!("Error deserializing config: {:?}", e)
-                        }
-                    },
-                    Err(e) => println!("Error reading config file: {:?}", e),
-                }
-            }
-            Err(e) => println!("Error opening config file: {:?}", e),
-        }
-        Self::default()
-    }
-
-    fn config_filename() -> String {
-        String::from(".bim_persist_state.yaml")
-    }
-}
-
-impl Default for PersistWindowState {
-    fn default() -> Self {
-        Self {
-            logical_position: LogicalPosition::new(400.0, 50.0),
-            monitor_name: None,
-        }
-    }
-}
 
 enum Action {
     ResizeWindow,
