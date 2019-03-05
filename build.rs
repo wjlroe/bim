@@ -1,7 +1,8 @@
-use std::path::Path;
-
 fn main() {
-    if cfg!(target_os = "windows") {
+    #[cfg(target_os = "windows")]
+    {
+        use std::path::Path;
+
         let mut res = winres::WindowsResource::new();
         let icon_path = "bim.ico";
         if Path::new(icon_path).exists() {
