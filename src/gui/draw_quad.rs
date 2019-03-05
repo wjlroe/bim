@@ -11,6 +11,7 @@ const QUAD: [Vertex; 4] = [
     Vertex { pos: [1.0, -1.0] },
     Vertex { pos: [1.0, 1.0] },
 ];
+const QUAD_INDICES: [u16; 6] = [0u16, 1, 2, 2, 3, 0];
 
 gfx_defines! {
   vertex Vertex {
@@ -52,10 +53,8 @@ impl<R: Resources> DrawQuad<R> {
                 pipe::new(),
             )
             .expect("quad pso construction to work");
-        let (quad_vbuf, quad_slice) = factory.create_vertex_buffer_with_slice(
-            &QUAD,
-            &[0u16, 1, 2, 2, 3, 0] as &[u16],
-        );
+        let (quad_vbuf, quad_slice) = factory
+            .create_vertex_buffer_with_slice(&QUAD, &QUAD_INDICES as &[u16]);
         let data = pipe::Data {
             vbuf: quad_vbuf,
             locals: factory.create_constant_buffer(2),
