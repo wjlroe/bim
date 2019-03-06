@@ -109,7 +109,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         dpi,
         buffer,
     );
-    let status_text = format!("bim editor - version {}", BIM_VERSION);
+    let _default_status_text = format!("bim editor - version {}", BIM_VERSION);
 
     while running {
         #[allow(clippy::single_match)]
@@ -362,6 +362,12 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             );
         }
 
+        let status_text = format!(
+            "{} | {} | {}",
+            draw_state.status_line.filename,
+            draw_state.status_line.filetype,
+            draw_state.status_line.cursor
+        );
         let status_section = Section {
             bounds: (draw_state.inner_width(), draw_state.line_height() as f32),
             screen_position: (

@@ -21,6 +21,14 @@ impl RenderedCursor {
     }
 }
 
+#[derive(Clone, Default)]
+pub struct StatusLine {
+    pub filename: String,
+    pub num_lines: String,
+    pub filetype: String,
+    pub cursor: String,
+}
+
 pub struct DrawState<'a> {
     window_width: f32,
     window_height: f32,
@@ -37,6 +45,30 @@ pub struct DrawState<'a> {
     status_transform: Matrix4<f32>,
     buffer: Buffer<'a>,
     pub highlighted_sections: Vec<HighlightedSection>,
+    pub status_line: StatusLine,
+}
+
+impl<'a> Default for DrawState<'a> {
+    fn default() -> Self {
+        Self {
+            window_width: 0.0,
+            window_height: 0.0,
+            line_height: 0,
+            character_width: 0,
+            font_size: 0.0,
+            ui_scale: 0.0,
+            left_padding: 0.0,
+            mouse_position: (0.0, 0.0),
+            cursor: RenderedCursor::default(),
+            cursor_transform: Matrix4::identity(),
+            other_cursor: None,
+            other_cursor_transform: None,
+            status_transform: Matrix4::identity(),
+            buffer: Buffer::default(),
+            highlighted_sections: vec![],
+            status_line: StatusLine::default(),
+        }
+    }
 }
 
 impl<'a> DrawState<'a> {
@@ -50,25 +82,18 @@ impl<'a> DrawState<'a> {
         let mut state = DrawState {
             window_width,
             window_height,
-            line_height: 0,
-            character_width: 0,
             font_size,
             ui_scale,
             left_padding: 12.0,
-            mouse_position: (0.0, 0.0),
-            cursor: RenderedCursor::default(),
-            cursor_transform: Matrix4::identity(),
-            other_cursor: None,
-            other_cursor_transform: None,
-            status_transform: Matrix4::identity(),
             buffer,
-            highlighted_sections: vec![],
+            ..DrawState::default()
         };
-        state.update_highlighted_sections();
+        state.update();
         state
     }
 
     pub fn update(&mut self) {
+        self.update_status_line();
         self.update_highlighted_sections();
         self.update_status_transform();
         self.update_cursor_transform();
@@ -104,6 +129,21 @@ impl<'a> DrawState<'a> {
 
     pub fn other_cursor_transform(&self) -> Option<Matrix4<f32>> {
         self.other_cursor_transform
+    }
+
+    fn update_status_line(&mut self) {
+        let filename = self
+            .buffer
+            .filename
+            .clone()
+            .unwrap_or_else(|| String::from("[No Name]"));
+        self.status_line.filename = filename;
+        self.status_line.filetype = self.buffer.get_filetype();
+        self.status_line.cursor = format!(
+            "{}:{}",
+            self.cursor.text_row + 1,
+            self.cursor.text_col + 1,
+        );
     }
 
     fn update_highlighted_sections(&mut self) {
