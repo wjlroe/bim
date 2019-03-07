@@ -32,8 +32,8 @@ pub struct StatusLine {
 pub struct DrawState<'a> {
     window_width: f32,
     window_height: f32,
-    line_height: i32,
-    character_width: i32,
+    line_height: f32,
+    character_width: f32,
     font_size: f32,
     ui_scale: f32,
     left_padding: f32,
@@ -53,8 +53,8 @@ impl<'a> Default for DrawState<'a> {
         Self {
             window_width: 0.0,
             window_height: 0.0,
-            line_height: 0,
-            character_width: 0,
+            line_height: 0.0,
+            character_width: 0.0,
             font_size: 0.0,
             ui_scale: 0.0,
             left_padding: 0.0,
@@ -99,11 +99,19 @@ impl<'a> DrawState<'a> {
         self.update_cursor_transform();
     }
 
-    pub fn line_height(&self) -> i32 {
+    pub fn line_height(&self) -> f32 {
         self.line_height
     }
 
-    pub fn character_width(&self) -> i32 {
+    pub fn window_width(&self) -> f32 {
+        self.window_width
+    }
+
+    pub fn window_height(&self) -> f32 {
+        self.window_height
+    }
+
+    pub fn character_width(&self) -> f32 {
         self.character_width
     }
 
@@ -215,8 +223,8 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn onscreen_cursor(&self, cursor: &RenderedCursor) -> (f32, f32) {
-        let cursor_width = self.character_width() as f32;
-        let cursor_height = self.line_height() as f32;
+        let cursor_width = self.character_width();
+        let cursor_height = self.line_height();
 
         let cursor_y = cursor.text_row as f32;
         let cursor_x = cursor.text_col as f32;
@@ -231,8 +239,9 @@ impl<'a> DrawState<'a> {
     }
 
     fn transform_for_cursor(&self, cursor: &RenderedCursor) -> Matrix4<f32> {
-        let cursor_height = self.line_height() as f32;
-        let cursor_width = self.character_width() as f32;
+        let cursor_width = self.character_width();
+        let cursor_height = self.line_height();
+
         let cursor_scale = Matrix4::from_nonuniform_scale(
             cursor_width / self.window_width,
             cursor_height / self.window_height,
@@ -306,12 +315,12 @@ impl<'a> DrawState<'a> {
         self.update();
     }
 
-    pub fn set_line_height(&mut self, height: i32) {
+    pub fn set_line_height(&mut self, height: f32) {
         self.line_height = height;
         self.update();
     }
 
-    pub fn set_character_width(&mut self, width: i32) {
+    pub fn set_character_width(&mut self, width: f32) {
         self.character_width = width;
         self.update();
     }
