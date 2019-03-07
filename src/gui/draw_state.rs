@@ -306,7 +306,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn clone_cursor(&mut self) {
-        self.other_cursor = Some(self.cursor.clone());
+        self.other_cursor = Some(self.cursor);
         self.update();
     }
 
