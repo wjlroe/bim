@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::rc::Rc;
 
+#[derive(Default)]
 pub struct Buffer<'a> {
     pub filename: Option<String>,
     pub rows: Vec<Row<'a>>,
@@ -14,14 +15,6 @@ pub struct Buffer<'a> {
 }
 
 impl<'a> Buffer<'a> {
-    pub fn new() -> Self {
-        Buffer {
-            filename: None,
-            rows: Vec::new(),
-            syntax: Rc::new(None),
-        }
-    }
-
     pub fn num_lines(&self) -> usize {
         self.rows.len()
     }
@@ -123,7 +116,7 @@ impl<'a> Buffer<'a> {
     pub fn get_filetype(&self) -> String {
         self.syntax
             .map(|x| x.filetype.to_string())
-            .unwrap_or("no ft".to_string())
+            .unwrap_or_else(|| "no ft".to_string())
     }
 
     pub fn open(&mut self, filename: &str) -> Result<(), Box<dyn Error>> {
@@ -199,7 +192,7 @@ impl<'a> Buffer<'a> {
             .rows
             .get(row)
             .map(|r| r.newline())
-            .unwrap_or(DEFAULT_NEWLINE.to_string());
+            .unwrap_or_else(|| DEFAULT_NEWLINE.to_string());
         if col == 0 {
             self.insert_row(row, &newline);
         } else {
@@ -245,7 +238,7 @@ impl<'a> Buffer<'a> {
 
 #[test]
 fn test_join_row() {
-    let mut buffer = Buffer::new();
+    let mut buffer = Buffer::default();
 
     buffer.append_row("this is the first line. \r\n");
     buffer.append_row("this is the second line.\r\n");
@@ -262,7 +255,7 @@ fn test_join_row() {
 
 #[test]
 fn test_insert_newline() {
-    let mut buffer = Buffer::new();
+    let mut buffer = Buffer::default();
     buffer.append_row("what a good first line.\r\n");
     buffer.append_row("not a bad second line\r\n");
     assert_eq!(2, buffer.num_lines());
@@ -313,7 +306,7 @@ fn test_insert_newline() {
 fn test_insert_newline_default() {
     use crate::row::DEFAULT_NEWLINE;
 
-    let mut buffer = Buffer::new();
+    let mut buffer = Buffer::default();
     buffer.insert_newline(0, 0);
     assert_eq!(1, buffer.num_lines());
     assert_eq!(DEFAULT_NEWLINE.to_string(), buffer.rows[0].as_str());
@@ -323,7 +316,7 @@ fn test_insert_newline_default() {
 fn test_insert_newline_after_firstline() {
     use crate::row::DEFAULT_NEWLINE;
 
-    let mut buffer = Buffer::new();
+    let mut buffer = Buffer::default();
     buffer.insert_char('1', 0, 0);
     buffer.insert_newline(0, 1);
     assert_eq!(2, buffer.num_lines());
@@ -334,7 +327,7 @@ fn test_insert_newline_after_firstline() {
 
 #[test]
 fn test_insert_char() {
-    let mut buffer = Buffer::new();
+    let mut buffer = Buffer::default();
     buffer.insert_char('£', 0, 0);
     buffer.insert_char('1', 1, 0);
     assert_eq!(
@@ -349,7 +342,7 @@ fn test_insert_char() {
 
 #[test]
 fn test_search_match_highlighting() {
-    let mut buffer = Buffer::new();
+    let mut buffer = Buffer::default();
     buffer.append_row("nothing abc123 nothing\r\n");
     let match_coords = buffer
         .search_for(None, SearchDirection::Forwards, "abc123")
@@ -362,7 +355,7 @@ fn test_search_match_highlighting() {
 
 #[test]
 fn test_clearing_search_overlay() {
-    let mut buffer = Buffer::new();
+    let mut buffer = Buffer::default();
     buffer.append_row("nothing abc123 nothing\r\n");
     let (_, row_idx) = buffer
         .search_for(None, SearchDirection::Forwards, "abc123")

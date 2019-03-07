@@ -2,31 +2,17 @@ use crate::buffer::Buffer;
 use crate::commands::{Cmd, MoveCursor, SearchDirection};
 use crate::editor::BIM_VERSION;
 use crate::keycodes::{ctrl_key, Key};
+use crate::status::Status;
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::{stdout, Write};
 use std::process::exit;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use time::now;
 
 const UI_ROWS: i32 = 2;
 const BIM_QUIT_TIMES: i8 = 3;
 const BIM_DEBUG_LOG: &str = ".bim_debug";
-
-#[derive(PartialEq, Eq)]
-struct Status {
-    message: String,
-    time: Instant,
-}
-
-impl Status {
-    fn new(message: String) -> Self {
-        Status {
-            message,
-            time: Instant::now(),
-        }
-    }
-}
 
 pub struct Terminal<'a> {
     pub screen_cols: i32,
@@ -53,7 +39,7 @@ impl<'a> Terminal<'a> {
             cursor_x: 0,
             cursor_y: 0,
             rcursor_x: 0,
-            buffer: Buffer::new(),
+            buffer: Buffer::default(),
             append_buffer: String::new(),
             row_offset: 0,
             col_offset: 0,
@@ -97,14 +83,12 @@ impl<'a> Terminal<'a> {
                 } else {
                     self.append_buffer.push_str("~");
                 }
-            } else {
-                if let Some(onscreen_row) = self.buffer.row_onscreen_text(
-                    filerow as usize,
-                    self.col_offset as usize,
-                    self.screen_cols as usize,
-                ) {
-                    self.append_buffer.push_str(onscreen_row.as_str());
-                }
+            } else if let Some(onscreen_row) = self.buffer.row_onscreen_text(
+                filerow as usize,
+                self.col_offset as usize,
+                self.screen_cols as usize,
+            ) {
+                self.append_buffer.push_str(onscreen_row.as_str());
             }
 
             self.clear_line();
@@ -119,7 +103,7 @@ impl<'a> Terminal<'a> {
             .buffer
             .filename
             .clone()
-            .unwrap_or(String::from("[No Name]"));
+            .unwrap_or_else(|| String::from("[No Name]"));
         let file_status = if self.dirty.is_positive() {
             "(modified)"
         } else {
@@ -154,10 +138,12 @@ impl<'a> Terminal<'a> {
     fn draw_message_bar(&mut self) {
         self.clear_line();
         if let Some(ref status) = self.status {
-            if status.time.elapsed() < Duration::from_secs(5) {
+            if status.is_valid() {
                 let mut msg = status.message.clone();
                 msg.truncate(self.screen_cols as usize);
                 self.append_buffer.push_str(&msg);
+            } else {
+                self.status = None;
             }
         }
     }
@@ -194,12 +180,9 @@ impl<'a> Terminal<'a> {
     pub fn reset(&mut self) {
         self.clear();
         self.goto_origin();
-        match self.flush() {
-            Err(err) => {
-                panic!("oh no! flush failed: {:?}", err);
-            }
-            _ => {}
-        }
+        if let Err(err) = self.flush() {
+            panic!("oh no! flush failed: {:?}", err);
+        };
     }
 
     fn flush(&mut self) -> Result<(), Box<dyn Error>> {
@@ -208,7 +191,7 @@ impl<'a> Terminal<'a> {
             let output_size = output.len();
             let written_bytes = stdout().write(output)?;
             if written_bytes == output_size {
-                let _ = stdout().flush()?;
+                stdout().flush()?;
             } else {
                 let failed = "Failed to write all the output.";
                 let err_desc = format!(
@@ -261,12 +244,9 @@ impl<'a> Terminal<'a> {
 
         self.show_cursor();
 
-        match self.flush() {
-            Err(err) => {
-                panic!("oh no! flush failed: {:?}", err);
-            }
-            _ => {}
-        }
+        if let Err(err) = self.flush() {
+            panic!("oh no! flush failed: {:?}", err);
+        };
     }
 
     pub fn move_cursor(&mut self, move_cursor: MoveCursor) {
@@ -545,15 +525,14 @@ impl<'a> Terminal<'a> {
     }
 
     pub fn set_status_message(&mut self, message: String) {
-        let status = Status::new(message);
+        let status = Status::new_with_timeout(message, Duration::from_secs(5));
         self.status = Some(status);
     }
 
     pub fn open(&mut self, filename: &str) {
-        match self.buffer.open(filename) {
-            Err(e) => self.die(e.description()),
-            _ => {}
-        }
+        if let Err(e) = self.buffer.open(filename) {
+            self.die(e.description());
+        };
     }
 
     pub fn has_filename(&self) -> bool {

@@ -53,7 +53,7 @@ impl<'a> Syntax<'a> {
             let keywords = self
                 .keywords
                 .entry(Highlight::Keyword1)
-                .or_insert(Vec::new());
+                .or_insert_with(Vec::new);
             for keyword in keywords1 {
                 keywords.push(keyword);
             }
@@ -66,7 +66,7 @@ impl<'a> Syntax<'a> {
             let keywords = self
                 .keywords
                 .entry(Highlight::Keyword2)
-                .or_insert(Vec::new());
+                .or_insert_with(Vec::new);
             for keyword in keywords2 {
                 keywords.push(keyword);
             }
@@ -107,13 +107,13 @@ impl<'a> Syntax<'a> {
 
     pub fn highlight_singleline_comments(&self) -> bool {
         self.flags.contains(&SyntaxSetting::HighlightComments)
-            && self.singleline_comment_start.len() > 0
+            && !self.singleline_comment_start.is_empty()
     }
 
     pub fn highlight_multiline_comments(&self) -> bool {
         self.flags.contains(&SyntaxSetting::HighlightComments)
-            && self.multiline_comment_start.len() > 0
-            && self.multiline_comment_end.len() > 0
+            && !self.multiline_comment_start.is_empty()
+            && !self.multiline_comment_end.is_empty()
     }
 
     pub fn highlight_keywords(&self) -> bool {
