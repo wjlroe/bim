@@ -29,6 +29,8 @@ enum Action {
 const STATUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
 const CURSOR_BG: [f32; 3] = [250.0 / 256.0, 250.0 / 256.0, 250.0 / 256.0];
 const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
+const LINE_COL_BG: [f32; 3] = [0.0, 0.0, 0.0];
+const LINE_COLS_AT: [u32; 2] = [80, 120];
 
 pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     use crate::config::RunConfig::*;
@@ -36,7 +38,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     let mut persist_window_state = PersistWindowState::restore();
 
     let mut event_loop = EventsLoop::new();
-    let mut logical_size = LogicalSize::new(600.0, 800.0);
+    let mut logical_size = LogicalSize::new(650.0, 800.0);
     let mut monitor = event_loop.get_primary_monitor();
     if let Some(previous_monitor_name) =
         persist_window_state.monitor_name.as_ref()
@@ -347,6 +349,25 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             &draw_quad.data.out_color,
             &draw_quad.data.out_depth,
         )?;
+
+        {
+            use cgmath::{Matrix4, Vector3};
+            for line in LINE_COLS_AT.iter() {
+                let scale = Matrix4::from_nonuniform_scale(
+                    1.0 / draw_state.window_width(),
+                    1.0,
+                    1.0,
+                );
+                let x_on_screen = draw_state.left_padding()
+                    + (*line as f32 * draw_state.character_width());
+                let x_move =
+                    (x_on_screen / draw_state.window_width()) * 2.0 - 1.0;
+                let translate =
+                    Matrix4::from_translation(Vector3::new(x_move, 0.0, 0.2));
+                let transform = translate * scale;
+                draw_quad.draw(&mut encoder, LINE_COL_BG, transform);
+            }
+        }
 
         {
             // Render status background
