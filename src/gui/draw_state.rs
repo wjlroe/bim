@@ -46,6 +46,8 @@ pub struct DrawState<'a> {
     buffer: Buffer<'a>,
     pub highlighted_sections: Vec<HighlightedSection>,
     pub status_line: StatusLine,
+    row_offset: f32,
+    col_offset: f32,
 }
 
 impl<'a> Default for DrawState<'a> {
@@ -67,6 +69,8 @@ impl<'a> Default for DrawState<'a> {
             buffer: Buffer::default(),
             highlighted_sections: vec![],
             status_line: StatusLine::default(),
+            row_offset: 0.0,
+            col_offset: 0.0,
         }
     }
 }
@@ -93,6 +97,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn update(&mut self) {
+        self.scroll();
         self.update_status_line();
         self.update_highlighted_sections();
         self.update_status_transform();
@@ -109,6 +114,18 @@ impl<'a> DrawState<'a> {
 
     pub fn window_height(&self) -> f32 {
         self.window_height
+    }
+
+    pub fn inner_width(&self) -> f32 {
+        self.window_width - self.left_padding
+    }
+
+    pub fn inner_height(&self) -> f32 {
+        self.window_height - self.line_height as f32
+    }
+
+    pub fn screen_rows(&self) -> i32 {
+        (self.inner_height() / self.line_height as f32).ceil() as i32
     }
 
     pub fn character_width(&self) -> f32 {
@@ -137,6 +154,25 @@ impl<'a> DrawState<'a> {
 
     pub fn other_cursor_transform(&self) -> Option<Matrix4<f32>> {
         self.other_cursor_transform
+    }
+
+    pub fn row_offset(&self) -> f32 {
+        self.row_offset
+    }
+
+    pub fn col_offset(&self) -> f32 {
+        self.col_offset
+    }
+
+    fn scroll(&mut self) {
+        if self.line_height > 0.0 {
+            if self.cursor.text_row
+                > self.row_offset.ceil() as i32 + self.screen_rows()
+            {
+                self.row_offset =
+                    (self.cursor.text_row - self.screen_rows() + 1) as f32;
+            }
+        }
     }
 
     fn update_status_line(&mut self) {
@@ -253,14 +289,6 @@ impl<'a> DrawState<'a> {
         let cursor_move =
             Matrix4::from_translation(Vector3::new(x_move, y_move, 0.2));
         cursor_move * cursor_scale
-    }
-
-    pub fn inner_width(&self) -> f32 {
-        self.window_width - self.left_padding
-    }
-
-    pub fn inner_height(&self) -> f32 {
-        self.window_height - self.line_height as f32
     }
 
     pub fn print_info(&self) {
