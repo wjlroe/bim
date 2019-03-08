@@ -336,10 +336,14 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         }
 
         let section = VariedSection {
-            bounds: (draw_state.inner_width(), draw_state.inner_height()),
+            bounds: (
+                draw_state.inner_width(),
+                draw_state.inner_height()
+                    + draw_state.screen_position_vertical_offset(),
+            ),
             screen_position: (
                 draw_state.left_padding(),
-                -draw_state.row_offset(),
+                -draw_state.screen_position_vertical_offset(),
             ),
             text: section_texts,
             z: 1.0,

@@ -160,6 +160,10 @@ impl<'a> DrawState<'a> {
         self.row_offset
     }
 
+    pub fn screen_position_vertical_offset(&self) -> f32 {
+        self.row_offset * self.line_height
+    }
+
     pub fn col_offset(&self) -> f32 {
         self.col_offset
     }
