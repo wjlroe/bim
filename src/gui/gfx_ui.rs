@@ -341,17 +341,15 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                 draw_state.inner_height()
                     + draw_state.screen_position_vertical_offset(),
             ),
-            screen_position: (
-                draw_state.left_padding(),
-                -draw_state.screen_position_vertical_offset(),
-            ),
+            screen_position: (draw_state.left_padding(), 0.0),
             text: section_texts,
             z: 1.0,
             ..VariedSection::default()
         };
         glyph_brush.queue(section);
 
-        glyph_brush.draw_queued(
+        glyph_brush.draw_queued_with_transform(
+            draw_state.row_offset_as_transform(),
             &mut encoder,
             &draw_quad.data.out_color,
             &draw_quad.data.out_depth,

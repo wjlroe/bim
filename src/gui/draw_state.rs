@@ -125,7 +125,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn screen_rows(&self) -> i32 {
-        (self.inner_height() / self.line_height as f32).ceil() as i32
+        (self.inner_height() / self.line_height as f32).floor() as i32
     }
 
     pub fn character_width(&self) -> f32 {
@@ -164,17 +164,30 @@ impl<'a> DrawState<'a> {
         self.row_offset * self.line_height
     }
 
+    pub fn row_offset_as_transform(&self) -> [[f32; 4]; 4] {
+        let y_move =
+            self.screen_position_vertical_offset() / (self.window_height / 2.0);
+        let text_transform =
+            Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
+        text_transform.into()
+    }
+
     pub fn col_offset(&self) -> f32 {
         self.col_offset
     }
 
     fn scroll(&mut self) {
         if self.line_height > 0.0 {
+            let screen_rows = self.screen_rows();
             if self.cursor.text_row
-                > self.row_offset.ceil() as i32 + self.screen_rows()
+                >= self.row_offset.floor() as i32 + screen_rows
             {
                 self.row_offset =
-                    (self.cursor.text_row - self.screen_rows() + 1) as f32;
+                    (self.cursor.text_row - screen_rows + 1) as f32;
+            }
+
+            if self.cursor.text_row < self.row_offset.ceil() as i32 {
+                self.row_offset = self.cursor.text_row as f32;
             }
         }
     }
