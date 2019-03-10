@@ -54,6 +54,4 @@ pub fn highlight_to_color(hl: Highlight) -> [f32; 4] {
 pub struct HighlightedSection {
     pub text: String,
     pub highlight: Option<Highlight>,
-    pub start_row_idx: usize,
-    pub end_row_idx: usize,
 }

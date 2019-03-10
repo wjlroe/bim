@@ -212,8 +212,6 @@ impl<'a> DrawState<'a> {
         let mut current_section = HighlightedSection {
             text: String::new(),
             highlight: None,
-            start_row_idx: 0,
-            end_row_idx: 0,
         };
         for (row_idx, row) in self.buffer.rows.iter().enumerate() {
             let mut highlights = row.hl.iter();
@@ -236,15 +234,12 @@ impl<'a> DrawState<'a> {
                 if current_section.highlight == Some(hl) {
                     current_section.text.push(c);
                 } else {
-                    current_section.end_row_idx = row_idx;
                     self.highlighted_sections.push(current_section.clone());
                     current_section.text.clear();
                     current_section.highlight = None;
                     current_section.text.push(c);
-                    current_section.start_row_idx = row_idx;
                 }
             }
-            current_section.end_row_idx = row_idx;
             current_section.text.push('\n');
         }
         if current_section.text != "" {
