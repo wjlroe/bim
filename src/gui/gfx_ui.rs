@@ -1,5 +1,6 @@
 use crate::buffer::Buffer;
 use crate::config::RunConfig;
+use crate::debug_log::DebugLog;
 use crate::editor::BIM_VERSION;
 use crate::gui::draw_quad::DrawQuad;
 use crate::gui::draw_state::DrawState;
@@ -26,6 +27,8 @@ enum Action {
     Quit,
 }
 
+const XBIM_DEBUG_LOG: &str = ".xbim_debug";
+
 const STATUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
 const CURSOR_BG: [f32; 3] = [250.0 / 256.0, 250.0 / 256.0, 250.0 / 256.0];
 const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
@@ -33,6 +36,8 @@ const LINE_COL_BG: [f32; 3] = [0.0, 0.0, 0.0];
 const LINE_COLS_AT: [u32; 2] = [80, 120];
 
 pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
+    let debug_log = DebugLog::new(XBIM_DEBUG_LOG);
+    debug_log.start()?;
     use crate::config::RunConfig::*;
 
     let mut persist_window_state = PersistWindowState::restore();
@@ -72,6 +77,9 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         )
         .unwrap();
 
+    debug_log.debugln_timestamped(&format!("color_view: {:?}", main_color))?;
+    debug_log.debugln_timestamped(&format!("depth_view: {:?}", main_depth))?;
+
     unsafe {
         device.with_gl(|gl| gl.Disable(gfx_gl::FRAMEBUFFER_SRGB));
     }
@@ -79,6 +87,10 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     window.set_position(persist_window_state.logical_position);
 
     let (window_width, window_height, ..) = main_color.get_dimensions();
+    debug_log.debugln_timestamped(&format!(
+        "window_width: {}, window_height: {}",
+        window_width, window_height,
+    ))?;
 
     let mut draw_quad = DrawQuad::new(&mut factory, main_color, main_depth);
     let fonts: Vec<&[u8]> = vec![include_bytes!("iosevka-regular.ttf")];
@@ -218,6 +230,10 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                 WindowEvent::Resized(new_logical_size) => {
                     println!("Resized to: {:?}", new_logical_size);
                     logical_size = new_logical_size;
+                    let _ = debug_log.debugln_timestamped(&format!(
+                        "logical_size: {:?}",
+                        logical_size,
+                    ));
                     action_queue.push(Action::ResizeWindow);
                 }
                 WindowEvent::HiDpiFactorChanged(new_dpi) => {
@@ -245,7 +261,12 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         while let Some(action) = action_queue.pop() {
             match action {
                 Action::ResizeWindow => {
-                    window.resize(logical_size.to_physical(dpi.into()));
+                    let physical_size = logical_size.to_physical(dpi.into());
+                    debug_log.debugln_timestamped(&format!(
+                        "physical_size: {:?}",
+                        physical_size,
+                    ))?;
+                    window.resize(physical_size);
                     gfx_window_glutin::update_views(
                         &window,
                         &mut draw_quad.data.out_color,
