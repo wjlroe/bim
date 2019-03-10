@@ -82,8 +82,8 @@ pub trait Editor {
             let mut direction = SearchDirection::Forwards;
             let mut run_search = true;
             let search_str = format!("Search ({}):", direction);
-            terminal.debug(format!(
-                "cmd == Search. last_match = {:?}, direction = {}\r\n",
+            let _ = terminal.debug_log.debugln_timestamped(&format!(
+                "cmd == Search. last_match = {:?}, direction = {}",
                 last_match, direction
             ));
 

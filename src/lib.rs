@@ -15,6 +15,7 @@ pub use crate::win::EditorImpl;
 pub mod buffer;
 mod commands;
 pub mod config;
+pub mod debug_log;
 pub mod highlight;
 mod keycodes;
 mod row;

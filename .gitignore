@@ -17,3 +17,4 @@ testfiles/
 .bim_persist_state.yaml
 icon.png
 bim.ico
+callgrind.out*

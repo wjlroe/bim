@@ -1,14 +1,13 @@
 use crate::buffer::Buffer;
 use crate::commands::{Cmd, MoveCursor, SearchDirection};
+use crate::debug_log::DebugLog;
 use crate::editor::BIM_VERSION;
 use crate::keycodes::{ctrl_key, Key};
 use crate::status::Status;
 use std::error::Error;
-use std::fs::OpenOptions;
 use std::io::{stdout, Write};
 use std::process::exit;
 use std::time::Duration;
-use time::now;
 
 const UI_ROWS: i32 = 2;
 const BIM_QUIT_TIMES: i8 = 3;
@@ -28,6 +27,7 @@ pub struct Terminal<'a> {
     dirty: i32,
     quit_times: i8,
     status: Option<Status>,
+    pub debug_log: DebugLog<'a>,
 }
 
 impl<'a> Terminal<'a> {
@@ -46,6 +46,7 @@ impl<'a> Terminal<'a> {
             dirty: 0,
             quit_times: BIM_QUIT_TIMES,
             status: None,
+            debug_log: DebugLog::new(BIM_DEBUG_LOG),
         }
     }
 
@@ -465,7 +466,9 @@ impl<'a> Terminal<'a> {
         use crate::commands::Cmd::*;
         use crate::keycodes::Key::*;
 
-        self.debug(format!("key press: {:?}\r\n", key));
+        let _ = self
+            .debug_log
+            .debugln_timestamped(&format!("key press: {:?}", key));
         match key {
             ArrowLeft => Some(Move(MoveCursor::left(1))),
             ArrowRight => Some(Move(MoveCursor::right(1))),
@@ -496,8 +499,8 @@ impl<'a> Terminal<'a> {
                 }
             }
             Other(c) => {
-                self.debug(format!(
-                    "other key: {character}, {key_num:x}, {key_num} as u32\n",
+                let _ = self.debug_log.debugln_timestamped(&format!(
+                    "other key: {character}, {key_num:x}, {key_num} as u32",
                     character = c,
                     key_num = c as u32
                 ));
@@ -553,40 +556,31 @@ impl<'a> Terminal<'a> {
     }
 
     fn start_debug(&self) {
-        if let Ok(mut file) = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .open(BIM_DEBUG_LOG)
-        {
-            let _ = file.write(
-                &format!("bim version {} starting\n", BIM_VERSION).into_bytes(),
-            );
-            let _ = file
-                .write(&format!("rows: {}\n", self.screen_rows).into_bytes());
-            let _ = file
-                .write(&format!("cols: {}\n", self.screen_cols).into_bytes());
-            let _ = file.write(
-                &format!("window size method: {}\n", self.window_size_method)
-                    .into_bytes(),
-            );
-            let _ = file.flush();
-        }
-    }
-
-    pub fn debug(&self, text: String) {
-        if let Ok(mut file) =
-            OpenOptions::new().append(true).open(BIM_DEBUG_LOG)
-        {
-            let now = now();
-            let _ = file.write(&format!("{}: ", now.rfc822()).into_bytes());
-            let _ = file.write(&text.into_bytes());
-            let _ = file.flush();
-        }
+        let _ = self.debug_log.start();
+        let _ = self.debug_log.debugln_timestamped(&format!(
+            "bim version {} starting",
+            BIM_VERSION
+        ));
+        let _ = self
+            .debug_log
+            .debugln_timestamped(&format!("rows: {}", self.screen_rows));
+        let _ = self
+            .debug_log
+            .debugln_timestamped(&format!("cols: {}", self.screen_cols));
+        let _ = self.debug_log.debugln_timestamped(&format!(
+            "window size method: {}",
+            self.window_size_method
+        ));
     }
 
     pub fn log_debug(&self) {
-        self.debug(format!("rows: {}\r\n", self.screen_rows + UI_ROWS));
-        self.debug(format!("cols: {}\r\n", self.screen_cols));
+        let _ = self.debug_log.debugln_timestamped(&format!(
+            "rows: {}",
+            self.screen_rows + UI_ROWS
+        ));
+        let _ = self
+            .debug_log
+            .debugln_timestamped(&format!("cols: {}", self.screen_cols));
     }
 
     fn internal_save_file(&self) -> Result<usize, Box<dyn Error>> {
@@ -614,8 +608,8 @@ impl<'a> Terminal<'a> {
         direction: SearchDirection,
         needle: &str,
     ) -> Option<(usize, usize)> {
-        self.debug(format!(
-            "search_for: '{}', direction: {}\r\n",
+        let _ = self.debug_log.debugln_timestamped(&format!(
+            "search_for: '{}', direction: {}",
             needle, direction
         ));
         self.buffer

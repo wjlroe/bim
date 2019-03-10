@@ -46,6 +46,8 @@ pub struct DrawState<'a> {
     buffer: Buffer<'a>,
     pub highlighted_sections: Vec<HighlightedSection>,
     pub status_line: StatusLine,
+    row_offset: f32,
+    col_offset: f32,
 }
 
 impl<'a> Default for DrawState<'a> {
@@ -67,6 +69,8 @@ impl<'a> Default for DrawState<'a> {
             buffer: Buffer::default(),
             highlighted_sections: vec![],
             status_line: StatusLine::default(),
+            row_offset: 0.0,
+            col_offset: 0.0,
         }
     }
 }
@@ -89,12 +93,14 @@ impl<'a> DrawState<'a> {
             ..DrawState::default()
         };
         state.update();
+        state.update_highlighted_sections();
         state
     }
 
     pub fn update(&mut self) {
+        self.scroll();
         self.update_status_line();
-        self.update_highlighted_sections();
+        // self.update_highlighted_sections();
         self.update_status_transform();
         self.update_cursor_transform();
     }
@@ -109,6 +115,18 @@ impl<'a> DrawState<'a> {
 
     pub fn window_height(&self) -> f32 {
         self.window_height
+    }
+
+    pub fn inner_width(&self) -> f32 {
+        self.window_width - self.left_padding
+    }
+
+    pub fn inner_height(&self) -> f32 {
+        self.window_height - self.line_height as f32
+    }
+
+    pub fn screen_rows(&self) -> i32 {
+        (self.inner_height() / self.line_height as f32).floor() as i32
     }
 
     pub fn character_width(&self) -> f32 {
@@ -139,6 +157,46 @@ impl<'a> DrawState<'a> {
         self.other_cursor_transform
     }
 
+    pub fn row_offset(&self) -> f32 {
+        self.row_offset
+    }
+
+    pub fn cursor(&self) -> (usize, usize) {
+        (self.cursor.text_row as usize, self.cursor.text_col as usize)
+    }
+
+    pub fn screen_position_vertical_offset(&self) -> f32 {
+        self.row_offset * self.line_height
+    }
+
+    pub fn row_offset_as_transform(&self) -> [[f32; 4]; 4] {
+        let y_move =
+            self.screen_position_vertical_offset() / (self.window_height / 2.0);
+        let text_transform =
+            Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
+        text_transform.into()
+    }
+
+    pub fn col_offset(&self) -> f32 {
+        self.col_offset
+    }
+
+    fn scroll(&mut self) {
+        if self.line_height > 0.0 {
+            let screen_rows = self.screen_rows();
+            if self.cursor.text_row
+                >= self.row_offset.floor() as i32 + screen_rows
+            {
+                self.row_offset =
+                    (self.cursor.text_row - screen_rows + 1) as f32;
+            }
+
+            if self.cursor.text_row < self.row_offset.ceil() as i32 {
+                self.row_offset = self.cursor.text_row as f32;
+            }
+        }
+    }
+
     fn update_status_line(&mut self) {
         let filename = self
             .buffer
@@ -159,42 +217,41 @@ impl<'a> DrawState<'a> {
         let mut current_section = HighlightedSection {
             text: String::new(),
             highlight: None,
-            start_row_idx: 0,
-            end_row_idx: 0,
+            text_row: 0,
+            first_col_idx: 0,
+            last_col_idx: 0,
         };
         for (row_idx, row) in self.buffer.rows.iter().enumerate() {
+            current_section.text_row = row_idx;
+            current_section.first_col_idx = 0;
             let mut highlights = row.hl.iter();
             #[allow(clippy::useless_let_if_seq)]
             for (col_idx, c) in row.render.chars().enumerate() {
-                let mut hl =
+                let hl =
                     highlights.next().cloned().unwrap_or(Highlight::Normal);
-                if row_idx as i32 == self.cursor.text_row
-                    && col_idx as i32 == self.cursor.text_col
-                {
-                    println!(
-                        "Cursor is at: ({},{}) on char '{}'",
-                        col_idx, row_idx, c
-                    );
-                    hl = Highlight::Cursor;
-                }
                 if current_section.highlight.is_none() {
                     current_section.highlight = Some(hl);
+                    current_section.last_col_idx = col_idx;
                 }
                 if current_section.highlight == Some(hl) {
                     current_section.text.push(c);
+                    current_section.last_col_idx = col_idx;
                 } else {
-                    current_section.end_row_idx = row_idx;
                     self.highlighted_sections.push(current_section.clone());
                     current_section.text.clear();
                     current_section.highlight = None;
                     current_section.text.push(c);
-                    current_section.start_row_idx = row_idx;
+                    current_section.text_row = row_idx;
+                    current_section.first_col_idx = col_idx;
                 }
             }
-            current_section.end_row_idx = row_idx;
             current_section.text.push('\n');
+            self.highlighted_sections.push(current_section.clone());
+            current_section.text.clear();
+            current_section.highlight = None;
         }
         if current_section.text != "" {
+            current_section.text.push('\n');
             self.highlighted_sections.push(current_section.clone());
         }
     }
@@ -231,10 +288,10 @@ impl<'a> DrawState<'a> {
         let x_on_screen =
             (cursor_width * cursor_x) + cursor_width / 2.0 + self.left_padding;
         let y_on_screen = (cursor_height * cursor_y) + cursor_height / 2.0;
-        println!(
-            "Cursor ({},{}) is on screen at: ({},{})",
-            cursor_x, cursor_y, x_on_screen, y_on_screen
-        );
+        // println!(
+        //     "Cursor ({},{}) is on screen at: ({},{})",
+        //     cursor_x, cursor_y, x_on_screen, y_on_screen
+        // );
         (x_on_screen, y_on_screen)
     }
 
@@ -253,14 +310,6 @@ impl<'a> DrawState<'a> {
         let cursor_move =
             Matrix4::from_translation(Vector3::new(x_move, y_move, 0.2));
         cursor_move * cursor_scale
-    }
-
-    pub fn inner_width(&self) -> f32 {
-        self.window_width - self.left_padding
-    }
-
-    pub fn inner_height(&self) -> f32 {
-        self.window_height - self.line_height as f32
     }
 
     pub fn print_info(&self) {
@@ -324,4 +373,45 @@ impl<'a> DrawState<'a> {
         self.character_width = width;
         self.update();
     }
+}
+
+#[test]
+fn test_update_highlighted_sections() {
+    let mut buffer = Buffer::default();
+    buffer.set_filename("testfile.c".to_string());
+    buffer.append_row("#include <ctype.h>\r\n");
+    buffer.append_row("#define KILO_VERSION \"0.0.1\"\r\n");
+    let mut draw_state = DrawState::new(100.0, 100.0, 18.0, 1.0, buffer);
+    draw_state.update_highlighted_sections();
+    let mut iter = draw_state.highlighted_sections.iter();
+    assert_eq!(
+        iter.next(),
+        Some(&HighlightedSection {
+            text: "#include <ctype.h>\n".to_string(),
+            highlight: Some(Highlight::Normal),
+            text_row: 0,
+            first_col_idx: 0,
+            last_col_idx: 17,
+        }),
+    );
+    assert_eq!(
+        iter.next(),
+        Some(&HighlightedSection {
+            text: "#define KILO_VERSION ".to_string(),
+            highlight: Some(Highlight::Normal),
+            text_row: 1,
+            first_col_idx: 0,
+            last_col_idx: 20,
+        }),
+    );
+    assert_eq!(
+        iter.next(),
+        Some(&HighlightedSection {
+            text: "\"0.0.1\"\n".to_string(),
+            highlight: Some(Highlight::String),
+            text_row: 1,
+            first_col_idx: 21,
+            last_col_idx: 27,
+        }),
+    );
 }

@@ -50,10 +50,11 @@ pub fn highlight_to_color(hl: Highlight) -> [f32; 4] {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct HighlightedSection {
     pub text: String,
     pub highlight: Option<Highlight>,
-    pub start_row_idx: usize,
-    pub end_row_idx: usize,
+    pub text_row: usize,
+    pub first_col_idx: usize,
+    pub last_col_idx: usize,
 }

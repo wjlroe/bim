@@ -49,3 +49,6 @@ name = "xbim"
 path = "src/xbim.rs"
 doctest = false
 doc = false
+
+[profile.release]
+debug = true
