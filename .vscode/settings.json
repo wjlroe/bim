@@ -1,7 +1,6 @@
 {
   "files.exclude": {
-    ".idea/": true,
-    "testfiles/": true
+    ".idea/": true
   },
   "search.exclude": {
     "target/": true
