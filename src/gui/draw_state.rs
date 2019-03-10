@@ -161,6 +161,10 @@ impl<'a> DrawState<'a> {
         self.row_offset
     }
 
+    pub fn cursor(&self) -> (usize, usize) {
+        (self.cursor.text_row as usize, self.cursor.text_col as usize)
+    }
+
     pub fn screen_position_vertical_offset(&self) -> f32 {
         self.row_offset * self.line_height
     }
@@ -214,28 +218,37 @@ impl<'a> DrawState<'a> {
             text: String::new(),
             highlight: None,
             text_row: 0,
+            first_col_idx: 0,
+            last_col_idx: 0,
         };
         for (row_idx, row) in self.buffer.rows.iter().enumerate() {
             current_section.text_row = row_idx;
+            current_section.first_col_idx = 0;
             let mut highlights = row.hl.iter();
             #[allow(clippy::useless_let_if_seq)]
-            for c in row.render.chars() {
+            for (col_idx, c) in row.render.chars().enumerate() {
                 let hl =
                     highlights.next().cloned().unwrap_or(Highlight::Normal);
                 if current_section.highlight.is_none() {
                     current_section.highlight = Some(hl);
+                    current_section.last_col_idx = col_idx;
                 }
                 if current_section.highlight == Some(hl) {
                     current_section.text.push(c);
+                    current_section.last_col_idx = col_idx;
                 } else {
                     self.highlighted_sections.push(current_section.clone());
                     current_section.text.clear();
                     current_section.highlight = None;
                     current_section.text.push(c);
                     current_section.text_row = row_idx;
+                    current_section.first_col_idx = col_idx;
                 }
             }
             current_section.text.push('\n');
+            self.highlighted_sections.push(current_section.clone());
+            current_section.text.clear();
+            current_section.highlight = None;
         }
         if current_section.text != "" {
             current_section.text.push('\n');
@@ -360,4 +373,45 @@ impl<'a> DrawState<'a> {
         self.character_width = width;
         self.update();
     }
+}
+
+#[test]
+fn test_update_highlighted_sections() {
+    let mut buffer = Buffer::default();
+    buffer.set_filename("testfile.c".to_string());
+    buffer.append_row("#include <ctype.h>\r\n");
+    buffer.append_row("#define KILO_VERSION \"0.0.1\"\r\n");
+    let mut draw_state = DrawState::new(100.0, 100.0, 18.0, 1.0, buffer);
+    draw_state.update_highlighted_sections();
+    let mut iter = draw_state.highlighted_sections.iter();
+    assert_eq!(
+        iter.next(),
+        Some(&HighlightedSection {
+            text: "#include <ctype.h>\n".to_string(),
+            highlight: Some(Highlight::Normal),
+            text_row: 0,
+            first_col_idx: 0,
+            last_col_idx: 17,
+        }),
+    );
+    assert_eq!(
+        iter.next(),
+        Some(&HighlightedSection {
+            text: "#define KILO_VERSION ".to_string(),
+            highlight: Some(Highlight::Normal),
+            text_row: 1,
+            first_col_idx: 0,
+            last_col_idx: 20,
+        }),
+    );
+    assert_eq!(
+        iter.next(),
+        Some(&HighlightedSection {
+            text: "\"0.0.1\"\n".to_string(),
+            highlight: Some(Highlight::String),
+            text_row: 1,
+            first_col_idx: 21,
+            last_col_idx: 27,
+        }),
+    );
 }
