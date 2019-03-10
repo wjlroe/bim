@@ -93,13 +93,14 @@ impl<'a> DrawState<'a> {
             ..DrawState::default()
         };
         state.update();
+        state.update_highlighted_sections();
         state
     }
 
     pub fn update(&mut self) {
         self.scroll();
         self.update_status_line();
-        self.update_highlighted_sections();
+        // self.update_highlighted_sections();
         self.update_status_transform();
         self.update_cursor_transform();
     }
@@ -212,22 +213,15 @@ impl<'a> DrawState<'a> {
         let mut current_section = HighlightedSection {
             text: String::new(),
             highlight: None,
+            text_row: 0,
         };
         for (row_idx, row) in self.buffer.rows.iter().enumerate() {
+            current_section.text_row = row_idx;
             let mut highlights = row.hl.iter();
             #[allow(clippy::useless_let_if_seq)]
-            for (col_idx, c) in row.render.chars().enumerate() {
-                let mut hl =
+            for c in row.render.chars() {
+                let hl =
                     highlights.next().cloned().unwrap_or(Highlight::Normal);
-                if row_idx as i32 == self.cursor.text_row
-                    && col_idx as i32 == self.cursor.text_col
-                {
-                    println!(
-                        "Cursor is at: ({},{}) on char '{}'",
-                        col_idx, row_idx, c
-                    );
-                    hl = Highlight::Cursor;
-                }
                 if current_section.highlight.is_none() {
                     current_section.highlight = Some(hl);
                 }
@@ -238,11 +232,13 @@ impl<'a> DrawState<'a> {
                     current_section.text.clear();
                     current_section.highlight = None;
                     current_section.text.push(c);
+                    current_section.text_row = row_idx;
                 }
             }
             current_section.text.push('\n');
         }
         if current_section.text != "" {
+            current_section.text.push('\n');
             self.highlighted_sections.push(current_section.clone());
         }
     }
@@ -279,10 +275,10 @@ impl<'a> DrawState<'a> {
         let x_on_screen =
             (cursor_width * cursor_x) + cursor_width / 2.0 + self.left_padding;
         let y_on_screen = (cursor_height * cursor_y) + cursor_height / 2.0;
-        println!(
-            "Cursor ({},{}) is on screen at: ({},{})",
-            cursor_x, cursor_y, x_on_screen, y_on_screen
-        );
+        // println!(
+        //     "Cursor ({},{}) is on screen at: ({},{})",
+        //     cursor_x, cursor_y, x_on_screen, y_on_screen
+        // );
         (x_on_screen, y_on_screen)
     }
 
