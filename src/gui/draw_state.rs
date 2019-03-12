@@ -94,17 +94,25 @@ impl<'a> DrawState<'a> {
             buffer,
             ..DrawState::default()
         };
-        state.update();
         state.update_highlighted_sections();
         state
     }
 
-    pub fn update(&mut self) {
+    pub fn update_window(&mut self) {
         self.update_screen_rows();
         self.scroll();
-        self.update_status_line();
-        // self.update_highlighted_sections();
+    }
+
+    pub fn update_font_metrics(&mut self) {
+        self.update_screen_rows();
         self.update_status_transform();
+        self.update_cursor_transform();
+        self.scroll();
+    }
+
+    pub fn update_cursor(&mut self) {
+        self.scroll();
+        self.update_status_line();
         self.update_cursor_transform();
     }
 
@@ -328,18 +336,19 @@ impl<'a> DrawState<'a> {
 
     pub fn inc_font_size(&mut self) {
         self.font_size += 1.0;
-        self.update();
+        self.update_font_metrics();
     }
 
     pub fn dec_font_size(&mut self) {
         self.font_size -= 1.0;
-        self.update();
+        self.update_font_metrics();
     }
 
     pub fn set_window_dimensions(&mut self, (width, height): (u16, u16)) {
         self.window_height = height.into();
         self.window_width = width.into();
-        self.update();
+        self.update_window();
+        // TODO: what happens when window resized so cursor not visible any more?
     }
 
     pub fn move_cursor_col(&mut self, amount: i32) {
@@ -347,7 +356,7 @@ impl<'a> DrawState<'a> {
         if self.cursor.text_col < 0 {
             self.cursor.text_col = 0;
         }
-        self.update();
+        self.update_cursor();
     }
 
     pub fn move_cursor_row(&mut self, amount: i32) {
@@ -355,27 +364,26 @@ impl<'a> DrawState<'a> {
         if self.cursor.text_row < 0 {
             self.cursor.text_row = 0;
         }
-        self.update();
+        self.update_cursor();
     }
 
     pub fn clone_cursor(&mut self) {
         self.other_cursor = Some(self.cursor);
-        self.update();
+        self.update_cursor();
     }
 
     pub fn set_ui_scale(&mut self, dpi: f32) {
         self.ui_scale = dpi;
-        self.update();
     }
 
     pub fn set_line_height(&mut self, height: f32) {
         self.line_height = height;
-        self.update();
+        self.update_font_metrics();
     }
 
     pub fn set_character_width(&mut self, width: f32) {
         self.character_width = width;
-        self.update();
+        self.update_font_metrics();
     }
 }
 
