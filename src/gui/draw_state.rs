@@ -100,8 +100,8 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn update(&mut self) {
-        self.scroll();
         self.update_screen_rows();
+        self.scroll();
         self.update_status_line();
         // self.update_highlighted_sections();
         self.update_status_transform();
