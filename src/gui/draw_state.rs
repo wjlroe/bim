@@ -289,8 +289,8 @@ impl<'a> DrawState<'a> {
         let cursor_x = cursor.text_col as f32;
         let x_on_screen =
             (cursor_width * cursor_x) + cursor_width / 2.0 + self.left_padding;
-        let y_on_screen =
-            (cursor_height * cursor_y) - self.row_offset + cursor_height / 2.0;
+        let y_on_screen = (cursor_height * (cursor_y - self.row_offset))
+            + cursor_height / 2.0;
         (x_on_screen, y_on_screen)
     }
 
