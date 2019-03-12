@@ -352,6 +352,10 @@ impl<'a> DrawState<'a> {
         // TODO: what happens when window resized so cursor not visible any more?
     }
 
+    pub fn move_cursor_page(&mut self, amount: i32) {
+        self.move_cursor_row(amount * self.screen_rows);
+    }
+
     pub fn move_cursor_col(&mut self, amount: i32) {
         self.cursor.move_col(amount);
         if self.cursor.text_col < 0 {

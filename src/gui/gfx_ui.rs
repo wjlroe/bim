@@ -219,6 +219,24 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         input:
                             KeyboardInput {
                                 state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::PageDown),
+                                ..
+                            },
+                        ..
+                    } => draw_state.move_cursor_page(1),
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::PageUp),
+                                ..
+                            },
+                        ..
+                    } => draw_state.move_cursor_page(-1),
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
                                 virtual_keycode: Some(VirtualKeyCode::Left),
                                 ..
                             },
