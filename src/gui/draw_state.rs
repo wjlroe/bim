@@ -112,6 +112,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn update_cursor(&mut self) {
+        self.check_cursor();
         self.scroll();
         self.update_status_line();
         self.update_cursor_transform();
@@ -358,18 +359,32 @@ impl<'a> DrawState<'a> {
 
     pub fn move_cursor_col(&mut self, amount: i32) {
         self.cursor.move_col(amount);
-        if self.cursor.text_col < 0 {
-            self.cursor.text_col = 0;
-        }
         self.update_cursor();
     }
 
     pub fn move_cursor_row(&mut self, amount: i32) {
         self.cursor.move_row(amount);
+        self.update_cursor();
+    }
+
+    fn check_cursor(&mut self) {
         if self.cursor.text_row < 0 {
             self.cursor.text_row = 0;
         }
-        self.update_cursor();
+
+        if self.cursor.text_row > self.buffer.num_lines() as i32 {
+            self.cursor.text_row = self.buffer.num_lines() as i32;
+        }
+
+        if self.cursor.text_col < 0 {
+            self.cursor.text_col = 0;
+        }
+
+        let rowlen = self.buffer.line_len(self.cursor.text_row).unwrap_or(0);
+
+        if self.cursor.text_col > rowlen as i32 {
+            self.cursor.text_col = rowlen as i32;
+        }
     }
 
     pub fn clone_cursor(&mut self) {
