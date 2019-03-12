@@ -105,7 +105,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     let mut running = true;
     let mut window_resized = true;
-    let mut resized_font = false;
 
     let mut action_queue = vec![];
 
@@ -130,12 +129,12 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         #[allow(clippy::single_match)]
         event_loop.poll_events(|event| match event {
             Event::WindowEvent { event, .. } => {
-                match event {
-                    WindowEvent::KeyboardInput { .. } => {
-                        println!("keyboard event: {:?}", event);
-                    }
-                    _ => {}
-                };
+                // match event {
+                //     WindowEvent::KeyboardInput { .. } => {
+                //         println!("keyboard event: {:?}", event);
+                //     }
+                //     _ => {}
+                // };
 
                 match event {
                     WindowEvent::CursorMoved { position, .. } => {
@@ -167,30 +166,27 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         input:
                             KeyboardInput {
                                 state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Add),
+                                virtual_keycode: Some(VirtualKeyCode::Equals),
+                                modifiers: ModifiersState { shift: true, .. },
                                 ..
                             },
                         ..
                     } => {
-                        println!("Trying to increase the font size!");
                         draw_state.inc_font_size();
                         window_resized = true;
-                        resized_font = true;
-                        println!("Trying to increase the font size!");
                     }
                     WindowEvent::KeyboardInput {
                         input:
                             KeyboardInput {
                                 state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Subtract),
+                                virtual_keycode: Some(VirtualKeyCode::Minus),
+                                modifiers: ModifiersState { shift: false, .. },
                                 ..
                             },
                         ..
                     } => {
                         draw_state.dec_font_size();
                         window_resized = true;
-                        resized_font = true;
-                        println!("Trying to decrease the font size!");
                     }
                     WindowEvent::KeyboardInput {
                         input:
