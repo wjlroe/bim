@@ -162,7 +162,10 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                             ..
                         },
                     ..
-                } => draw_state.inc_font_size(),
+                } => {
+                    draw_state.inc_font_size();
+                    window_resized = true;
+                }
                 WindowEvent::KeyboardInput {
                     input:
                         KeyboardInput {
@@ -171,7 +174,10 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                             ..
                         },
                     ..
-                } => draw_state.dec_font_size(),
+                } => {
+                    draw_state.dec_font_size();
+                    window_resized = true;
+                }
                 WindowEvent::KeyboardInput {
                     input:
                         KeyboardInput {
