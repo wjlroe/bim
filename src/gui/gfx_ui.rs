@@ -128,133 +128,151 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     while running {
         #[allow(clippy::single_match)]
         event_loop.poll_events(|event| match event {
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CursorMoved { position, .. } => {
-                    draw_state.mouse_position = position.into()
-                }
-                WindowEvent::MouseInput {
-                    state: ElementState::Pressed,
-                    ..
-                } => {
-                    let real_position: (f64, f64) =
-                        LogicalPosition::from(draw_state.mouse_position)
-                            .to_physical(draw_state.ui_scale().into())
-                            .into();
-                    println!("Mouse click at: {:?}", real_position);
-                }
-                WindowEvent::CloseRequested | WindowEvent::Destroyed => {
-                    action_queue.push(Action::Quit)
-                }
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Escape),
-                            ..
-                        },
-                    ..
-                } => action_queue.push(Action::Quit),
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Add),
-                            ..
-                        },
-                    ..
-                } => draw_state.inc_font_size(),
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Subtract),
-                            ..
-                        },
-                    ..
-                } => draw_state.dec_font_size(),
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::M),
-                            ..
-                        },
-                    ..
-                } => draw_state.print_info(),
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Down),
-                            ..
-                        },
-                    ..
-                } => draw_state.move_cursor_row(1),
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Up),
-                            ..
-                        },
-                    ..
-                } => draw_state.move_cursor_row(-1),
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Left),
-                            ..
-                        },
-                    ..
-                } => draw_state.move_cursor_col(-1),
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Right),
-                            ..
-                        },
-                    ..
-                } => draw_state.move_cursor_col(1),
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Space),
-                            modifiers: ModifiersState { ctrl: true, .. },
-                            ..
-                        },
-                    ..
-                } => draw_state.clone_cursor(),
-                WindowEvent::Resized(new_logical_size) => {
-                    println!("Resized to: {:?}", new_logical_size);
-                    logical_size = new_logical_size;
-                    let _ = debug_log.debugln_timestamped(&format!(
-                        "logical_size: {:?}",
-                        logical_size,
-                    ));
-                    action_queue.push(Action::ResizeWindow);
-                }
-                WindowEvent::HiDpiFactorChanged(new_dpi) => {
-                    println!("DPI changed: {}", new_dpi);
-                    dpi = new_dpi as f32;
-                    draw_state.set_ui_scale(dpi);
-                    action_queue.push(Action::ResizeWindow);
-                }
-                WindowEvent::Moved(new_logical_position) => {
-                    println!("Moved to {:?}", new_logical_position);
-                    if let Some(monitor_name) =
-                        window.get_current_monitor().get_name()
-                    {
-                        persist_window_state.monitor_name = Some(monitor_name);
+            Event::WindowEvent { event, .. } => {
+                // match event {
+                //     WindowEvent::KeyboardInput { .. } => {
+                //         println!("keyboard event: {:?}", event);
+                //     }
+                //     _ => {}
+                // };
+
+                match event {
+                    WindowEvent::CursorMoved { position, .. } => {
+                        draw_state.mouse_position = position.into()
                     }
-                    persist_window_state.logical_position =
-                        new_logical_position;
-                    persist_window_state.save();
-                }
-                _ => (),
-            },
+                    WindowEvent::MouseInput {
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                        let real_position: (f64, f64) =
+                            LogicalPosition::from(draw_state.mouse_position)
+                                .to_physical(draw_state.ui_scale().into())
+                                .into();
+                        println!("Mouse click at: {:?}", real_position);
+                    }
+                    WindowEvent::CloseRequested | WindowEvent::Destroyed => {
+                        action_queue.push(Action::Quit)
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Escape),
+                                ..
+                            },
+                        ..
+                    } => action_queue.push(Action::Quit),
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Equals),
+                                modifiers: ModifiersState { shift: true, .. },
+                                ..
+                            },
+                        ..
+                    } => {
+                        draw_state.inc_font_size();
+                        window_resized = true;
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Minus),
+                                modifiers: ModifiersState { shift: false, .. },
+                                ..
+                            },
+                        ..
+                    } => {
+                        draw_state.dec_font_size();
+                        window_resized = true;
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::M),
+                                ..
+                            },
+                        ..
+                    } => draw_state.print_info(),
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Down),
+                                ..
+                            },
+                        ..
+                    } => draw_state.move_cursor_row(1),
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Up),
+                                ..
+                            },
+                        ..
+                    } => draw_state.move_cursor_row(-1),
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Left),
+                                ..
+                            },
+                        ..
+                    } => draw_state.move_cursor_col(-1),
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Right),
+                                ..
+                            },
+                        ..
+                    } => draw_state.move_cursor_col(1),
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Space),
+                                modifiers: ModifiersState { ctrl: true, .. },
+                                ..
+                            },
+                        ..
+                    } => draw_state.clone_cursor(),
+                    WindowEvent::Resized(new_logical_size) => {
+                        println!("Resized to: {:?}", new_logical_size);
+                        logical_size = new_logical_size;
+                        let _ = debug_log.debugln_timestamped(&format!(
+                            "logical_size: {:?}",
+                            logical_size,
+                        ));
+                        action_queue.push(Action::ResizeWindow);
+                    }
+                    WindowEvent::HiDpiFactorChanged(new_dpi) => {
+                        println!("DPI changed: {}", new_dpi);
+                        dpi = new_dpi as f32;
+                        draw_state.set_ui_scale(dpi);
+                        action_queue.push(Action::ResizeWindow);
+                    }
+                    WindowEvent::Moved(new_logical_position) => {
+                        println!("Moved to {:?}", new_logical_position);
+                        if let Some(monitor_name) =
+                            window.get_current_monitor().get_name()
+                        {
+                            persist_window_state.monitor_name =
+                                Some(monitor_name);
+                        }
+                        persist_window_state.logical_position =
+                            new_logical_position;
+                        persist_window_state.save();
+                    }
+                    _ => (),
+                };
+            }
             _ => (),
         });
 
