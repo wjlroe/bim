@@ -95,6 +95,7 @@ impl<'a> DrawState<'a> {
             ..DrawState::default()
         };
         state.update_highlighted_sections();
+        state.update_status_line();
         state
     }
 
