@@ -48,6 +48,7 @@ pub struct DrawState<'a> {
     pub status_line: StatusLine,
     row_offset: f32,
     col_offset: f32,
+    screen_rows: i32,
 }
 
 impl<'a> Default for DrawState<'a> {
@@ -71,6 +72,7 @@ impl<'a> Default for DrawState<'a> {
             status_line: StatusLine::default(),
             row_offset: 0.0,
             col_offset: 0.0,
+            screen_rows: 0,
         }
     }
 }
@@ -99,6 +101,7 @@ impl<'a> DrawState<'a> {
 
     pub fn update(&mut self) {
         self.scroll();
+        self.update_screen_rows();
         self.update_status_line();
         // self.update_highlighted_sections();
         self.update_status_transform();
@@ -126,7 +129,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn screen_rows(&self) -> i32 {
-        (self.inner_height() / self.line_height as f32).floor() as i32
+        self.screen_rows
     }
 
     pub fn character_width(&self) -> f32 {
@@ -161,6 +164,10 @@ impl<'a> DrawState<'a> {
         self.row_offset
     }
 
+    pub fn col_offset(&self) -> f32 {
+        self.col_offset
+    }
+
     pub fn cursor(&self) -> (usize, usize) {
         (self.cursor.text_row as usize, self.cursor.text_col as usize)
     }
@@ -177,18 +184,13 @@ impl<'a> DrawState<'a> {
         text_transform.into()
     }
 
-    pub fn col_offset(&self) -> f32 {
-        self.col_offset
-    }
-
     fn scroll(&mut self) {
         if self.line_height > 0.0 {
-            let screen_rows = self.screen_rows();
             if self.cursor.text_row
-                >= self.row_offset.floor() as i32 + screen_rows
+                >= self.row_offset.floor() as i32 + self.screen_rows()
             {
                 self.row_offset =
-                    (self.cursor.text_row - screen_rows + 1) as f32;
+                    (self.cursor.text_row - self.screen_rows() + 1) as f32;
             }
 
             if self.cursor.text_row < self.row_offset.ceil() as i32 {
@@ -287,11 +289,8 @@ impl<'a> DrawState<'a> {
         let cursor_x = cursor.text_col as f32;
         let x_on_screen =
             (cursor_width * cursor_x) + cursor_width / 2.0 + self.left_padding;
-        let y_on_screen = (cursor_height * cursor_y) + cursor_height / 2.0;
-        // println!(
-        //     "Cursor ({},{}) is on screen at: ({},{})",
-        //     cursor_x, cursor_y, x_on_screen, y_on_screen
-        // );
+        let y_on_screen =
+            (cursor_height * cursor_y) - self.row_offset + cursor_height / 2.0;
         (x_on_screen, y_on_screen)
     }
 
@@ -310,6 +309,11 @@ impl<'a> DrawState<'a> {
         let cursor_move =
             Matrix4::from_translation(Vector3::new(x_move, y_move, 0.2));
         cursor_move * cursor_scale
+    }
+
+    pub fn update_screen_rows(&mut self) {
+        self.screen_rows =
+            (self.inner_height() / self.line_height as f32).floor() as i32;
     }
 
     pub fn print_info(&self) {
