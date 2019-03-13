@@ -132,6 +132,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                                 .to_physical(draw_state.ui_scale().into())
                                 .into();
                         println!("Mouse click at: {:?}", real_position);
+                        draw_state.move_cursor_to_mouse_position(real_position);
                     }
                     WindowEvent::CloseRequested | WindowEvent::Destroyed => {
                         action_queue.push(Action::Quit)
