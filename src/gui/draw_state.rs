@@ -364,6 +364,20 @@ impl<'a> DrawState<'a> {
         self.move_cursor_col(move_x);
     }
 
+    pub fn scroll_window_vertically(&mut self, amount: f32) {
+        self.row_offset += amount;
+        if self.row_offset < 0.0 {
+            self.row_offset = 0.0;
+        }
+    }
+
+    pub fn scroll_window_horizontally(&mut self, amount: f32) {
+        self.col_offset += amount;
+        if self.col_offset < 0.0 {
+            self.col_offset = 0.0;
+        }
+    }
+
     fn check_cursor(&mut self) {
         if self.cursor.text_row < 0 {
             self.cursor.text_row = 0;

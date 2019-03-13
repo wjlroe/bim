@@ -15,7 +15,7 @@ use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::Api::OpenGl;
 use glutin::{
     ContextBuilder, ElementState, Event, EventsLoop, GlProfile, GlRequest, Icon, KeyboardInput,
-    ModifiersState, VirtualKeyCode, WindowBuilder, WindowEvent,
+    ModifiersState, MouseScrollDelta, VirtualKeyCode, WindowBuilder, WindowEvent,
 };
 use std::error::Error;
 
@@ -133,6 +133,13 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                                 .into();
                         println!("Mouse click at: {:?}", real_position);
                         draw_state.move_cursor_to_mouse_position(real_position);
+                    }
+                    WindowEvent::MouseWheel {
+                        delta: MouseScrollDelta::LineDelta(delta_x, delta_y),
+                        ..
+                    } => {
+                        draw_state.scroll_window_vertically(-delta_y);
+                        draw_state.scroll_window_horizontally(-delta_x);
                     }
                     WindowEvent::CloseRequested | WindowEvent::Destroyed => {
                         action_queue.push(Action::Quit)
