@@ -15,6 +15,6 @@ testfiles/
 .idea/dbnavigator.xml
 .idea/workspace.xml
 .bim_persist_state.yaml
-icon.png
+icon*.png
 bim.ico
 callgrind.out*
