@@ -7,6 +7,7 @@ use crate::gui::draw_state::DrawState;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::{ColorFormat, DepthFormat};
 use crate::highlight::{highlight_to_color, Highlight};
+use crate::utils::char_position_to_byte_position;
 use gfx;
 use gfx::Device;
 use gfx_glyph::{
@@ -390,21 +391,29 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             {
                 let cursor_offset =
                     cursor_text_col - highlighted_section.first_col_idx;
+                let cursor_byte_offset = char_position_to_byte_position(
+                    &highlighted_section.text,
+                    cursor_offset,
+                );
+                let next_byte_offset = char_position_to_byte_position(
+                    &highlighted_section.text,
+                    cursor_offset + 1,
+                );
                 section_texts.push(SectionText {
-                    text: &highlighted_section.text[0..cursor_offset],
+                    text: &highlighted_section.text[0..cursor_byte_offset],
                     scale: Scale::uniform(draw_state.font_scale()),
                     color: highlight_to_color(hl),
                     ..SectionText::default()
                 });
                 section_texts.push(SectionText {
                     text: &highlighted_section.text
-                        [cursor_offset..=cursor_offset],
+                        [cursor_byte_offset..next_byte_offset],
                     scale: Scale::uniform(draw_state.font_scale()),
                     color: highlight_to_color(Highlight::Cursor),
                     ..SectionText::default()
                 });
                 section_texts.push(SectionText {
-                    text: &highlighted_section.text[cursor_offset + 1..],
+                    text: &highlighted_section.text[next_byte_offset..],
                     scale: Scale::uniform(draw_state.font_scale()),
                     color: highlight_to_color(hl),
                     ..SectionText::default()

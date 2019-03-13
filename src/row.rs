@@ -1,5 +1,6 @@
 use crate::highlight::{Highlight, DEFAULT_COLOUR, HL_TO_COLOUR};
 use crate::syntax::Syntax;
+use crate::utils::char_position_to_byte_position;
 use std::fmt;
 use std::rc::Weak;
 
@@ -288,7 +289,7 @@ impl<'a> Row<'a> {
     }
 
     fn render_cursor_to_byte_position(&self, at: usize) -> usize {
-        self.chars.chars().take(at).map(|c| c.len_utf8()).sum()
+        char_position_to_byte_position(&self.chars, at)
     }
 
     fn byte_position_to_char_position(&self, at: usize) -> usize {

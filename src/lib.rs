@@ -22,5 +22,6 @@ mod row;
 mod status;
 mod syntax;
 mod terminal;
+pub mod utils;
 
 pub mod gui;
