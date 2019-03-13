@@ -279,7 +279,9 @@ impl<'a> DrawState<'a> {
 
     fn cursor_from_mouse_position(&self, mouse: (f64, f64)) -> (i32, i32) {
         let row_on_screen = (mouse.1 / self.line_height() as f64).floor() as i32;
-        (0, row_on_screen)
+        let col_on_screen =
+            ((mouse.0 - self.left_padding() as f64) / self.character_width() as f64).floor() as i32;
+        (col_on_screen, row_on_screen)
     }
 
     pub fn onscreen_cursor(&self, cursor: &RenderedCursor) -> (f32, f32) {
@@ -357,7 +359,9 @@ impl<'a> DrawState<'a> {
     pub fn move_cursor_to_mouse_position(&mut self, mouse: (f64, f64)) {
         let (cursor_x, cursor_y) = self.cursor_from_mouse_position(mouse);
         let move_y = cursor_y - self.cursor.text_row;
+        let move_x = cursor_x - self.cursor.text_col;
         self.move_cursor_row(move_y);
+        self.move_cursor_col(move_x);
     }
 
     fn check_cursor(&mut self) {
