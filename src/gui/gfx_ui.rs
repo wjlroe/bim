@@ -61,10 +61,10 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     }
     let mut dpi = monitor.get_hidpi_factor() as f32;
     // If there's an icon.png lying about, use it as the window_icon...
-    let icon = "icon.png";
+    let icon = Icon::from_path("icon.png").ok();
     let window_builder = WindowBuilder::new()
         .with_title("bim")
-        .with_window_icon(Icon::from_path(icon).ok())
+        .with_window_icon(icon)
         .with_dimensions(logical_size);
     let context = ContextBuilder::new()
         .with_gl(GlRequest::Specific(OpenGl, (4, 3)))
