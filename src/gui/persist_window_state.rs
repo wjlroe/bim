@@ -28,9 +28,7 @@ impl PersistWindowState {
                 match f.read_to_string(&mut config) {
                     Ok(_) => match serde_yaml::from_str::<Self>(&config) {
                         Ok(persised) => return persised,
-                        Err(e) => {
-                            println!("Error deserializing config: {:?}", e)
-                        }
+                        Err(e) => println!("Error deserializing config: {:?}", e),
                     },
                     Err(e) => println!("Error reading config file: {:?}", e),
                 }

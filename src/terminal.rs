@@ -68,11 +68,9 @@ impl<'a> Terminal<'a> {
             let filerow = i + self.row_offset;
             if filerow >= numrows {
                 if numrows == 0 && i == self.screen_rows / 3 {
-                    let mut welcome =
-                        format!("bim editor - version {}", BIM_VERSION);
+                    let mut welcome = format!("bim editor - version {}", BIM_VERSION);
                     welcome.truncate(self.screen_cols as usize);
-                    let mut padding =
-                        (self.screen_cols - welcome.len() as i32) / 2;
+                    let mut padding = (self.screen_cols - welcome.len() as i32) / 2;
                     if padding > 0 {
                         self.append_buffer.push_str("~");
                         padding -= 1;
@@ -126,8 +124,7 @@ impl<'a> Terminal<'a> {
         );
         status.truncate(self.screen_cols as usize);
         self.append_buffer.push_str(&status);
-        let remaining =
-            self.screen_cols - status.len() as i32 - rstatus.len() as i32;
+        let remaining = self.screen_cols - status.len() as i32 - rstatus.len() as i32;
         for _ in 0..remaining {
             self.append_buffer.push(' ');
         }
@@ -287,9 +284,7 @@ impl<'a> Terminal<'a> {
                         self.cursor_x -= 1;
                     } else if self.cursor_y > 0 {
                         self.cursor_y -= 1;
-                        self.cursor_x =
-                            self.buffer.line_len(self.cursor_y).unwrap_or(0)
-                                as i32;
+                        self.cursor_x = self.buffer.line_len(self.cursor_y).unwrap_or(0) as i32;
                     } else {
                         break;
                     }
@@ -303,8 +298,7 @@ impl<'a> Terminal<'a> {
             } => {
                 let mut right_amount = amount as i32;
                 while right_amount > 0 {
-                    if let Some(row_size) = self.buffer.line_len(self.cursor_y)
-                    {
+                    if let Some(row_size) = self.buffer.line_len(self.cursor_y) {
                         if self.cursor_x < row_size as i32 {
                             self.cursor_x += 1;
                         } else if self.cursor_x == row_size as i32 {
@@ -480,9 +474,7 @@ impl<'a> Terminal<'a> {
             End => self.row_end(),
             Delete => Some(DeleteCharForward),
             Backspace => Some(DeleteCharBackward),
-            Return => {
-                Some(Linebreak(self.cursor_y as usize, self.cursor_x as usize))
-            }
+            Return => Some(Linebreak(self.cursor_y as usize, self.cursor_x as usize)),
             Escape => None,
             Control(None) => None,
             Control(Some(c)) => {
@@ -557,27 +549,24 @@ impl<'a> Terminal<'a> {
 
     fn start_debug(&self) {
         let _ = self.debug_log.start();
-        let _ = self.debug_log.debugln_timestamped(&format!(
-            "bim version {} starting",
-            BIM_VERSION
-        ));
+        let _ = self
+            .debug_log
+            .debugln_timestamped(&format!("bim version {} starting", BIM_VERSION));
         let _ = self
             .debug_log
             .debugln_timestamped(&format!("rows: {}", self.screen_rows));
         let _ = self
             .debug_log
             .debugln_timestamped(&format!("cols: {}", self.screen_cols));
-        let _ = self.debug_log.debugln_timestamped(&format!(
-            "window size method: {}",
-            self.window_size_method
-        ));
+        let _ = self
+            .debug_log
+            .debugln_timestamped(&format!("window size method: {}", self.window_size_method));
     }
 
     pub fn log_debug(&self) {
-        let _ = self.debug_log.debugln_timestamped(&format!(
-            "rows: {}",
-            self.screen_rows + UI_ROWS
-        ));
+        let _ = self
+            .debug_log
+            .debugln_timestamped(&format!("rows: {}", self.screen_rows + UI_ROWS));
         let _ = self
             .debug_log
             .debugln_timestamped(&format!("cols: {}", self.screen_cols));
@@ -591,14 +580,9 @@ impl<'a> Terminal<'a> {
         match self.internal_save_file() {
             Ok(bytes_saved) => {
                 self.dirty = 0;
-                self.set_status_message(format!(
-                    "{} bytes written to disk",
-                    bytes_saved
-                ));
+                self.set_status_message(format!("{} bytes written to disk", bytes_saved));
             }
-            Err(err) => {
-                self.set_status_message(format!("Can't save! Error: {:?}", err))
-            }
+            Err(err) => self.set_status_message(format!("Can't save! Error: {:?}", err)),
         }
     }
 
@@ -784,35 +768,19 @@ fn test_incremental_search() {
     );
     assert_eq!(
         Some((17, 2)),
-        terminal.search_for(
-            Some((16, 0)),
-            SearchDirection::Forwards,
-            "search text"
-        )
+        terminal.search_for(Some((16, 0)), SearchDirection::Forwards, "search text")
     );
     assert_eq!(
         Some((16, 3)),
-        terminal.search_for(
-            Some((17, 2)),
-            SearchDirection::Forwards,
-            "search text"
-        )
+        terminal.search_for(Some((17, 2)), SearchDirection::Forwards, "search text")
     );
     assert_eq!(
         Some((16, 0)),
-        terminal.search_for(
-            Some((17, 2)),
-            SearchDirection::Backwards,
-            "search text"
-        )
+        terminal.search_for(Some((17, 2)), SearchDirection::Backwards, "search text")
     );
     assert_eq!(
         Some((17, 2)),
-        terminal.search_for(
-            Some((16, 3)),
-            SearchDirection::Backwards,
-            "search text"
-        )
+        terminal.search_for(Some((16, 3)), SearchDirection::Backwards, "search text")
     );
 }
 

@@ -7,17 +7,14 @@ use std::mem::zeroed;
 use std::ptr;
 use winapi::ctypes::c_void;
 use winapi::shared::minwindef::{DWORD, LPDWORD};
-use winapi::um::consoleapi::{
-    GetConsoleMode, ReadConsoleInputA, SetConsoleMode, WriteConsoleA,
-};
+use winapi::um::consoleapi::{GetConsoleMode, ReadConsoleInputA, SetConsoleMode, WriteConsoleA};
 use winapi::um::processenv::GetStdHandle;
 use winapi::um::synchapi::WaitForSingleObjectEx;
 use winapi::um::winbase::{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, WAIT_OBJECT_0};
 use winapi::um::wincon::{
-    GetConsoleScreenBufferInfo, INPUT_RECORD_Event, CONSOLE_SCREEN_BUFFER_INFO,
-    COORD, ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
-    ENABLE_WRAP_AT_EOL_OUTPUT, INPUT_RECORD, KEY_EVENT, LEFT_CTRL_PRESSED,
-    SMALL_RECT,
+    GetConsoleScreenBufferInfo, INPUT_RECORD_Event, CONSOLE_SCREEN_BUFFER_INFO, COORD,
+    ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT, ENABLE_WRAP_AT_EOL_OUTPUT,
+    INPUT_RECORD, KEY_EVENT, LEFT_CTRL_PRESSED, SMALL_RECT,
 };
 
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING: DWORD = 0x0004;
@@ -71,9 +68,7 @@ impl Editor for EditorImpl {
             if GetConsoleMode(handle, &mut ORIG_INPUT_CONSOLE_MODE) != 0 {
                 atexit(disable_raw_input_mode);
                 let mut raw = ORIG_INPUT_CONSOLE_MODE;
-                raw &= !(ENABLE_ECHO_INPUT
-                    | ENABLE_LINE_INPUT
-                    | ENABLE_PROCESSED_INPUT);
+                raw &= !(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT);
                 if SetConsoleMode(handle, raw) == 0 {
                     panic!("setting console input mode failed!");
                 }
@@ -88,8 +83,7 @@ impl Editor for EditorImpl {
                 atexit(disable_raw_output_mode);
                 let mut raw = ORIG_OUTPUT_CONSOLE_MODE;
                 raw &= !(ENABLE_WRAP_AT_EOL_OUTPUT);
-                raw |= DISABLE_NEWLINE_AUTO_RETURN
-                    | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+                raw |= DISABLE_NEWLINE_AUTO_RETURN | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
                 if SetConsoleMode(handle, raw) == 0 {
                     panic!("setting console output mode failed!");
                 }
@@ -113,20 +107,11 @@ impl Editor for EditorImpl {
                 };
                 let mut input_records = [empty_record];
                 let mut events_read = 0;
-                if ReadConsoleInputA(
-                    handle,
-                    input_records.as_mut_ptr(),
-                    1,
-                    &mut events_read,
-                ) != 0
-                {
-                    if events_read == 1
-                        && input_records[0].EventType == KEY_EVENT
-                    {
+                if ReadConsoleInputA(handle, input_records.as_mut_ptr(), 1, &mut events_read) != 0 {
+                    if events_read == 1 && input_records[0].EventType == KEY_EVENT {
                         let record = input_records[0].Event.KeyEvent();
                         if record.bKeyDown == 1 {
-                            character = match i32::from(record.wVirtualKeyCode)
-                            {
+                            character = match i32::from(record.wVirtualKeyCode) {
                                 VK_UP => Some(Key::ArrowUp),
                                 VK_DOWN => Some(Key::ArrowDown),
                                 VK_LEFT => Some(Key::ArrowLeft),
@@ -156,17 +141,14 @@ impl Editor for EditorImpl {
                                 VK_VOLUME_DOWN => Some(Key::Escape),
                                 VK_VOLUME_UP => Some(Key::Escape),
                                 _ => {
-                                    let unicode_char =
-                                        u32::from(*record.uChar.UnicodeChar());
-                                    if record.dwControlKeyState
-                                        & LEFT_CTRL_PRESSED
+                                    let unicode_char = u32::from(*record.uChar.UnicodeChar());
+                                    if record.dwControlKeyState & LEFT_CTRL_PRESSED
                                         == LEFT_CTRL_PRESSED
                                     {
                                         char::from_u32(unicode_char)
                                             .map(|uc| Key::Control(Some(uc)))
                                     } else {
-                                        char::from_u32(unicode_char)
-                                            .map(Key::Other)
+                                        char::from_u32(unicode_char).map(Key::Other)
                                     }
                                 }
                             };

@@ -3,10 +3,9 @@ use crate::keycodes::Key;
 use crate::terminal::Terminal;
 use errno::{errno, Errno};
 use libc::{
-    atexit, c_char, c_void, ioctl, read, sscanf, tcgetattr, tcsetattr, termios,
-    winsize, write, BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK,
-    ISIG, ISTRIP, IXON, OPOST, STDIN_FILENO, STDOUT_FILENO, TCSAFLUSH,
-    TIOCGWINSZ, VMIN, VTIME,
+    atexit, c_char, c_void, ioctl, read, sscanf, tcgetattr, tcsetattr, termios, winsize, write,
+    BRKINT, CS8, EAGAIN, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON, OPOST,
+    STDIN_FILENO, STDOUT_FILENO, TCSAFLUSH, TIOCGWINSZ, VMIN, VTIME,
 };
 use std::char;
 use std::ffi::CString;
@@ -48,10 +47,7 @@ fn get_window_size_ioctl<'a>() -> Option<Terminal<'a>> {
         if ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut ws) == -1 || ws.ws_col == 0 {
             None
         } else {
-            Some(
-                Terminal::new(ws.ws_col.into(), ws.ws_row.into())
-                    .window_size_method("ioctl"),
-            )
+            Some(Terminal::new(ws.ws_col.into(), ws.ws_row.into()).window_size_method("ioctl"))
         }
     }
 }
@@ -68,12 +64,7 @@ fn get_window_size_cursor_pos<'a>() -> Option<Terminal<'a>> {
 
             while i < buf.len() - 1 {
                 unsafe {
-                    if read(
-                        STDIN_FILENO,
-                        buf[i..].as_mut_ptr() as *mut c_void,
-                        1,
-                    ) != 1
-                    {
+                    if read(STDIN_FILENO, buf[i..].as_mut_ptr() as *mut c_void, 1) != 1 {
                         break;
                     }
                 }
@@ -100,10 +91,7 @@ fn get_window_size_cursor_pos<'a>() -> Option<Terminal<'a>> {
                     {
                         None
                     } else {
-                        Some(
-                            Terminal::new(rows, cols)
-                                .window_size_method("cursor"),
-                        )
+                        Some(Terminal::new(rows, cols).window_size_method("cursor"))
                     }
                 }
             }
@@ -153,19 +141,13 @@ fn read_key() -> Option<Key> {
                 return Some(Key::Escape);
             }
 
-            if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) == -1
-            {
+            if read(STDIN_FILENO, buf[1..].as_mut_ptr() as *mut c_void, 1) == -1 {
                 return Some(Key::Escape);
             }
 
             if buf[0] == b'[' {
                 if buf[1] >= b'0' && buf[1] <= b'9' {
-                    if read(
-                        STDIN_FILENO,
-                        buf[2..].as_mut_ptr() as *mut c_void,
-                        1,
-                    ) != 1
-                    {
+                    if read(STDIN_FILENO, buf[2..].as_mut_ptr() as *mut c_void, 1) != 1 {
                         return Some(Key::Escape);
                     }
                     if buf[2] == b'~' {

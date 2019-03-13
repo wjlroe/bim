@@ -187,20 +187,15 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn row_offset_as_transform(&self) -> [[f32; 4]; 4] {
-        let y_move =
-            self.screen_position_vertical_offset() / (self.window_height / 2.0);
-        let text_transform =
-            Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
+        let y_move = self.screen_position_vertical_offset() / (self.window_height / 2.0);
+        let text_transform = Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
         text_transform.into()
     }
 
     fn scroll(&mut self) {
         if self.line_height > 0.0 {
-            if self.cursor.text_row
-                >= self.row_offset.floor() as i32 + self.screen_rows()
-            {
-                self.row_offset =
-                    (self.cursor.text_row - self.screen_rows() + 1) as f32;
+            if self.cursor.text_row >= self.row_offset.floor() as i32 + self.screen_rows() {
+                self.row_offset = (self.cursor.text_row - self.screen_rows() + 1) as f32;
             }
 
             if self.cursor.text_row < self.row_offset.ceil() as i32 {
@@ -217,11 +212,8 @@ impl<'a> DrawState<'a> {
             .unwrap_or_else(|| String::from("[No Name]"));
         self.status_line.filename = filename;
         self.status_line.filetype = self.buffer.get_filetype();
-        self.status_line.cursor = format!(
-            "{}:{}",
-            self.cursor.text_row + 1,
-            self.cursor.text_col + 1,
-        );
+        self.status_line.cursor =
+            format!("{}:{}", self.cursor.text_row + 1, self.cursor.text_col + 1,);
     }
 
     fn update_highlighted_sections(&mut self) {
@@ -239,8 +231,7 @@ impl<'a> DrawState<'a> {
             let mut highlights = row.hl.iter();
             #[allow(clippy::useless_let_if_seq)]
             for (col_idx, c) in row.render.chars().enumerate() {
-                let hl =
-                    highlights.next().cloned().unwrap_or(Highlight::Normal);
+                let hl = highlights.next().cloned().unwrap_or(Highlight::Normal);
                 if current_section.highlight.is_none() {
                     current_section.highlight = Some(hl);
                     current_section.last_col_idx = col_idx;
@@ -270,22 +261,17 @@ impl<'a> DrawState<'a> {
 
     fn update_status_transform(&mut self) {
         let status_height = self.line_height() as f32;
-        let status_scale = Matrix4::from_nonuniform_scale(
-            1.0,
-            status_height / self.window_height,
-            1.0,
-        );
+        let status_scale =
+            Matrix4::from_nonuniform_scale(1.0, status_height / self.window_height, 1.0);
         let y_move = -((self.window_height - status_height) / status_height);
-        let status_move =
-            Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
+        let status_move = Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
         self.status_transform = status_scale * status_move;
     }
 
     fn update_cursor_transform(&mut self) {
         self.cursor_transform = self.transform_for_cursor(&self.cursor);
         if let Some(other_cursor) = self.other_cursor {
-            self.other_cursor_transform =
-                Some(self.transform_for_cursor(&other_cursor));
+            self.other_cursor_transform = Some(self.transform_for_cursor(&other_cursor));
         } else {
             self.other_cursor_transform = None;
         }
@@ -297,10 +283,8 @@ impl<'a> DrawState<'a> {
 
         let cursor_y = cursor.text_row as f32;
         let cursor_x = cursor.text_col as f32;
-        let x_on_screen =
-            (cursor_width * cursor_x) + cursor_width / 2.0 + self.left_padding;
-        let y_on_screen = (cursor_height * (cursor_y - self.row_offset))
-            + cursor_height / 2.0;
+        let x_on_screen = (cursor_width * cursor_x) + cursor_width / 2.0 + self.left_padding;
+        let y_on_screen = (cursor_height * (cursor_y - self.row_offset)) + cursor_height / 2.0;
         (x_on_screen, y_on_screen)
     }
 
@@ -316,14 +300,12 @@ impl<'a> DrawState<'a> {
         let (x_on_screen, y_on_screen) = self.onscreen_cursor(cursor);
         let y_move = -((y_on_screen / self.window_height) * 2.0 - 1.0);
         let x_move = (x_on_screen / self.window_width) * 2.0 - 1.0;
-        let cursor_move =
-            Matrix4::from_translation(Vector3::new(x_move, y_move, 0.2));
+        let cursor_move = Matrix4::from_translation(Vector3::new(x_move, y_move, 0.2));
         cursor_move * cursor_scale
     }
 
     pub fn update_screen_rows(&mut self) {
-        self.screen_rows =
-            (self.inner_height() / self.line_height as f32).floor() as i32;
+        self.screen_rows = (self.inner_height() / self.line_height as f32).floor() as i32;
     }
 
     pub fn print_info(&self) {

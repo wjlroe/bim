@@ -23,12 +23,7 @@ impl<'a> Buffer<'a> {
         self.rows.get(line_num as usize).map(|row| row.size)
     }
 
-    pub fn row_onscreen_text(
-        &self,
-        line_num: usize,
-        offset: usize,
-        cols: usize,
-    ) -> Option<String> {
+    pub fn row_onscreen_text(&self, line_num: usize, offset: usize, cols: usize) -> Option<String> {
         self.rows
             .get(line_num)
             .map(|row| row.onscreen_text(offset, cols))
@@ -222,12 +217,7 @@ impl<'a> Buffer<'a> {
         self.update_from(y as usize);
     }
 
-    pub fn insert_char(
-        &mut self,
-        character: char,
-        cursor_x: i32,
-        cursor_y: i32,
-    ) {
+    pub fn insert_char(&mut self, character: char, cursor_x: i32, cursor_y: i32) {
         if cursor_y == self.rows.len() as i32 {
             self.rows.push(Row::new("", Rc::downgrade(&self.syntax)));
         }

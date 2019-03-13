@@ -74,10 +74,7 @@ impl<'a> Syntax<'a> {
         self
     }
 
-    pub fn singleline_comment_start(
-        mut self,
-        singleline: &'a str,
-    ) -> Syntax<'_> {
+    pub fn singleline_comment_start(mut self, singleline: &'a str) -> Syntax<'_> {
         self.singleline_comment_start = singleline;
         self
     }
@@ -120,10 +117,7 @@ impl<'a> Syntax<'a> {
         self.flags.contains(&SyntaxSetting::HighlightKeywords)
     }
 
-    pub fn starts_with_keyword(
-        &self,
-        haystack: &str,
-    ) -> Option<(Highlight, usize)> {
+    pub fn starts_with_keyword(&self, haystack: &str) -> Option<(Highlight, usize)> {
         for (highlight, keywords) in &self.keywords {
             let found_keyword = keywords
                 .iter()
@@ -167,13 +161,11 @@ lazy_static! {
                 .multiline_comment_end("*/")
                 .flag(HighlightKeywords)
                 .keywords1(&[
-                    "switch", "if", "while", "for", "break", "continue",
-                    "return", "else", "struct", "union", "typedef", "static",
-                    "enum", "class", "case",
+                    "switch", "if", "while", "for", "break", "continue", "return", "else",
+                    "struct", "union", "typedef", "static", "enum", "class", "case",
                 ])
                 .keywords2(&[
-                    "int", "long", "double", "float", "char", "unsigned",
-                    "signed", "void",
+                    "int", "long", "double", "float", "char", "unsigned", "signed", "void",
                 ])
                 .flag(HighlightNumbers)
                 .flag(HighlightStrings),
@@ -185,12 +177,11 @@ lazy_static! {
                 .multiline_comment_end("*/")
                 .flag(HighlightKeywords)
                 .keywords1(&[
-                    "pub", "fn", "struct", "impl", "if", "else", "match",
-                    "use", "const", "derive", "let",
+                    "pub", "fn", "struct", "impl", "if", "else", "match", "use", "const", "derive",
+                    "let",
                 ])
                 .keywords2(&[
-                    "i8", "i32", "i64", "u32", "u64", "f32", "f64", "str",
-                    "&str", "u8", "Self",
+                    "i8", "i32", "i64", "u32", "u64", "f32", "f64", "str", "&str", "u8", "Self",
                 ])
                 .flag(HighlightNumbers)
                 .flag(HighlightStrings),

@@ -10,16 +10,12 @@ use crate::highlight::{highlight_to_color, Highlight};
 use crate::utils::char_position_to_byte_position;
 use gfx;
 use gfx::Device;
-use gfx_glyph::{
-    GlyphBrushBuilder, GlyphCruncher, Scale, Section, SectionText,
-    VariedSection,
-};
+use gfx_glyph::{GlyphBrushBuilder, GlyphCruncher, Scale, Section, SectionText, VariedSection};
 use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::Api::OpenGl;
 use glutin::{
-    ContextBuilder, ElementState, Event, EventsLoop, GlProfile, GlRequest,
-    Icon, KeyboardInput, ModifiersState, VirtualKeyCode, WindowBuilder,
-    WindowEvent,
+    ContextBuilder, ElementState, Event, EventsLoop, GlProfile, GlRequest, Icon, KeyboardInput,
+    ModifiersState, VirtualKeyCode, WindowBuilder, WindowEvent,
 };
 use std::error::Error;
 
@@ -46,13 +42,9 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     let mut event_loop = EventsLoop::new();
     let mut logical_size = LogicalSize::new(650.0, 800.0);
     let mut monitor = event_loop.get_primary_monitor();
-    if let Some(previous_monitor_name) =
-        persist_window_state.monitor_name.as_ref()
-    {
+    if let Some(previous_monitor_name) = persist_window_state.monitor_name.as_ref() {
         for available_monitor in event_loop.get_available_monitors() {
-            if let Some(avail_monitor_name) =
-                available_monitor.get_name().as_ref()
-            {
+            if let Some(avail_monitor_name) = available_monitor.get_name().as_ref() {
                 if avail_monitor_name == previous_monitor_name {
                     monitor = available_monitor;
                 }
@@ -71,12 +63,8 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         .with_gl_profile(GlProfile::Core)
         .with_vsync(true);
     let (window, mut device, mut factory, main_color, main_depth) =
-        gfx_window_glutin::init::<ColorFormat, DepthFormat>(
-            window_builder,
-            context,
-            &event_loop,
-        )
-        .unwrap();
+        gfx_window_glutin::init::<ColorFormat, DepthFormat>(window_builder, context, &event_loop)
+            .unwrap();
 
     debug_log.debugln_timestamped(&format!("color_view: {:?}", main_color))?;
     debug_log.debugln_timestamped(&format!("depth_view: {:?}", main_depth))?;
@@ -101,8 +89,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         .depth_test(gfx::preset::depth::LESS_EQUAL_WRITE)
         .build(factory.clone());
 
-    let mut encoder: gfx::Encoder<_, _> =
-        factory.create_command_buffer().into();
+    let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
     let mut running = true;
     let mut window_resized = true;
@@ -117,13 +104,8 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     if let Err(e) = buffer.open(filename) {
         panic!("Error: {}", e);
     };
-    let mut draw_state = DrawState::new(
-        window_width.into(),
-        window_height.into(),
-        18.0,
-        dpi,
-        buffer,
-    );
+    let mut draw_state =
+        DrawState::new(window_width.into(), window_height.into(), 18.0, dpi, buffer);
     let _default_status_text = format!("bim editor - version {}", BIM_VERSION);
 
     while running {
@@ -265,10 +247,8 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                     WindowEvent::Resized(new_logical_size) => {
                         println!("Resized to: {:?}", new_logical_size);
                         logical_size = new_logical_size;
-                        let _ = debug_log.debugln_timestamped(&format!(
-                            "logical_size: {:?}",
-                            logical_size,
-                        ));
+                        let _ = debug_log
+                            .debugln_timestamped(&format!("logical_size: {:?}", logical_size,));
                         action_queue.push(Action::ResizeWindow);
                     }
                     WindowEvent::HiDpiFactorChanged(new_dpi) => {
@@ -279,14 +259,10 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                     }
                     WindowEvent::Moved(new_logical_position) => {
                         println!("Moved to {:?}", new_logical_position);
-                        if let Some(monitor_name) =
-                            window.get_current_monitor().get_name()
-                        {
-                            persist_window_state.monitor_name =
-                                Some(monitor_name);
+                        if let Some(monitor_name) = window.get_current_monitor().get_name() {
+                            persist_window_state.monitor_name = Some(monitor_name);
                         }
-                        persist_window_state.logical_position =
-                            new_logical_position;
+                        persist_window_state.logical_position = new_logical_position;
                         persist_window_state.save();
                     }
                     _ => (),
@@ -299,10 +275,8 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             match action {
                 Action::ResizeWindow => {
                     let physical_size = logical_size.to_physical(dpi.into());
-                    debug_log.debugln_timestamped(&format!(
-                        "physical_size: {:?}",
-                        physical_size,
-                    ))?;
+                    debug_log
+                        .debugln_timestamped(&format!("physical_size: {:?}", physical_size,))?;
                     window.resize(physical_size);
                     gfx_window_glutin::update_views(
                         &window,
@@ -310,12 +284,8 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         &mut draw_quad.data.out_depth,
                     );
                     {
-                        let (width, height, ..) =
-                            draw_quad.data.out_color.get_dimensions();
-                        println!(
-                            "main_color.get_dimensions: ({}x{})",
-                            width, height
-                        );
+                        let (width, height, ..) = draw_quad.data.out_color.get_dimensions();
+                        println!("main_color.get_dimensions: ({}x{})", width, height);
                         println!("DPI: {}", dpi);
                         draw_state.set_window_dimensions((width, height));
                     }
@@ -369,14 +339,9 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             // Render cursor
             // from top of line of text to bottom of line of text
             // from left of character to right of character
-            draw_quad.draw(
-                &mut encoder,
-                CURSOR_BG,
-                draw_state.cursor_transform(),
-            );
+            draw_quad.draw(&mut encoder, CURSOR_BG, draw_state.cursor_transform());
 
-            if let Some(cursor_transform) = draw_state.other_cursor_transform()
-            {
+            if let Some(cursor_transform) = draw_state.other_cursor_transform() {
                 draw_quad.draw(&mut encoder, OTHER_CURSOR_BG, cursor_transform);
             }
         }
@@ -389,16 +354,11 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                 && highlighted_section.first_col_idx <= cursor_text_col
                 && highlighted_section.last_col_idx >= cursor_text_col
             {
-                let cursor_offset =
-                    cursor_text_col - highlighted_section.first_col_idx;
-                let cursor_byte_offset = char_position_to_byte_position(
-                    &highlighted_section.text,
-                    cursor_offset,
-                );
-                let next_byte_offset = char_position_to_byte_position(
-                    &highlighted_section.text,
-                    cursor_offset + 1,
-                );
+                let cursor_offset = cursor_text_col - highlighted_section.first_col_idx;
+                let cursor_byte_offset =
+                    char_position_to_byte_position(&highlighted_section.text, cursor_offset);
+                let next_byte_offset =
+                    char_position_to_byte_position(&highlighted_section.text, cursor_offset + 1);
                 section_texts.push(SectionText {
                     text: &highlighted_section.text[0..cursor_byte_offset],
                     scale: Scale::uniform(draw_state.font_scale()),
@@ -406,8 +366,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                     ..SectionText::default()
                 });
                 section_texts.push(SectionText {
-                    text: &highlighted_section.text
-                        [cursor_byte_offset..next_byte_offset],
+                    text: &highlighted_section.text[cursor_byte_offset..next_byte_offset],
                     scale: Scale::uniform(draw_state.font_scale()),
                     color: highlight_to_color(Highlight::Cursor),
                     ..SectionText::default()
@@ -431,8 +390,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         let section = VariedSection {
             bounds: (
                 draw_state.inner_width(),
-                draw_state.inner_height()
-                    + draw_state.screen_position_vertical_offset(),
+                draw_state.inner_height() + draw_state.screen_position_vertical_offset(),
             ),
             screen_position: (draw_state.left_padding(), 0.0),
             text: section_texts,
@@ -451,17 +409,12 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         {
             use cgmath::{Matrix4, Vector3};
             for line in LINE_COLS_AT.iter() {
-                let scale = Matrix4::from_nonuniform_scale(
-                    1.0 / draw_state.window_width(),
-                    1.0,
-                    1.0,
-                );
-                let x_on_screen = draw_state.left_padding()
-                    + (*line as f32 * draw_state.character_width());
-                let x_move =
-                    (x_on_screen / draw_state.window_width()) * 2.0 - 1.0;
-                let translate =
-                    Matrix4::from_translation(Vector3::new(x_move, 0.0, 0.2));
+                let scale =
+                    Matrix4::from_nonuniform_scale(1.0 / draw_state.window_width(), 1.0, 1.0);
+                let x_on_screen =
+                    draw_state.left_padding() + (*line as f32 * draw_state.character_width());
+                let x_move = (x_on_screen / draw_state.window_width()) * 2.0 - 1.0;
+                let translate = Matrix4::from_translation(Vector3::new(x_move, 0.0, 0.2));
                 let transform = translate * scale;
                 draw_quad.draw(&mut encoder, LINE_COL_BG, transform);
             }
@@ -469,11 +422,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
         {
             // Render status background
-            draw_quad.draw(
-                &mut encoder,
-                STATUS_BG,
-                draw_state.status_transform(),
-            );
+            draw_quad.draw(&mut encoder, STATUS_BG, draw_state.status_transform());
         }
 
         let status_text = format!(
@@ -484,10 +433,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         );
         let status_section = Section {
             bounds: (draw_state.inner_width(), draw_state.line_height() as f32),
-            screen_position: (
-                draw_state.left_padding(),
-                draw_state.inner_height(),
-            ),
+            screen_position: (draw_state.left_padding(), draw_state.inner_height()),
             text: &status_text,
             color: [1.0, 1.0, 1.0, 1.0],
             scale: Scale::uniform(draw_state.font_scale()),

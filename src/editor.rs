@@ -21,10 +21,8 @@ pub trait Editor {
     {
         let mut entered_text = String::new();
         loop {
-            terminal.set_status_message(format!(
-                "{} {} {}",
-                status_left, entered_text, status_right
-            ));
+            terminal
+                .set_status_message(format!("{} {} {}", status_left, entered_text, status_right));
             terminal.refresh();
             if let Some(key) = self.read_a_character() {
                 match key {
@@ -65,12 +63,9 @@ pub trait Editor {
         use crate::commands::Cmd::*;
 
         if cmd == Save && !terminal.has_filename() {
-            if let Some(filename) = self.prompt(
-                terminal,
-                "Save as:",
-                "(ESC to cancel)",
-                |_, _, _| {},
-            ) {
+            if let Some(filename) =
+                self.prompt(terminal, "Save as:", "(ESC to cancel)", |_, _, _| {})
+            {
                 terminal.set_filename(filename);
             }
         } else if cmd == Search {
@@ -112,8 +107,7 @@ pub trait Editor {
                         }
                     };
                     if run_search {
-                        last_match =
-                            terminal.search_for(last_match, direction, text);
+                        last_match = terminal.search_for(last_match, direction, text);
                     }
                 },
             );

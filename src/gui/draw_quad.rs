@@ -53,8 +53,8 @@ impl<R: Resources> DrawQuad<R> {
                 pipe::new(),
             )
             .expect("quad pso construction to work");
-        let (quad_vbuf, quad_slice) = factory
-            .create_vertex_buffer_with_slice(&QUAD, &QUAD_INDICES as &[u16]);
+        let (quad_vbuf, quad_slice) =
+            factory.create_vertex_buffer_with_slice(&QUAD, &QUAD_INDICES as &[u16]);
         let data = pipe::Data {
             vbuf: quad_vbuf,
             locals: factory.create_constant_buffer(2),
@@ -68,12 +68,8 @@ impl<R: Resources> DrawQuad<R> {
         }
     }
 
-    pub fn draw<C>(
-        &mut self,
-        encoder: &mut Encoder<R, C>,
-        color: [f32; 3],
-        transform: Matrix4<f32>,
-    ) where
+    pub fn draw<C>(&mut self, encoder: &mut Encoder<R, C>, color: [f32; 3], transform: Matrix4<f32>)
+    where
         C: CommandBuffer<R>,
     {
         let locals = Locals {
