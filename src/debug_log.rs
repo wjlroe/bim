@@ -18,9 +18,9 @@ impl<'a> DebugLog<'a> {
             .append(true)
             .open(self.filename)?;
         let now = now();
-        file.write(&format!("{}: ", now.rfc822()).as_bytes())?;
-        file.write(text.as_bytes())?;
-        file.write("\n".as_bytes())?;
+        file.write_all(&format!("{}: ", now.rfc822()).as_bytes())?;
+        file.write_all(text.as_bytes())?;
+        file.write_all("\n".as_bytes())?;
         file.flush()?;
         Ok(())
     }
@@ -31,7 +31,7 @@ impl<'a> DebugLog<'a> {
             .write(true)
             .truncate(true)
             .open(self.filename)?;
-        file.write(&format!("---\n").as_bytes())?;
+        file.write_all(&"---\n".to_string().as_bytes())?;
         file.flush()?;
         Ok(())
     }
