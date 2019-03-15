@@ -100,6 +100,7 @@ impl<'a> Row<'a> {
                 rsize += 1;
             }
         }
+        self.render.push('\n'); // Internally use unix line endings ignoring source line endings
         self.rsize = rsize;
     }
 
@@ -158,6 +159,7 @@ impl<'a> Row<'a> {
                     for _ in idx..self.rsize {
                         self.hl.push(Comment);
                     }
+                    self.hl.push(Normal); // newline
                     break;
                 }
             }
@@ -178,7 +180,12 @@ impl<'a> Row<'a> {
                     continue;
                 }
                 if in_comment {
-                    self.hl.push(MultilineComment);
+                    let hl = if c == '\n' || c == '\r' {
+                        Normal
+                    } else {
+                        MultilineComment
+                    };
+                    self.hl.push(hl);
                     continue;
                 }
             }
@@ -440,7 +447,7 @@ mod test {
         let mut row = new_row_without_syntax("a line of text\r\n");
         assert_eq!(14, row.size);
         assert_eq!(14, row.rsize);
-        assert_eq!(row.chars.trim(), row.render);
+        assert_eq!(row.chars.trim(), row.render.trim());
         row.insert_char(2, 'z');
         assert_eq!(15, row.size);
         assert_eq!(15, row.rsize);
@@ -497,17 +504,17 @@ mod test {
     fn test_delete_char() {
         let mut row = new_row_without_syntax("this is a nice row\r\n");
         assert_eq!(18, row.size);
-        assert_eq!("this is a nice row", row.render);
+        assert_eq!("this is a nice row\n", row.render);
 
         row.delete_char(0);
         assert_eq!("his is a nice row\r\n", row.chars);
         assert_eq!(17, row.size);
-        assert_eq!("his is a nice row", row.render);
+        assert_eq!("his is a nice row\n", row.render);
 
         row.delete_char(17);
         assert_eq!("his is a nice ro\r\n", row.chars);
         assert_eq!(16, row.size);
-        assert_eq!("his is a nice ro", row.render);
+        assert_eq!("his is a nice ro\n", row.render);
     }
 
     #[test]
@@ -516,7 +523,7 @@ mod test {
         assert_eq!(6, row.size);
         row.delete_char(1);
         assert_eq!(5, row.size);
-        assert_eq!("£1.50", row.render);
+        assert_eq!("£1.50\n", row.render);
     }
 
     #[test]
@@ -560,7 +567,7 @@ mod test {
 
         {
             let row = new_row_without_syntax("\tinteresting\r\n");
-            assert_eq!("        interesting", row.rendered_str());
+            assert_eq!("        interesting\n", row.rendered_str());
             assert_eq!(0, row.render_cursor_to_text(0));
             assert_eq!(1, row.render_cursor_to_text(8));
             assert_eq!(11, row.render_cursor_to_text(18));
@@ -570,7 +577,7 @@ mod test {
 
         {
             let row = new_row_without_syntax("\t£intersting\r\n");
-            assert_eq!("        £intersting", row.rendered_str());
+            assert_eq!("        £intersting\n", row.rendered_str());
             assert_eq!(0, row.render_cursor_to_text(0));
             assert_eq!(1, row.render_cursor_to_text(8));
             assert_eq!(2, row.render_cursor_to_text(9));
@@ -587,7 +594,7 @@ mod test {
 
         {
             let row = new_row_without_syntax("\t£lots\r\n");
-            assert_eq!("        £lots", row.rendered_str());
+            assert_eq!("        £lots\n", row.rendered_str());
             assert_eq!(Some(9), row.index_of("lots"));
         }
     }
@@ -638,14 +645,18 @@ mod test {
     fn test_highlight_normal() {
         row_with_text_and_filetype!("normal\r\n", "HLNumbers", syntax, row);
         row.update_syntax_highlight(false);
-        assert_eq!(vec![Highlight::Normal; 6], row.hl);
+        let mut highlights = vec![Highlight::Normal; 6];
+        highlights.push(Highlight::Normal); // newline
+        assert_eq!(highlights, row.hl);
     }
 
     #[test]
     fn test_highlight_numbers() {
         row_with_text_and_filetype!("12345.6789\r\n", "HLNumbers", syntax, row);
         row.update_syntax_highlight(false);
-        assert_eq!(vec![Highlight::Number; 10], row.hl);
+        let mut highlights = vec![Highlight::Number; 10];
+        highlights.push(Highlight::Normal); // newline
+        assert_eq!(highlights, row.hl);
     }
 
     #[test]
@@ -656,6 +667,7 @@ mod test {
         expected.append(&mut vec![Highlight::Number; 3]);
         expected.append(&mut vec![Highlight::Normal; 6]);
         expected.append(&mut vec![Highlight::Number; 3]);
+        expected.push(Highlight::Normal); // newline
         assert_eq!(expected, row.hl);
     }
 
@@ -663,7 +675,9 @@ mod test {
     fn test_highlight_numbers_in_words_are_normal() {
         row_with_text_and_filetype!("word9\r\n", "HLNumbers", syntax, row);
         row.update_syntax_highlight(false);
-        assert_eq!(vec![Highlight::Normal; 5], row.hl);
+        let mut highlights = vec![Highlight::Normal; 5];
+        highlights.push(Highlight::Normal); // newline
+        assert_eq!(highlights, row.hl);
     }
 
     #[test]
@@ -674,6 +688,7 @@ mod test {
         expected.append(&mut vec![Highlight::Normal; 4]);
         expected.append(&mut vec![Highlight::String; 8]);
         expected.append(&mut vec![Highlight::Normal; 5]);
+        expected.push(Highlight::Normal); // newline
         assert_eq!(expected, row.hl);
     }
 
@@ -685,6 +700,7 @@ mod test {
         expected.append(&mut vec![Highlight::Normal; 4]);
         expected.append(&mut vec![Highlight::String; 8]);
         expected.append(&mut vec![Highlight::Normal; 5]);
+        expected.push(Highlight::Normal); // newline
         assert_eq!(expected, row.hl);
     }
 
@@ -702,7 +718,9 @@ mod test {
     fn test_highlight_numbers_in_strings() {
         row_with_text_and_filetype!("'abc.12.3zxc'\r\n", "HLEverything", syntax, row);
         row.update_syntax_highlight(false);
-        assert_eq!(vec![Highlight::String; 13], row.hl);
+        let mut highlights = vec![Highlight::String; 13];
+        highlights.push(Highlight::Normal); // newline
+        assert_eq!(highlights, row.hl);
     }
 
     #[test]
@@ -713,6 +731,7 @@ mod test {
         expected.append(&mut vec![Highlight::Normal; 4]);
         expected.append(&mut vec![Highlight::String; 10]);
         expected.append(&mut vec![Highlight::Normal; 4]);
+        expected.push(Highlight::Normal); // newline
         assert_eq!(expected, row.hl);
     }
 
@@ -723,6 +742,7 @@ mod test {
         let mut expected = vec![];
         expected.append(&mut vec![Highlight::Normal; 8]);
         expected.append(&mut vec![Highlight::Comment; 16]);
+        expected.push(Highlight::Normal); // newline
         assert_eq!(expected, row.hl);
     }
 
@@ -733,7 +753,9 @@ mod test {
         let rc = Rc::new(Some(&syntax));
         let mut row = Row::new("nothing // and a comment\r\n", Rc::downgrade(&rc));
         row.update_syntax_highlight(false);
-        assert_eq!(vec![Highlight::Normal; 24], row.hl);
+        let mut highlights = vec![Highlight::Normal; 24];
+        highlights.push(Highlight::Normal); // newline
+        assert_eq!(highlights, row.hl);
     }
 
     #[test]
@@ -751,6 +773,7 @@ mod test {
         expected.append(&mut vec![Highlight::Keyword1; 4]);
         expected.append(&mut vec![Highlight::Normal; 6]);
         expected.append(&mut vec![Highlight::Keyword1; 6]);
+        expected.push(Highlight::Normal); // newline
         assert_eq!(expected, row.hl);
     }
 
@@ -779,6 +802,7 @@ mod test {
         expected.append(&mut vec![Highlight::Normal; 10]);
         expected.append(&mut vec![Highlight::Keyword2; 4]);
         expected.append(&mut vec![Highlight::Normal; 3]);
+        expected.push(Highlight::Normal); // newline
         assert_eq!(expected, row.hl);
     }
 
@@ -813,13 +837,17 @@ mod test {
         {
             row_with_text_and_filetype!("'else'\r\n", "HLEverything", syntax, row);
             row.update_syntax_highlight(false);
-            assert_eq!(vec![Highlight::String; 6], row.hl);
+            let mut highlights = vec![Highlight::String; 6];
+            highlights.push(Highlight::Normal); // newline
+            assert_eq!(highlights, row.hl);
         }
 
         {
             row_with_text_and_filetype!("\"else\"\r\n", "HLEverything", syntax, row);
             row.update_syntax_highlight(false);
-            assert_eq!(vec![Highlight::String; 6], row.hl);
+            let mut highlights = vec![Highlight::String; 6];
+            highlights.push(Highlight::Normal); // newline
+            assert_eq!(highlights, row.hl);
         }
     }
 
@@ -829,6 +857,7 @@ mod test {
         assert_eq!(false, row.update_syntax_highlight(false));
         let mut expected = vec![Highlight::Normal; 7];
         expected.append(&mut vec![Highlight::MultilineComment; 10]);
+        expected.push(Highlight::Normal); // newline
         assert_eq!(expected, row.hl);
     }
 
@@ -838,6 +867,7 @@ mod test {
         assert_eq!(true, row.update_syntax_highlight(false));
         let mut expected = vec![Highlight::Normal; 7];
         expected.append(&mut vec![Highlight::MultilineComment; 7]);
+        expected.push(Highlight::Normal); // newline
         assert_eq!(expected, row.hl);
     }
 
@@ -847,6 +877,7 @@ mod test {
         assert_eq!(false, row.update_syntax_highlight(true));
         let mut expected = vec![Highlight::MultilineComment; 7];
         expected.append(&mut vec![Highlight::Normal; 7]);
+        expected.push(Highlight::Normal); // newline
         assert_eq!(expected, row.hl);
     }
 
@@ -854,7 +885,9 @@ mod test {
     fn test_highlight_multiline_comments_continue() {
         row_with_text_and_filetype!("this is in a comment\r\n", "HLMLComments", syntax, row);
         assert_eq!(true, row.update_syntax_highlight(true));
-        assert_eq!(vec![Highlight::MultilineComment; 20], row.hl);
+        let mut expected = vec![Highlight::MultilineComment; 20];
+        expected.push(Highlight::Normal); // newline
+        assert_eq!(expected, row.hl);
     }
 
     #[test]
@@ -867,6 +900,7 @@ mod test {
         expected.append(&mut vec![Highlight::Normal]);
         expected.append(&mut vec![Highlight::Number]);
         expected.append(&mut vec![Highlight::Normal]);
+        expected.push(Highlight::Normal); // newline
         assert_eq!(expected, row.hl);
     }
 
@@ -874,13 +908,17 @@ mod test {
     fn test_highlight_comments_inside_strings() {
         row_with_text_and_filetype!("\"/* blah */\"\r\n", "HLEverything", syntax, row);
         assert_eq!(false, row.update_syntax_highlight(false));
-        assert_eq!(vec![Highlight::String; 12], row.hl);
+        let mut expected = vec![Highlight::String; 12];
+        expected.push(Highlight::Normal); // newline
+        assert_eq!(expected, row.hl);
     }
 
     #[test]
     fn test_highlight_singleline_comments_inside_multiline_comments() {
         row_with_text_and_filetype!("/* // blah */\r\n", "HLEverything", syntax, row);
         assert_eq!(false, row.update_syntax_highlight(false));
-        assert_eq!(vec![Highlight::MultilineComment; 13], row.hl);
+        let mut highlights = vec![Highlight::MultilineComment; 13];
+        highlights.push(Highlight::Normal); // newline
+        assert_eq!(highlights, row.hl);
     }
 }

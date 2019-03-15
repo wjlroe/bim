@@ -23,6 +23,17 @@
       "problemMatcher": "$rustc"
     },
     {
+      "label": "cargo build release",
+      "type": "shell",
+      "command": "cargo",
+      "args": [
+        "build",
+        "--release"
+      ],
+      "group": "build",
+      "problemMatcher": "$rustc"
+    },
+    {
       "label": "cargo run",
       "type": "shell",
       "command": "cargo",

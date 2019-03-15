@@ -18,3 +18,4 @@ testfiles/
 icon*.png
 bim.ico
 callgrind.out*
+flame-graph.html

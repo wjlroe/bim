@@ -1,5 +1,5 @@
 use crate::buffer::Buffer;
-use crate::highlight::{Highlight, HighlightedSection};
+use crate::highlight::HighlightedSection;
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 
 #[derive(Copy, Clone, Default)]
@@ -43,7 +43,7 @@ pub struct DrawState<'a> {
     other_cursor: Option<RenderedCursor>,
     other_cursor_transform: Option<Matrix4<f32>>,
     status_transform: Matrix4<f32>,
-    buffer: Buffer<'a>,
+    pub buffer: Buffer<'a>,
     pub highlighted_sections: Vec<HighlightedSection>,
     pub status_line: StatusLine,
     row_offset: f32,
@@ -183,7 +183,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn screen_position_vertical_offset(&self) -> f32 {
-        self.row_offset * self.line_height
+        self.row_offset.fract() * self.line_height
     }
 
     pub fn row_offset_as_transform(&self) -> [[f32; 4]; 4] {
@@ -218,44 +218,29 @@ impl<'a> DrawState<'a> {
 
     fn update_highlighted_sections(&mut self) {
         self.highlighted_sections.clear();
-        let mut current_section = HighlightedSection {
-            text: String::new(),
-            highlight: None,
-            text_row: 0,
-            first_col_idx: 0,
-            last_col_idx: 0,
-        };
         for (row_idx, row) in self.buffer.rows.iter().enumerate() {
+            // We don't want to push a 0->0 Normal highlight at the beginning of every line
+            let mut first_char_seen = false;
+            let mut current_section = HighlightedSection::default();
             current_section.text_row = row_idx;
-            current_section.first_col_idx = 0;
-            let mut highlights = row.hl.iter();
-            #[allow(clippy::useless_let_if_seq)]
-            for (col_idx, c) in row.render.chars().enumerate() {
-                let hl = highlights.next().cloned().unwrap_or(Highlight::Normal);
-                if current_section.highlight.is_none() {
-                    current_section.highlight = Some(hl);
-                    current_section.last_col_idx = col_idx;
-                }
-                if current_section.highlight == Some(hl) {
-                    current_section.text.push(c);
+
+            for (col_idx, hl) in row.hl.iter().enumerate() {
+                if current_section.highlight == *hl {
                     current_section.last_col_idx = col_idx;
                 } else {
-                    self.highlighted_sections.push(current_section.clone());
-                    current_section.text.clear();
-                    current_section.highlight = None;
-                    current_section.text.push(c);
-                    current_section.text_row = row_idx;
+                    if first_char_seen {
+                        self.highlighted_sections.push(current_section);
+                    }
+                    current_section.highlight = *hl;
                     current_section.first_col_idx = col_idx;
+                    current_section.last_col_idx = col_idx;
                 }
+                first_char_seen = true;
             }
-            current_section.text.push('\n');
-            self.highlighted_sections.push(current_section.clone());
-            current_section.text.clear();
-            current_section.highlight = None;
-        }
-        if current_section.text != "" {
-            current_section.text.push('\n');
-            self.highlighted_sections.push(current_section.clone());
+
+            if first_char_seen {
+                self.highlighted_sections.push(current_section);
+            }
         }
     }
 
@@ -420,41 +405,52 @@ impl<'a> DrawState<'a> {
 
 #[test]
 fn test_update_highlighted_sections() {
+    use crate::highlight::Highlight;
+
     let mut buffer = Buffer::default();
     buffer.set_filename("testfile.c".to_string());
     buffer.append_row("#include <ctype.h>\r\n");
     buffer.append_row("#define KILO_VERSION \"0.0.1\"\r\n");
+    buffer.append_row("enum SomeEnum {};\r\n");
     let mut draw_state = DrawState::new(100.0, 100.0, 18.0, 1.0, buffer);
     draw_state.update_highlighted_sections();
-    let mut iter = draw_state.highlighted_sections.iter();
-    assert_eq!(
-        iter.next(),
-        Some(&HighlightedSection {
-            text: "#include <ctype.h>\n".to_string(),
-            highlight: Some(Highlight::Normal),
+    let expected_highlights = vec![
+        HighlightedSection {
+            highlight: Highlight::Normal,
             text_row: 0,
             first_col_idx: 0,
-            last_col_idx: 17,
-        }),
-    );
-    assert_eq!(
-        iter.next(),
-        Some(&HighlightedSection {
-            text: "#define KILO_VERSION ".to_string(),
-            highlight: Some(Highlight::Normal),
+            last_col_idx: 18,
+        },
+        HighlightedSection {
+            highlight: Highlight::Normal,
             text_row: 1,
             first_col_idx: 0,
             last_col_idx: 20,
-        }),
-    );
-    assert_eq!(
-        iter.next(),
-        Some(&HighlightedSection {
-            text: "\"0.0.1\"\n".to_string(),
-            highlight: Some(Highlight::String),
+        },
+        HighlightedSection {
+            highlight: Highlight::String,
             text_row: 1,
             first_col_idx: 21,
             last_col_idx: 27,
-        }),
-    );
+        },
+        HighlightedSection {
+            highlight: Highlight::Normal,
+            text_row: 1,
+            first_col_idx: 28,
+            last_col_idx: 28,
+        },
+        HighlightedSection {
+            highlight: Highlight::Keyword1,
+            text_row: 2,
+            first_col_idx: 0,
+            last_col_idx: 3,
+        },
+        HighlightedSection {
+            highlight: Highlight::Normal,
+            text_row: 2,
+            first_col_idx: 4,
+            last_col_idx: 17,
+        },
+    ];
+    assert_eq!(expected_highlights, draw_state.highlighted_sections);
 }
