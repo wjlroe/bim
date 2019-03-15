@@ -360,44 +360,49 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         }
 
         let mut section_texts = vec![];
+
         {
             let _guard = flame::start_guard("highlighted_sections -> section_texts");
 
             let (cursor_text_row, cursor_text_col) = draw_state.cursor();
             for highlighted_section in draw_state.highlighted_sections.iter() {
-                let hl = highlighted_section.highlight.unwrap_or(Highlight::Normal);
+                let hl = highlighted_section.highlight;
+                let row_text = &draw_state.buffer.rows[highlighted_section.text_row].render;
+                let first_col_byte =
+                    char_position_to_byte_position(row_text, highlighted_section.first_col_idx);
+                let last_col_byte =
+                    char_position_to_byte_position(row_text, highlighted_section.last_col_idx);
+                let render_text = &row_text[first_col_byte..=last_col_byte];
                 if highlighted_section.text_row == cursor_text_row
                     && highlighted_section.first_col_idx <= cursor_text_col
                     && highlighted_section.last_col_idx >= cursor_text_col
                 {
                     let cursor_offset = cursor_text_col - highlighted_section.first_col_idx;
                     let cursor_byte_offset =
-                        char_position_to_byte_position(&highlighted_section.text, cursor_offset);
-                    let next_byte_offset = char_position_to_byte_position(
-                        &highlighted_section.text,
-                        cursor_offset + 1,
-                    );
+                        char_position_to_byte_position(render_text, cursor_offset);
+                    let next_byte_offset =
+                        char_position_to_byte_position(render_text, cursor_offset + 1);
                     section_texts.push(SectionText {
-                        text: &highlighted_section.text[0..cursor_byte_offset],
+                        text: &render_text[0..cursor_byte_offset],
                         scale: Scale::uniform(draw_state.font_scale()),
                         color: highlight_to_color(hl),
                         ..SectionText::default()
                     });
                     section_texts.push(SectionText {
-                        text: &highlighted_section.text[cursor_byte_offset..next_byte_offset],
+                        text: &render_text[cursor_byte_offset..next_byte_offset],
                         scale: Scale::uniform(draw_state.font_scale()),
                         color: highlight_to_color(Highlight::Cursor),
                         ..SectionText::default()
                     });
                     section_texts.push(SectionText {
-                        text: &highlighted_section.text[next_byte_offset..],
+                        text: &render_text[next_byte_offset..],
                         scale: Scale::uniform(draw_state.font_scale()),
                         color: highlight_to_color(hl),
                         ..SectionText::default()
                     });
                 } else {
                     section_texts.push(SectionText {
-                        text: &highlighted_section.text,
+                        text: &render_text,
                         scale: Scale::uniform(draw_state.font_scale()),
                         color: highlight_to_color(hl),
                         ..SectionText::default()

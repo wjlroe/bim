@@ -283,7 +283,12 @@ fn test_insert_newline() {
             .collect::<Vec<_>>()
     );
     assert_eq!(
-        vec!["what a good first line.", "", "not ", "a bad second line"],
+        vec![
+            "what a good first line.\n",
+            "\n",
+            "not \n",
+            "a bad second line\n"
+        ],
         buffer
             .rows
             .iter()

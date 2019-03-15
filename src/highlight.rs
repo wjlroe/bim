@@ -14,6 +14,12 @@ pub enum Highlight {
     Cursor,
 }
 
+impl Default for Highlight {
+    fn default() -> Self {
+        Highlight::Normal
+    }
+}
+
 pub const DEFAULT_COLOUR: u8 = 39;
 
 lazy_static! {
@@ -48,10 +54,9 @@ pub fn highlight_to_color(hl: Highlight) -> [f32; 4] {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct HighlightedSection {
-    pub text: String,
-    pub highlight: Option<Highlight>,
+    pub highlight: Highlight,
     pub text_row: usize,
     pub first_col_idx: usize,
     pub last_col_idx: usize,
