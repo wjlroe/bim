@@ -405,6 +405,8 @@ impl<'a> DrawState<'a> {
 
 #[test]
 fn test_update_highlighted_sections() {
+    use crate::highlight::Highlight;
+
     let mut buffer = Buffer::default();
     buffer.set_filename("testfile.c".to_string());
     buffer.append_row("#include <ctype.h>\r\n");
