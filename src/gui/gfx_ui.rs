@@ -8,6 +8,7 @@ use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::{ColorFormat, DepthFormat};
 use crate::highlight::{highlight_to_color, Highlight};
 use crate::utils::char_position_to_byte_position;
+use flame;
 use gfx;
 use gfx::Device;
 use gfx_glyph::{GlyphBrushBuilder, GlyphCruncher, Scale, Section, SectionText, VariedSection};
@@ -109,6 +110,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     let _default_status_text = format!("bim editor - version {}", BIM_VERSION);
 
     while running {
+        flame::start("frame");
         #[allow(clippy::single_match)]
         event_loop.poll_events(|event| match event {
             Event::WindowEvent { event, .. } => {
@@ -309,6 +311,8 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         encoder.clear_depth(&draw_quad.data.out_depth, 1.0);
 
         if window_resized {
+            let _guard = flame::start_guard("window_resized");
+
             let test_section = VariedSection {
                 bounds: (draw_state.inner_width(), draw_state.inner_height()),
                 screen_position: (draw_state.left_padding(), 0.0),
@@ -344,6 +348,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         }
 
         {
+            let _guard = flame::start_guard("render cursor quad");
             // Render cursor
             // from top of line of text to bottom of line of text
             // from left of character to right of character
@@ -355,66 +360,77 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         }
 
         let mut section_texts = vec![];
-        let (cursor_text_row, cursor_text_col) = draw_state.cursor();
-        for highlighted_section in draw_state.highlighted_sections.iter() {
-            let hl = highlighted_section.highlight.unwrap_or(Highlight::Normal);
-            if highlighted_section.text_row == cursor_text_row
-                && highlighted_section.first_col_idx <= cursor_text_col
-                && highlighted_section.last_col_idx >= cursor_text_col
-            {
-                let cursor_offset = cursor_text_col - highlighted_section.first_col_idx;
-                let cursor_byte_offset =
-                    char_position_to_byte_position(&highlighted_section.text, cursor_offset);
-                let next_byte_offset =
-                    char_position_to_byte_position(&highlighted_section.text, cursor_offset + 1);
-                section_texts.push(SectionText {
-                    text: &highlighted_section.text[0..cursor_byte_offset],
-                    scale: Scale::uniform(draw_state.font_scale()),
-                    color: highlight_to_color(hl),
-                    ..SectionText::default()
-                });
-                section_texts.push(SectionText {
-                    text: &highlighted_section.text[cursor_byte_offset..next_byte_offset],
-                    scale: Scale::uniform(draw_state.font_scale()),
-                    color: highlight_to_color(Highlight::Cursor),
-                    ..SectionText::default()
-                });
-                section_texts.push(SectionText {
-                    text: &highlighted_section.text[next_byte_offset..],
-                    scale: Scale::uniform(draw_state.font_scale()),
-                    color: highlight_to_color(hl),
-                    ..SectionText::default()
-                });
-            } else {
-                section_texts.push(SectionText {
-                    text: &highlighted_section.text,
-                    scale: Scale::uniform(draw_state.font_scale()),
-                    color: highlight_to_color(hl),
-                    ..SectionText::default()
-                });
-            };
+        {
+            let _guard = flame::start_guard("highlighted_sections -> section_texts");
+
+            let (cursor_text_row, cursor_text_col) = draw_state.cursor();
+            for highlighted_section in draw_state.highlighted_sections.iter() {
+                let hl = highlighted_section.highlight.unwrap_or(Highlight::Normal);
+                if highlighted_section.text_row == cursor_text_row
+                    && highlighted_section.first_col_idx <= cursor_text_col
+                    && highlighted_section.last_col_idx >= cursor_text_col
+                {
+                    let cursor_offset = cursor_text_col - highlighted_section.first_col_idx;
+                    let cursor_byte_offset =
+                        char_position_to_byte_position(&highlighted_section.text, cursor_offset);
+                    let next_byte_offset = char_position_to_byte_position(
+                        &highlighted_section.text,
+                        cursor_offset + 1,
+                    );
+                    section_texts.push(SectionText {
+                        text: &highlighted_section.text[0..cursor_byte_offset],
+                        scale: Scale::uniform(draw_state.font_scale()),
+                        color: highlight_to_color(hl),
+                        ..SectionText::default()
+                    });
+                    section_texts.push(SectionText {
+                        text: &highlighted_section.text[cursor_byte_offset..next_byte_offset],
+                        scale: Scale::uniform(draw_state.font_scale()),
+                        color: highlight_to_color(Highlight::Cursor),
+                        ..SectionText::default()
+                    });
+                    section_texts.push(SectionText {
+                        text: &highlighted_section.text[next_byte_offset..],
+                        scale: Scale::uniform(draw_state.font_scale()),
+                        color: highlight_to_color(hl),
+                        ..SectionText::default()
+                    });
+                } else {
+                    section_texts.push(SectionText {
+                        text: &highlighted_section.text,
+                        scale: Scale::uniform(draw_state.font_scale()),
+                        color: highlight_to_color(hl),
+                        ..SectionText::default()
+                    });
+                };
+            }
         }
 
-        let section = VariedSection {
-            bounds: (
-                draw_state.inner_width(),
-                draw_state.inner_height() + draw_state.screen_position_vertical_offset(),
-            ),
-            screen_position: (draw_state.left_padding(), 0.0),
-            text: section_texts,
-            z: 1.0,
-            ..VariedSection::default()
-        };
-        glyph_brush.queue(section);
+        {
+            let _guard = flame::start_guard("render section_texts");
 
-        glyph_brush.draw_queued_with_transform(
-            draw_state.row_offset_as_transform(),
-            &mut encoder,
-            &draw_quad.data.out_color,
-            &draw_quad.data.out_depth,
-        )?;
+            let section = VariedSection {
+                bounds: (
+                    draw_state.inner_width(),
+                    draw_state.inner_height() + draw_state.screen_position_vertical_offset(),
+                ),
+                screen_position: (draw_state.left_padding(), 0.0),
+                text: section_texts,
+                z: 1.0,
+                ..VariedSection::default()
+            };
+            glyph_brush.queue(section);
+
+            glyph_brush.draw_queued_with_transform(
+                draw_state.row_offset_as_transform(),
+                &mut encoder,
+                &draw_quad.data.out_color,
+                &draw_quad.data.out_depth,
+            )?;
+        }
 
         {
+            let _guard = flame::start_guard("render lines");
             use cgmath::{Matrix4, Vector3};
             for line in LINE_COLS_AT.iter() {
                 let scale =
@@ -429,36 +445,47 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         }
 
         {
+            let _guard = flame::start_guard("render status quad");
             // Render status background
             draw_quad.draw(&mut encoder, STATUS_BG, draw_state.status_transform());
         }
 
-        let status_text = format!(
-            "{} | {} | {}",
-            draw_state.status_line.filename,
-            draw_state.status_line.filetype,
-            draw_state.status_line.cursor
-        );
-        let status_section = Section {
-            bounds: (draw_state.inner_width(), draw_state.line_height() as f32),
-            screen_position: (draw_state.left_padding(), draw_state.inner_height()),
-            text: &status_text,
-            color: [1.0, 1.0, 1.0, 1.0],
-            scale: Scale::uniform(draw_state.font_scale()),
-            z: 0.5,
-            ..Section::default()
-        };
-        glyph_brush.queue(status_section);
-        glyph_brush.draw_queued(
-            &mut encoder,
-            &draw_quad.data.out_color,
-            &draw_quad.data.out_depth,
-        )?;
+        {
+            let _guard = flame::start_guard("render status text");
+
+            let status_text = format!(
+                "{} | {} | {}",
+                draw_state.status_line.filename,
+                draw_state.status_line.filetype,
+                draw_state.status_line.cursor
+            );
+            let status_section = Section {
+                bounds: (draw_state.inner_width(), draw_state.line_height() as f32),
+                screen_position: (draw_state.left_padding(), draw_state.inner_height()),
+                text: &status_text,
+                color: [1.0, 1.0, 1.0, 1.0],
+                scale: Scale::uniform(draw_state.font_scale()),
+                z: 0.5,
+                ..Section::default()
+            };
+            glyph_brush.queue(status_section);
+            glyph_brush.draw_queued(
+                &mut encoder,
+                &draw_quad.data.out_color,
+                &draw_quad.data.out_depth,
+            )?;
+        }
 
         encoder.flush(&mut device);
         window.swap_buffers()?;
         device.cleanup();
+
+        flame::end_collapse("frame");
     }
+
+    // Dump the report to disk
+    // flame::dump_html(&mut File::create("flame-graph.html").unwrap()).unwrap();
+    flame::dump_html(&mut std::fs::File::create("flame-graph.html").unwrap())?;
 
     Ok(())
 }
