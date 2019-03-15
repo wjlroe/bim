@@ -263,9 +263,10 @@ impl<'a> DrawState<'a> {
     }
 
     fn cursor_from_mouse_position(&self, mouse: (f64, f64)) -> (i32, i32) {
-        let row_on_screen = (mouse.1 / self.line_height() as f64).floor() as i32;
-        let col_on_screen =
-            ((mouse.0 - self.left_padding() as f64) / self.character_width() as f64).floor() as i32;
+        let row_on_screen = (mouse.1 / f64::from(self.line_height())).floor() as i32;
+        let col_on_screen = ((mouse.0 - f64::from(self.left_padding()))
+            / f64::from(self.character_width()))
+        .floor() as i32;
         (col_on_screen, row_on_screen)
     }
 
