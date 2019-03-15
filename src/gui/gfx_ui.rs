@@ -325,10 +325,14 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             };
             println!("Font scale: {:?}", draw_state.font_scale());
 
+            flame::start("glyphs");
             let test_glyphs = glyph_brush.glyphs(test_section);
+            flame::end("glyphs");
+            flame::start("glyphs.position()");
             let positions = test_glyphs
                 .map(|glyph| glyph.position())
                 .collect::<Vec<_>>();
+            flame::end("glyphs.position()");
             let letter_a = positions[0];
             let letter_b = positions[1];
             let letter_c = positions[2];
@@ -488,9 +492,15 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             )?;
         }
 
+        flame::start("encoder.flush");
         encoder.flush(&mut device);
+        flame::end("encoder.flush");
+        flame::start("swap_buffers");
         window.swap_buffers()?;
+        flame::end("swap_buffers");
+        flame::start("device.cleanup");
         device.cleanup();
+        flame::end("device.cleanup");
 
         flame::end_collapse("frame");
     }
