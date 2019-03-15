@@ -183,7 +183,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn screen_position_vertical_offset(&self) -> f32 {
-        self.row_offset * self.line_height
+        self.row_offset.fract() * self.line_height
     }
 
     pub fn row_offset_as_transform(&self) -> [[f32; 4]; 4] {

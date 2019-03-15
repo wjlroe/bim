@@ -366,6 +366,16 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
             let (cursor_text_row, cursor_text_col) = draw_state.cursor();
             for highlighted_section in draw_state.highlighted_sections.iter() {
+                if highlighted_section.text_row as i32
+                    > draw_state.screen_rows() + draw_state.row_offset().floor() as i32
+                {
+                    break;
+                }
+                if (highlighted_section.text_row as i32) < (draw_state.row_offset().floor() as i32)
+                {
+                    continue;
+                }
+
                 let hl = highlighted_section.highlight;
                 let row_text = &draw_state.buffer.rows[highlighted_section.text_row].render;
                 let first_col_byte =
@@ -415,10 +425,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             let _guard = flame::start_guard("render section_texts");
 
             let section = VariedSection {
-                bounds: (
-                    draw_state.inner_width(),
-                    draw_state.inner_height() + draw_state.screen_position_vertical_offset(),
-                ),
+                bounds: (draw_state.inner_width(), draw_state.inner_height()),
                 screen_position: (draw_state.left_padding(), 0.0),
                 text: section_texts,
                 z: 1.0,
