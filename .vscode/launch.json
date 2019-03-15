@@ -5,7 +5,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "xbim",
+      "name": "xbim (debug)",
       "type": "cppdbg",
       "request": "launch",
       "cwd": "${workspaceRoot}",
@@ -33,33 +33,35 @@
       }
     },
     {
-      "name": "(gdb) Bash on Windows Launch",
+      "name": "xbim (release)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/kilo",
+      "cwd": "${workspaceRoot}",
+      "environment": [],
+      "externalConsole": false,
+      "preLaunchTask": "cargo build release",
+      "program": "${workspaceRoot}/target/release/xbim",
       "args": [
-        "kilo-unix2.c"
+        "testfiles/kilo-dos2.c"
       ],
       "stopAtEntry": false,
-      "cwd": "${workspaceFolder}",
-      "environment": [],
-      "externalConsole": true,
-      "pipeTransport": {
-        "debuggerPath": "/usr/bin/gdb",
-        "pipeProgram": "C:\\Windows\\sysnative\\bash.exe",
-        "pipeArgs": [],
-        "pipeCwd": ""
-      },
       "setupCommands": [
         {
           "description": "Enable pretty-printing for gdb",
           "text": "-enable-pretty-printing",
           "ignoreFailures": true
         }
-      ]
+      ],
+      "osx": {
+        "type": "lldb-mi",
+        "target": "${workspaceRoot}/target/release/xbim"
+      },
+      "windows": {
+        "type": "cppvsdbg"
+      }
     },
     {
-      "name": "(Windows) Launch",
+      "name": "bim",
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${workspaceFolder}/target/debug/bim.exe",
