@@ -275,6 +275,24 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         draw_state.move_cursor_col(1);
                         draw_state.delete_char();
                     }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Home),
+                                ..
+                            },
+                        ..
+                    } => draw_state.reset_cursor_col(0),
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::End),
+                                ..
+                            },
+                        ..
+                    } => draw_state.move_cursor_to_end_of_line(),
                     WindowEvent::Resized(new_logical_size) => {
                         println!("Resized to: {:?}", new_logical_size);
                         logical_size = new_logical_size;

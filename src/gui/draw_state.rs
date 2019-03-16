@@ -388,6 +388,17 @@ impl<'a> DrawState<'a> {
         self.move_cursor_col(move_x);
     }
 
+    pub fn reset_cursor_col(&mut self, to: i32) {
+        self.cursor.reset_col_to(to);
+        self.update_cursor();
+    }
+
+    pub fn move_cursor_to_end_of_line(&mut self) {
+        if self.cursor.text_row < self.buffer.num_lines() as i32 {
+            self.reset_cursor_col(self.buffer.line_len(self.cursor.text_row).unwrap_or(0) as i32);
+        }
+    }
+
     pub fn scroll_window_vertically(&mut self, amount: f32) {
         self.row_offset += amount;
         if self.row_offset < 0.0 {
