@@ -15,8 +15,18 @@ impl RenderedCursor {
         self.moved = true;
     }
 
+    pub fn reset_col_to(&mut self, to: i32) {
+        self.text_col = to;
+        self.moved = true;
+    }
+
     pub fn move_row(&mut self, amount: i32) {
         self.text_row += amount;
+        self.moved = true;
+    }
+
+    pub fn reset_row_to(&mut self, to: i32) {
+        self.text_row = to;
         self.moved = true;
     }
 }
@@ -333,7 +343,35 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn move_cursor_col(&mut self, amount: i32) {
-        self.cursor.move_col(amount);
+        let mut right_amount = amount;
+        while right_amount > 0 {
+            if let Some(row_size) = self.buffer.line_len(self.cursor.text_row) {
+                if self.cursor.text_col < row_size as i32 {
+                    self.cursor.move_col(1);
+                } else if self.cursor.text_col == row_size as i32 {
+                    self.cursor.move_row(1);
+                    self.cursor.reset_col_to(0);
+                } else {
+                    break;
+                }
+                right_amount -= 1;
+            } else {
+                break;
+            }
+        }
+        let mut left_amount = amount;
+        while left_amount < 0 {
+            if self.cursor.text_col != 0 {
+                self.cursor.move_col(-1);
+            } else if self.cursor.text_row > 0 {
+                self.cursor.move_row(-1);
+                self.cursor
+                    .reset_col_to(self.buffer.line_len(self.cursor.text_row).unwrap_or(0) as i32);
+            } else {
+                break;
+            }
+            left_amount += 1;
+        }
         self.update_cursor();
     }
 
