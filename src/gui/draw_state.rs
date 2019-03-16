@@ -389,6 +389,37 @@ impl<'a> DrawState<'a> {
         self.update_cursor();
     }
 
+    pub fn delete_char(&mut self) {
+        let numrows = self.buffer.num_lines() as i32;
+        if self.cursor.text_row >= numrows {
+            return;
+        }
+        if self.cursor.text_col > 0 {
+            self.buffer
+                .delete_char(self.cursor.text_col, self.cursor.text_row);
+            self.cursor.text_col -= 1;
+            self.update_cursor();
+            self.mark_buffer_changed();
+        } else if self.cursor.text_row > 0 && self.cursor.text_col == 0 {
+            let at = self.cursor.text_row;
+            self.cursor.text_col = self.buffer.line_len(at - 1).unwrap_or(0) as i32;
+            self.join_row(at as usize);
+            self.cursor.text_row -= 1;
+            self.update_cursor();
+        }
+    }
+
+    fn join_row(&mut self, at: usize) {
+        if self.buffer.join_row(at) {
+            self.mark_buffer_changed();
+        }
+    }
+
+    fn mark_buffer_changed(&mut self) {
+        // self.dirty += 1;
+        self.update_highlighted_sections();
+    }
+
     pub fn set_ui_scale(&mut self, dpi: f32) {
         self.ui_scale = dpi;
     }
