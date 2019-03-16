@@ -9,7 +9,12 @@
       "type": "cppdbg",
       "request": "launch",
       "cwd": "${workspaceRoot}",
-      "environment": [],
+      "environment": [
+        {
+          "name": "RUST_BACKTRACE",
+          "value": "1"
+        }
+      ],
       "externalConsole": false,
       "preLaunchTask": "cargo build",
       "program": "${workspaceRoot}/target/debug/xbim",
