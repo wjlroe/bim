@@ -1,6 +1,12 @@
 use crate::buffer::Buffer;
 use crate::highlight::HighlightedSection;
+use crate::highlight::{highlight_to_color, Highlight};
+use crate::utils::char_position_to_byte_position;
 use cgmath::{Matrix4, SquareMatrix, Vector3};
+use flame;
+use gfx_glyph::{Scale, SectionText};
+
+const LINE_COLS_AT: [u32; 2] = [80, 120];
 
 #[derive(Copy, Clone, Default)]
 pub struct RenderedCursor {
@@ -196,10 +202,9 @@ impl<'a> DrawState<'a> {
         self.row_offset.fract() * self.line_height
     }
 
-    pub fn row_offset_as_transform(&self) -> [[f32; 4]; 4] {
+    pub fn row_offset_as_transform(&self) -> Matrix4<f32> {
         let y_move = self.screen_position_vertical_offset() / (self.window_height / 2.0);
-        let text_transform = Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
-        text_transform.into()
+        Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0))
     }
 
     fn scroll(&mut self) {
@@ -305,6 +310,18 @@ impl<'a> DrawState<'a> {
         let x_move = (x_on_screen / self.window_width) * 2.0 - 1.0;
         let cursor_move = Matrix4::from_translation(Vector3::new(x_move, y_move, 0.2));
         cursor_move * cursor_scale
+    }
+
+    pub fn line_transforms(&self) -> Vec<Matrix4<f32>> {
+        let mut line_transforms = vec![];
+        for line in LINE_COLS_AT.iter() {
+            let scale = Matrix4::from_nonuniform_scale(1.0 / self.window_width(), 1.0, 1.0);
+            let x_on_screen = self.left_padding() + (*line as f32 * self.character_width());
+            let x_move = (x_on_screen / self.window_width()) * 2.0 - 1.0;
+            let translate = Matrix4::from_translation(Vector3::new(x_move, 0.0, 0.2));
+            line_transforms.push(translate * scale);
+        }
+        line_transforms
     }
 
     pub fn update_screen_rows(&mut self) {
@@ -481,6 +498,67 @@ impl<'a> DrawState<'a> {
     pub fn set_character_width(&mut self, width: f32) {
         self.character_width = width;
         self.update_font_metrics();
+    }
+
+    pub fn section_texts(&self) -> Vec<SectionText> {
+        let _guard = flame::start_guard("highlighted_sections -> section_texts");
+
+        let mut section_texts = vec![];
+
+        let (cursor_text_row, cursor_text_col) = self.cursor();
+        for highlighted_section in self.highlighted_sections.iter() {
+            if highlighted_section.text_row as i32
+                > self.screen_rows() + self.row_offset().floor() as i32
+            {
+                break;
+            }
+            if (highlighted_section.text_row as i32) < (self.row_offset().floor() as i32) {
+                continue;
+            }
+
+            let hl = highlighted_section.highlight;
+            let row_text = &self.buffer.rows[highlighted_section.text_row].render;
+            let first_col_byte =
+                char_position_to_byte_position(row_text, highlighted_section.first_col_idx);
+            let last_col_byte =
+                char_position_to_byte_position(row_text, highlighted_section.last_col_idx);
+            let render_text = &row_text[first_col_byte..=last_col_byte];
+            if highlighted_section.text_row == cursor_text_row
+                && highlighted_section.first_col_idx <= cursor_text_col
+                && highlighted_section.last_col_idx >= cursor_text_col
+            {
+                let cursor_offset = cursor_text_col - highlighted_section.first_col_idx;
+                let cursor_byte_offset = char_position_to_byte_position(render_text, cursor_offset);
+                let next_byte_offset =
+                    char_position_to_byte_position(render_text, cursor_offset + 1);
+                section_texts.push(SectionText {
+                    text: &render_text[0..cursor_byte_offset],
+                    scale: Scale::uniform(self.font_scale()),
+                    color: highlight_to_color(hl),
+                    ..SectionText::default()
+                });
+                section_texts.push(SectionText {
+                    text: &render_text[cursor_byte_offset..next_byte_offset],
+                    scale: Scale::uniform(self.font_scale()),
+                    color: highlight_to_color(Highlight::Cursor),
+                    ..SectionText::default()
+                });
+                section_texts.push(SectionText {
+                    text: &render_text[next_byte_offset..],
+                    scale: Scale::uniform(self.font_scale()),
+                    color: highlight_to_color(hl),
+                    ..SectionText::default()
+                });
+            } else {
+                section_texts.push(SectionText {
+                    text: &render_text,
+                    scale: Scale::uniform(self.font_scale()),
+                    color: highlight_to_color(hl),
+                    ..SectionText::default()
+                });
+            };
+        }
+        section_texts
     }
 }
 
