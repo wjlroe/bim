@@ -90,7 +90,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
     let mut running = true;
-    // let mut window_resized = true;
 
     let mut action_queue = vec![];
 
@@ -289,7 +288,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         action_queue.push(Action::ResizeWindow);
                     }
                     WindowEvent::Moved(new_logical_position) => {
-                        println!("Moved to {:?}", new_logical_position);
                         if let Some(monitor_name) = gfx_window.get_current_monitor().get_name() {
                             persist_window_state.monitor_name = Some(monitor_name);
                         }
@@ -316,8 +314,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                     );
                     {
                         let (width, height, ..) = draw_quad.data.out_color.get_dimensions();
-                        println!("main_color.get_dimensions: ({}x{})", width, height);
-                        println!("DPI: {}", dpi);
                         window.set_window_dimensions((width, height));
                     }
                 }
@@ -343,7 +339,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                 }],
                 ..VariedSection::default()
             };
-            println!("Font scale: {:?}", window.font_scale());
 
             flame::start("glyphs");
             let test_glyphs = glyph_brush.glyphs(test_section);
@@ -360,13 +355,11 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             let first_line_min_y = letter_a.y;
             let secon_line_min_y = letter_c.y;
             let line_height = secon_line_min_y - first_line_min_y;
-            println!("Calculated line_height: {:?}", line_height);
             window.set_line_height(line_height);
 
             let a_pos_x = letter_a.x;
             let b_pos_x = letter_b.x;
             let character_width = b_pos_x - a_pos_x;
-            println!("Calculated character_width: {:?}", character_width);
             window.set_character_width(character_width);
         }
 
