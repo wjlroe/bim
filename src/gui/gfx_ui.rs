@@ -62,7 +62,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         .with_vsync(true);
     let (gfx_window, mut device, mut factory, main_color, main_depth) =
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(window_builder, context, &event_loop)
-            .unwrap();
+            .expect("init gfx_window_glutin should work!");
 
     debug_log.debugln_timestamped(&format!("color_view: {:?}", main_color))?;
     debug_log.debugln_timestamped(&format!("depth_view: {:?}", main_depth))?;
