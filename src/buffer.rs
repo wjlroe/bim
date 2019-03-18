@@ -1,4 +1,5 @@
-use crate::commands::SearchDirection;
+use crate::commands::{MoveCursor, SearchDirection};
+use crate::cursor::{CursorT, CursorWithHistory};
 use crate::row::{Row, DEFAULT_NEWLINE};
 use crate::syntax::{Syntax, SYNTAXES};
 use simple_error::bail;
@@ -12,9 +13,15 @@ pub struct Buffer<'a> {
     pub filename: Option<String>,
     pub rows: Vec<Row<'a>>,
     syntax: Rc<Option<&'a Syntax<'a>>>,
+    pub cursor: CursorWithHistory,
+    dirty: i32,
 }
 
 impl<'a> Buffer<'a> {
+    pub fn is_dirty(&self) -> bool {
+        self.dirty.is_positive()
+    }
+
     pub fn num_lines(&self) -> usize {
         self.rows.len()
     }
@@ -38,6 +45,7 @@ impl<'a> Buffer<'a> {
             let row = Row::new(text, Rc::downgrade(&self.syntax));
             self.rows.insert(at, row);
             self.update_from(at);
+            self.dirty += 1;
         }
     }
 
@@ -49,6 +57,7 @@ impl<'a> Buffer<'a> {
 
     pub fn clear(&mut self) {
         self.rows.clear();
+        self.dirty += 1;
     }
 
     fn update_syntax_highlighting(&mut self) {
@@ -104,6 +113,7 @@ impl<'a> Buffer<'a> {
                 _ => break,
             }
         }
+        self.dirty = 0;
 
         self.select_syntax();
     }
@@ -127,7 +137,7 @@ impl<'a> Buffer<'a> {
         self.select_syntax();
     }
 
-    pub fn save_to_file(&self) -> Result<usize, Box<dyn Error>> {
+    pub fn save_to_file(&mut self) -> Result<usize, Box<dyn Error>> {
         if let Some(filename) = self.filename.clone() {
             let mut bytes_saved: usize = 0;
             let mut buffer = BufWriter::new(File::create(filename)?);
@@ -135,6 +145,7 @@ impl<'a> Buffer<'a> {
                 bytes_saved += buffer.write(line.as_str().as_bytes())?;
             }
             buffer.flush()?;
+            self.dirty = 0;
             Ok(bytes_saved)
         } else {
             bail!("No filename!")
@@ -197,6 +208,17 @@ impl<'a> Buffer<'a> {
         }
     }
 
+    pub fn insert_newline_and_return(&mut self) {
+        self.insert_newline(
+            self.cursor.text_row() as usize,
+            self.cursor.text_col() as usize,
+        );
+        self.cursor.change(|cursor| {
+            cursor.text_row += 1;
+            cursor.text_col = 0;
+        });
+    }
+
     // pub fn default_newline(&self) -> &str {}
 
     pub fn join_row(&mut self, at: usize) -> bool {
@@ -205,6 +227,7 @@ impl<'a> Buffer<'a> {
             if let Some(previous_row) = self.rows.get_mut(at - 1) {
                 previous_row.append_text(row.as_str());
             }
+            self.dirty += 1;
             self.update_from(at - 1);
             true
         } else {
@@ -212,9 +235,29 @@ impl<'a> Buffer<'a> {
         }
     }
 
-    pub fn delete_char(&mut self, x: i32, y: i32) {
+    fn delete_char(&mut self, x: i32, y: i32) {
         self.rows[y as usize].delete_char((x - 1) as usize);
         self.update_from(y as usize);
+    }
+
+    pub fn delete_char_at_cursor(&mut self) {
+        let numrows = self.num_lines() as i32;
+        if self.cursor.text_row() >= numrows {
+            return;
+        }
+        if self.cursor.text_col() > 0 {
+            self.delete_char(self.cursor.text_col(), self.cursor.text_row());
+            self.cursor.change(|cursor| cursor.text_col -= 1);
+            self.dirty += 1;
+        } else if self.cursor.text_row() > 0 && self.cursor.text_col() == 0 {
+            let at = self.cursor.text_row();
+            let new_col = self.line_len(at - 1).unwrap_or(0) as i32;
+            self.join_row(at as usize);
+            self.cursor.change(|cursor| {
+                cursor.text_col = new_col;
+                cursor.text_row -= 1;
+            });
+        }
     }
 
     pub fn insert_char(&mut self, character: char, cursor_x: i32, cursor_y: i32) {
@@ -222,7 +265,155 @@ impl<'a> Buffer<'a> {
             self.rows.push(Row::new("", Rc::downgrade(&self.syntax)));
         }
         self.rows[cursor_y as usize].insert_char(cursor_x as usize, character);
+        self.dirty += 1;
         self.update_from(cursor_y as usize);
+    }
+
+    pub fn insert_char_at_cursor(&mut self, character: char) {
+        self.insert_char(character, self.cursor.text_col(), self.cursor.text_row());
+        self.cursor.change(|cursor| cursor.text_col += 1);
+    }
+
+    pub fn move_cursor(&mut self, move_cursor: MoveCursor, page_size: usize) {
+        use crate::commands::Direction::*;
+        use crate::commands::MoveUnit::*;
+
+        match move_cursor {
+            MoveCursor {
+                unit: Rows,
+                direction: Up,
+                amount,
+            } => {
+                let max_amount = self.cursor.text_row();
+                let possible_amount = std::cmp::min(amount as i32, max_amount);
+                self.cursor
+                    .change(|cursor| cursor.text_row -= possible_amount);
+            }
+            MoveCursor {
+                unit: Rows,
+                direction: Down,
+                amount,
+            } => {
+                let max_movement = self.num_lines() as i32 - self.cursor.text_row();
+                let possible_amount = std::cmp::min(amount as i32, max_movement);
+                self.cursor
+                    .change(|cursor| cursor.text_row += possible_amount);
+            }
+            MoveCursor {
+                unit: Cols,
+                direction: Left,
+                amount,
+            } => {
+                let mut new_cursor = self.cursor.current();
+                let mut left_amount = amount as i32;
+                while left_amount > 0 {
+                    if new_cursor.text_col != 0 {
+                        new_cursor.text_col -= 1;
+                    } else if new_cursor.text_row > 0 {
+                        new_cursor.text_row -= 1;
+                        new_cursor.text_col =
+                            self.line_len(new_cursor.text_row).unwrap_or(0) as i32;
+                    } else {
+                        break;
+                    }
+                    left_amount -= 1;
+                }
+                self.cursor.change(|cursor| {
+                    cursor.text_col = new_cursor.text_col();
+                    cursor.text_row = new_cursor.text_row();
+                });
+            }
+            MoveCursor {
+                unit: Cols,
+                direction: Right,
+                amount,
+            } => {
+                let mut new_cursor = self.cursor.current();
+                let mut right_amount = amount as i32;
+                while right_amount > 0 {
+                    if let Some(row_size) = self.line_len(new_cursor.text_row) {
+                        if new_cursor.text_col < row_size as i32 {
+                            new_cursor.text_col += 1;
+                        } else if new_cursor.text_col == row_size as i32 {
+                            new_cursor.text_row += 1;
+                            new_cursor.text_col = 0;
+                        } else {
+                            break;
+                        }
+                        right_amount -= 1;
+                    } else {
+                        break;
+                    }
+                }
+                self.cursor.change(|cursor| {
+                    cursor.text_col = new_cursor.text_col();
+                    cursor.text_row = new_cursor.text_row();
+                });
+            }
+            MoveCursor {
+                unit: Start,
+                direction: Left,
+                ..
+            } => self.cursor.change(|cursor| cursor.text_col = 0),
+            MoveCursor {
+                unit: End,
+                direction: Right,
+                ..
+            } => {
+                let new_y = self.line_len(self.cursor.text_col()).unwrap_or(0) as i32;
+                self.cursor.change(|cursor| {
+                    cursor.text_col = new_y;
+                });
+            }
+            MoveCursor {
+                unit: Pages,
+                direction: Down,
+                amount,
+            } => {
+                let amount = amount * page_size;
+                self.move_cursor(MoveCursor::down(amount), page_size);
+            }
+            MoveCursor {
+                unit: Pages,
+                direction: Up,
+                amount,
+            } => {
+                let amount = amount * page_size;
+                self.move_cursor(MoveCursor::up(amount), page_size);
+            }
+            _ => {}
+        }
+
+        self.check_cursor();
+    }
+
+    fn check_cursor(&mut self) {
+        let current_cursor = self.cursor.current();
+        let mut new_cursor = self.cursor.current();
+        if new_cursor.text_row < 0 {
+            new_cursor.text_row = 0;
+        }
+
+        if new_cursor.text_row > self.num_lines() as i32 {
+            new_cursor.text_row = self.num_lines() as i32;
+        }
+
+        if new_cursor.text_col < 0 {
+            new_cursor.text_col = 0;
+        }
+
+        let rowlen = self.line_len(new_cursor.text_row).unwrap_or(0);
+
+        if new_cursor.text_col > rowlen as i32 {
+            new_cursor.text_col = rowlen as i32;
+        }
+
+        if current_cursor != new_cursor {
+            self.cursor.change(|cursor| {
+                cursor.text_col = new_cursor.text_col();
+                cursor.text_row = new_cursor.text_row();
+            });
+        }
     }
 }
 
@@ -232,9 +423,11 @@ fn test_join_row() {
 
     buffer.append_row("this is the first line. \r\n");
     buffer.append_row("this is the second line.\r\n");
+    buffer.dirty = 0;
     assert_eq!(2, buffer.num_lines());
 
     buffer.join_row(1);
+    assert_eq!(1, buffer.dirty);
     assert_eq!(1, buffer.num_lines());
     let first_row = buffer.rows.get(0).clone().unwrap();
     assert_eq!(
@@ -248,11 +441,13 @@ fn test_insert_newline() {
     let mut buffer = Buffer::default();
     buffer.append_row("what a good first line.\r\n");
     buffer.append_row("not a bad second line\r\n");
+    buffer.dirty = 0;
     assert_eq!(2, buffer.num_lines());
 
     buffer.insert_newline(1, 0);
 
     assert_eq!(3, buffer.num_lines());
+    assert_eq!(1, buffer.dirty);
     assert_eq!(
         vec![
             "what a good first line.\r\n",
@@ -269,6 +464,7 @@ fn test_insert_newline() {
     buffer.insert_newline(2, 4);
 
     assert_eq!(4, buffer.num_lines());
+    assert_eq!(2, buffer.dirty);
     assert_eq!(
         vec![
             "what a good first line.\r\n",
@@ -303,6 +499,7 @@ fn test_insert_newline_default() {
 
     let mut buffer = Buffer::default();
     buffer.insert_newline(0, 0);
+    assert_eq!(1, buffer.dirty);
     assert_eq!(1, buffer.num_lines());
     assert_eq!(DEFAULT_NEWLINE.to_string(), buffer.rows[0].as_str());
 }
@@ -313,7 +510,9 @@ fn test_insert_newline_after_firstline() {
 
     let mut buffer = Buffer::default();
     buffer.insert_char('1', 0, 0);
+    assert_eq!(1, buffer.dirty);
     buffer.insert_newline(0, 1);
+    assert_eq!(2, buffer.dirty);
     assert_eq!(2, buffer.num_lines());
     assert!(buffer.rows[0]
         .as_str()
@@ -323,8 +522,11 @@ fn test_insert_newline_after_firstline() {
 #[test]
 fn test_insert_char() {
     let mut buffer = Buffer::default();
+    assert_eq!(0, buffer.dirty);
     buffer.insert_char('£', 0, 0);
+    assert_eq!(1, buffer.dirty);
     buffer.insert_char('1', 1, 0);
+    assert_eq!(2, buffer.dirty);
     assert_eq!(
         vec!["£1"],
         buffer

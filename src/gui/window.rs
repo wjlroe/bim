@@ -1,4 +1,5 @@
 use crate::buffer::Buffer;
+use crate::commands;
 use crate::gui::draw_state::DrawState;
 use cgmath::Matrix4;
 use gfx_glyph::SectionText;
@@ -115,28 +116,11 @@ impl<'a> Window<'a> {
         self.draw_state.print_info();
     }
 
-    pub fn move_cursor_down(&mut self) {
-        self.draw_state.move_cursor_row(1);
-    }
-
-    pub fn move_cursor_up(&mut self) {
-        self.draw_state.move_cursor_row(-1);
-    }
-
-    pub fn move_cursor_left(&mut self) {
-        self.draw_state.move_cursor_col(-1);
-    }
-
-    pub fn move_cursor_right(&mut self) {
-        self.draw_state.move_cursor_col(1);
-    }
-
-    pub fn page_down(&mut self) {
-        self.draw_state.move_cursor_page(1);
-    }
-
-    pub fn page_up(&mut self) {
-        self.draw_state.move_cursor_page(-1);
+    pub fn move_cursor(&mut self, movement: commands::MoveCursor) {
+        self.draw_state
+            .buffer
+            .move_cursor(movement, self.draw_state.screen_rows() as usize);
+        self.draw_state.update_cursor();
     }
 
     pub fn clone_cursor(&mut self) {
@@ -148,16 +132,8 @@ impl<'a> Window<'a> {
     }
 
     pub fn delete_char_forward(&mut self) {
-        self.draw_state.move_cursor_col(1);
+        self.move_cursor(commands::MoveCursor::right(1));
         self.draw_state.delete_char();
-    }
-
-    pub fn jump_cursor_to_beginning_of_line(&mut self) {
-        self.draw_state.reset_cursor_col(0);
-    }
-
-    pub fn jump_cursor_to_end_of_line(&mut self) {
-        self.draw_state.move_cursor_to_end_of_line();
     }
 
     pub fn resize(&mut self, logical_size: LogicalSize) {

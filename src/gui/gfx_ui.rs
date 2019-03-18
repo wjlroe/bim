@@ -1,4 +1,5 @@
 use crate::buffer::Buffer;
+use crate::commands::{self, Cmd};
 use crate::config::RunConfig;
 use crate::debug_log::DebugLog;
 use crate::editor::BIM_VERSION;
@@ -14,13 +15,12 @@ use glutin::dpi::LogicalSize;
 use glutin::Api::OpenGl;
 use glutin::{
     ContextBuilder, ElementState, Event, EventsLoop, GlProfile, GlRequest, Icon, KeyboardInput,
-    ModifiersState, MouseScrollDelta, VirtualKeyCode, WindowBuilder, WindowEvent,
+    MouseScrollDelta, VirtualKeyCode, WindowBuilder, WindowEvent,
 };
 use std::error::Error;
 
 enum Action {
     ResizeWindow,
-    Quit,
 }
 
 const XBIM_DEBUG_LOG: &str = ".xbim_debug";
@@ -29,6 +29,49 @@ const STATUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
 const CURSOR_BG: [f32; 3] = [250.0 / 256.0, 250.0 / 256.0, 250.0 / 256.0];
 const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
 const LINE_COL_BG: [f32; 3] = [0.0, 0.0, 0.0];
+
+fn keyboard_event_to_command(event: KeyboardInput) -> Option<Cmd> {
+    if event.state == ElementState::Pressed {
+        match event.virtual_keycode {
+            Some(VirtualKeyCode::Escape) => Some(Cmd::Quit),
+            Some(VirtualKeyCode::Left) => Some(Cmd::Move(commands::MoveCursor::left(1))),
+            Some(VirtualKeyCode::Right) => Some(Cmd::Move(commands::MoveCursor::right(1))),
+            Some(VirtualKeyCode::Up) => Some(Cmd::Move(commands::MoveCursor::up(1))),
+            Some(VirtualKeyCode::Down) => Some(Cmd::Move(commands::MoveCursor::down(1))),
+            Some(VirtualKeyCode::PageDown) => Some(Cmd::Move(commands::MoveCursor::page_down(1))),
+            Some(VirtualKeyCode::PageUp) => Some(Cmd::Move(commands::MoveCursor::page_up(1))),
+            Some(VirtualKeyCode::Home) => Some(Cmd::Move(commands::MoveCursor::home())),
+            Some(VirtualKeyCode::End) => Some(Cmd::Move(commands::MoveCursor::end())),
+            Some(VirtualKeyCode::Equals) => {
+                if event.modifiers.shift {
+                    Some(Cmd::IncreaseFontSize)
+                } else {
+                    None
+                }
+            }
+            Some(VirtualKeyCode::Minus) => {
+                if event.modifiers.shift {
+                    None
+                } else {
+                    Some(Cmd::DecreaseFontSize)
+                }
+            }
+            Some(VirtualKeyCode::Space) => {
+                if event.modifiers.ctrl {
+                    Some(Cmd::CloneCursor)
+                } else {
+                    None
+                }
+            }
+            Some(VirtualKeyCode::Back) => Some(Cmd::DeleteCharBackward),
+            Some(VirtualKeyCode::Delete) => Some(Cmd::DeleteCharForward),
+            Some(VirtualKeyCode::M) => Some(Cmd::PrintInfo),
+            _ => None,
+        }
+    } else {
+        None
+    }
+}
 
 pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     let debug_log = DebugLog::new(XBIM_DEBUG_LOG);
@@ -119,13 +162,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         #[allow(clippy::single_match)]
         event_loop.poll_events(|event| match event {
             Event::WindowEvent { event, .. } => {
-                // match event {
-                //     WindowEvent::KeyboardInput { .. } => {
-                //         println!("keyboard event: {:?}", event);
-                //     }
-                //     _ => {}
-                // };
-
                 match event {
                     WindowEvent::CursorMoved { position, .. } => {
                         window.update_mouse_position(position.into())
@@ -138,147 +174,25 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         delta: MouseScrollDelta::LineDelta(delta_x, delta_y),
                         ..
                     } => window.mouse_scroll(delta_x, delta_y),
-                    WindowEvent::CloseRequested | WindowEvent::Destroyed => {
-                        action_queue.push(Action::Quit)
-                    }
+                    WindowEvent::CloseRequested | WindowEvent::Destroyed => running = false,
                     WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
-                                ..
-                            },
+                        input: keyboard_input,
                         ..
-                    } => action_queue.push(Action::Quit),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Equals),
-                                modifiers: ModifiersState { shift: true, .. },
-                                ..
-                            },
-                        ..
-                    } => window.inc_font_size(),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Minus),
-                                modifiers: ModifiersState { shift: false, .. },
-                                ..
-                            },
-                        ..
-                    } => window.dec_font_size(),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::M),
-                                ..
-                            },
-                        ..
-                    } => window.print_info(),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Down),
-                                ..
-                            },
-                        ..
-                    } => window.move_cursor_down(),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Up),
-                                ..
-                            },
-                        ..
-                    } => window.move_cursor_up(),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::PageDown),
-                                ..
-                            },
-                        ..
-                    } => window.page_down(),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::PageUp),
-                                ..
-                            },
-                        ..
-                    } => window.page_up(),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Left),
-                                ..
-                            },
-                        ..
-                    } => window.move_cursor_left(),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Right),
-                                ..
-                            },
-                        ..
-                    } => window.move_cursor_right(),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Space),
-                                modifiers: ModifiersState { ctrl: true, .. },
-                                ..
-                            },
-                        ..
-                    } => window.clone_cursor(),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Back),
-                                ..
-                            },
-                        ..
-                    } => window.delete_char_backward(),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Delete),
-                                ..
-                            },
-                        ..
-                    } => window.delete_char_forward(),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Home),
-                                ..
-                            },
-                        ..
-                    } => window.jump_cursor_to_beginning_of_line(),
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::End),
-                                ..
-                            },
-                        ..
-                    } => window.jump_cursor_to_end_of_line(),
+                    } => match keyboard_event_to_command(keyboard_input) {
+                        Some(Cmd::Move(move_cursor)) => window.move_cursor(move_cursor),
+                        Some(Cmd::Quit) => running = false,
+                        Some(Cmd::IncreaseFontSize) => window.inc_font_size(),
+                        Some(Cmd::DecreaseFontSize) => window.dec_font_size(),
+                        Some(Cmd::CloneCursor) => window.clone_cursor(),
+                        Some(Cmd::DeleteCharBackward) => window.delete_char_backward(),
+                        Some(Cmd::DeleteCharForward) => window.delete_char_forward(),
+                        Some(Cmd::PrintInfo) => window.print_info(),
+                        Some(Cmd::Linebreak) => {}
+                        Some(Cmd::Save) => {}
+                        Some(Cmd::InsertChar(_)) => {}
+                        Some(Cmd::Search) => {}
+                        None => {}
+                    },
                     WindowEvent::Resized(new_logical_size) => {
                         window.resize(new_logical_size);
                         action_queue.push(Action::ResizeWindow);
@@ -317,7 +231,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         window.set_window_dimensions((width, height));
                     }
                 }
-                Action::Quit => running = false,
             }
         }
 

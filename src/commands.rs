@@ -25,8 +25,11 @@ pub enum Direction {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MoveUnit {
+    Cols,
     Rows,
     Pages,
+    Start,
+    End,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -37,10 +40,26 @@ pub struct MoveCursor {
 }
 
 impl MoveCursor {
+    pub fn home() -> Self {
+        MoveCursor {
+            direction: Direction::Left,
+            unit: MoveUnit::Start,
+            amount: 1,
+        }
+    }
+
+    pub fn end() -> Self {
+        MoveCursor {
+            direction: Direction::Right,
+            unit: MoveUnit::End,
+            amount: 1,
+        }
+    }
+
     pub fn left(amount: usize) -> Self {
         MoveCursor {
             direction: Direction::Left,
-            unit: MoveUnit::Rows,
+            unit: MoveUnit::Cols,
             amount,
         }
     }
@@ -48,7 +67,7 @@ impl MoveCursor {
     pub fn right(amount: usize) -> Self {
         MoveCursor {
             direction: Direction::Right,
-            unit: MoveUnit::Rows,
+            unit: MoveUnit::Cols,
             amount,
         }
     }
@@ -89,14 +108,15 @@ impl MoveCursor {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Cmd {
     Move(MoveCursor),
-    JumpCursorX(usize),
-    JumpCursorY(usize),
     DeleteCharBackward,
     DeleteCharForward,
-    InsertNewline(usize, usize),
-    Linebreak(usize, usize),
+    Linebreak,
     Quit,
     Save,
     InsertChar(char),
     Search,
+    IncreaseFontSize,
+    DecreaseFontSize,
+    CloneCursor,
+    PrintInfo,
 }

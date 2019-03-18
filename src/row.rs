@@ -1,10 +1,10 @@
+use crate::config::TAB_STOP;
 use crate::highlight::{Highlight, DEFAULT_COLOUR, HL_TO_COLOUR};
 use crate::syntax::Syntax;
 use crate::utils::char_position_to_byte_position;
 use std::fmt;
 use std::rc::Weak;
 
-const TAB_STOP: usize = 8;
 const SEPARATORS: &str = ",.()+-/*=~%<>[];";
 const UNIX_NEWLINE: &str = "\n";
 const DOS_NEWLINE: &str = "\r\n";
@@ -248,7 +248,7 @@ impl<'a> Row<'a> {
     pub fn text_cursor_to_render(&self, cidx: i32) -> i32 {
         let tab_stop = TAB_STOP as i32;
         let mut ridx: i32 = 0;
-        for (i, source_char) in self.chars.char_indices() {
+        for (i, source_char) in self.as_str().char_indices() {
             if i == cidx as usize {
                 break;
             }
@@ -264,7 +264,7 @@ impl<'a> Row<'a> {
         let tab_stop = TAB_STOP;
         let mut cur_cx: usize = 0;
         let mut cur_rx: usize = 0;
-        for source_char in self.chars.chars() {
+        for source_char in self.as_str().chars() {
             if source_char == '\t' {
                 cur_rx += (tab_stop - 1) - (cur_rx % tab_stop);
             }
@@ -326,6 +326,7 @@ impl<'a> Row<'a> {
         new_line_text
     }
 
+    // FIXME: This doesn't belong here - it's terminal-specific
     pub fn onscreen_text(&self, offset: usize, cols: usize) -> String {
         let mut onscreen = String::new();
         // FIXME: call rendered_str here and slice it up!
@@ -335,6 +336,10 @@ impl<'a> Row<'a> {
         let mut last_highlight = None;
 
         for c in characters {
+            if c == '\n' {
+                break;
+            }
+
             let hl = highlights.next().cloned();
             let overlay = overlays.next().cloned().unwrap_or(None);
             let hl_or_ol = overlay.or(hl).unwrap_or(Highlight::Normal);
