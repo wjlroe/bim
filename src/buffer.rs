@@ -219,8 +219,6 @@ impl<'a> Buffer<'a> {
         });
     }
 
-    // pub fn default_newline(&self) -> &str {}
-
     pub fn join_row(&mut self, at: usize) -> bool {
         if at > 0 && at < self.num_lines() {
             let row = self.rows.remove(at);
