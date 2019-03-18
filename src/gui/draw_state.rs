@@ -1,35 +1,13 @@
 use crate::buffer::Buffer;
+use crate::cursor::{Cursor, CursorT};
 use crate::highlight::HighlightedSection;
+use crate::highlight::{highlight_to_color, Highlight};
+use crate::utils::char_position_to_byte_position;
 use cgmath::{Matrix4, SquareMatrix, Vector3};
+use flame;
+use gfx_glyph::{Scale, SectionText};
 
-#[derive(Copy, Clone, Default)]
-pub struct RenderedCursor {
-    pub text_row: i32,
-    pub text_col: i32,
-    pub moved: bool,
-}
-
-impl RenderedCursor {
-    pub fn move_col(&mut self, amount: i32) {
-        self.text_col += amount;
-        self.moved = true;
-    }
-
-    pub fn reset_col_to(&mut self, to: i32) {
-        self.text_col = to;
-        self.moved = true;
-    }
-
-    pub fn move_row(&mut self, amount: i32) {
-        self.text_row += amount;
-        self.moved = true;
-    }
-
-    pub fn reset_row_to(&mut self, to: i32) {
-        self.text_row = to;
-        self.moved = true;
-    }
-}
+const LINE_COLS_AT: [u32; 2] = [80, 120];
 
 #[derive(Clone, Default)]
 pub struct StatusLine {
@@ -48,9 +26,8 @@ pub struct DrawState<'a> {
     ui_scale: f32,
     left_padding: f32,
     pub mouse_position: (f64, f64),
-    cursor: RenderedCursor,
     cursor_transform: Matrix4<f32>,
-    other_cursor: Option<RenderedCursor>,
+    other_cursor: Option<Cursor>,
     other_cursor_transform: Option<Matrix4<f32>>,
     status_transform: Matrix4<f32>,
     pub buffer: Buffer<'a>,
@@ -72,7 +49,6 @@ impl<'a> Default for DrawState<'a> {
             ui_scale: 0.0,
             left_padding: 0.0,
             mouse_position: (0.0, 0.0),
-            cursor: RenderedCursor::default(),
             cursor_transform: Matrix4::identity(),
             other_cursor: None,
             other_cursor_transform: None,
@@ -122,7 +98,6 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn update_cursor(&mut self) {
-        self.check_cursor();
         self.scroll();
         self.update_status_line();
         self.update_cursor_transform();
@@ -189,27 +164,31 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn cursor(&self) -> (usize, usize) {
-        (self.cursor.text_row as usize, self.cursor.text_col as usize)
+        (
+            self.buffer.cursor.text_row() as usize,
+            self.buffer.cursor.text_col() as usize,
+        )
     }
 
     pub fn screen_position_vertical_offset(&self) -> f32 {
         self.row_offset.fract() * self.line_height
     }
 
-    pub fn row_offset_as_transform(&self) -> [[f32; 4]; 4] {
+    pub fn row_offset_as_transform(&self) -> Matrix4<f32> {
         let y_move = self.screen_position_vertical_offset() / (self.window_height / 2.0);
-        let text_transform = Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
-        text_transform.into()
+        Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0))
     }
 
+    // FIXME: Should scrolling be a Buffer concern (rather than Terminal&DrawState)
     fn scroll(&mut self) {
         if self.line_height > 0.0 {
-            if self.cursor.text_row >= self.row_offset.floor() as i32 + self.screen_rows() {
-                self.row_offset = (self.cursor.text_row - self.screen_rows() + 1) as f32;
+            if self.buffer.cursor.text_row() >= self.row_offset.floor() as i32 + self.screen_rows()
+            {
+                self.row_offset = (self.buffer.cursor.text_row() - self.screen_rows() + 1) as f32;
             }
 
-            if self.cursor.text_row < self.row_offset.ceil() as i32 {
-                self.row_offset = self.cursor.text_row as f32;
+            if self.buffer.cursor.text_row() < self.row_offset.ceil() as i32 {
+                self.row_offset = self.buffer.cursor.text_row() as f32;
             }
         }
     }
@@ -222,8 +201,11 @@ impl<'a> DrawState<'a> {
             .unwrap_or_else(|| String::from("[No Name]"));
         self.status_line.filename = filename;
         self.status_line.filetype = self.buffer.get_filetype();
-        self.status_line.cursor =
-            format!("{}:{}", self.cursor.text_row + 1, self.cursor.text_col + 1,);
+        self.status_line.cursor = format!(
+            "{}:{}",
+            self.buffer.cursor.text_row() + 1,
+            self.buffer.cursor.text_col() + 1,
+        );
     }
 
     fn update_highlighted_sections(&mut self) {
@@ -264,7 +246,7 @@ impl<'a> DrawState<'a> {
     }
 
     fn update_cursor_transform(&mut self) {
-        self.cursor_transform = self.transform_for_cursor(&self.cursor);
+        self.cursor_transform = self.transform_for_cursor(&self.buffer.cursor);
         if let Some(other_cursor) = self.other_cursor {
             self.other_cursor_transform = Some(self.transform_for_cursor(&other_cursor));
         } else {
@@ -280,18 +262,24 @@ impl<'a> DrawState<'a> {
         (col_on_screen, row_on_screen)
     }
 
-    pub fn onscreen_cursor(&self, cursor: &RenderedCursor) -> (f32, f32) {
+    pub fn onscreen_cursor<C>(&self, cursor: &C) -> (f32, f32)
+    where
+        C: CursorT,
+    {
         let cursor_width = self.character_width();
         let cursor_height = self.line_height();
 
-        let cursor_y = cursor.text_row as f32;
-        let cursor_x = cursor.text_col as f32;
+        let cursor_y = cursor.text_row() as f32;
+        let cursor_x = cursor.text_col() as f32;
         let x_on_screen = (cursor_width * cursor_x) + cursor_width / 2.0 + self.left_padding;
         let y_on_screen = (cursor_height * (cursor_y - self.row_offset)) + cursor_height / 2.0;
         (x_on_screen, y_on_screen)
     }
 
-    fn transform_for_cursor(&self, cursor: &RenderedCursor) -> Matrix4<f32> {
+    fn transform_for_cursor<C>(&self, cursor: &C) -> Matrix4<f32>
+    where
+        C: CursorT,
+    {
         let cursor_width = self.character_width();
         let cursor_height = self.line_height();
 
@@ -305,6 +293,18 @@ impl<'a> DrawState<'a> {
         let x_move = (x_on_screen / self.window_width) * 2.0 - 1.0;
         let cursor_move = Matrix4::from_translation(Vector3::new(x_move, y_move, 0.2));
         cursor_move * cursor_scale
+    }
+
+    pub fn line_transforms(&self) -> Vec<Matrix4<f32>> {
+        let mut line_transforms = vec![];
+        for line in LINE_COLS_AT.iter() {
+            let scale = Matrix4::from_nonuniform_scale(1.0 / self.window_width(), 1.0, 1.0);
+            let x_on_screen = self.left_padding() + (*line as f32 * self.character_width());
+            let x_move = (x_on_screen / self.window_width()) * 2.0 - 1.0;
+            let translate = Matrix4::from_translation(Vector3::new(x_move, 0.0, 0.2));
+            line_transforms.push(translate * scale);
+        }
+        line_transforms
     }
 
     pub fn update_screen_rows(&mut self) {
@@ -338,64 +338,29 @@ impl<'a> DrawState<'a> {
         // TODO: what happens when window resized so cursor not visible any more?
     }
 
-    pub fn move_cursor_page(&mut self, amount: i32) {
-        self.move_cursor_row(amount * self.screen_rows);
-    }
-
-    pub fn move_cursor_col(&mut self, amount: i32) {
-        let mut right_amount = amount;
-        while right_amount > 0 {
-            if let Some(row_size) = self.buffer.line_len(self.cursor.text_row) {
-                if self.cursor.text_col < row_size as i32 {
-                    self.cursor.move_col(1);
-                } else if self.cursor.text_col == row_size as i32 {
-                    self.cursor.move_row(1);
-                    self.cursor.reset_col_to(0);
-                } else {
-                    break;
-                }
-                right_amount -= 1;
-            } else {
-                break;
-            }
-        }
-        let mut left_amount = amount;
-        while left_amount < 0 {
-            if self.cursor.text_col != 0 {
-                self.cursor.move_col(-1);
-            } else if self.cursor.text_row > 0 {
-                self.cursor.move_row(-1);
-                self.cursor
-                    .reset_col_to(self.buffer.line_len(self.cursor.text_row).unwrap_or(0) as i32);
-            } else {
-                break;
-            }
-            left_amount += 1;
-        }
-        self.update_cursor();
-    }
-
-    pub fn move_cursor_row(&mut self, amount: i32) {
-        self.cursor.move_row(amount);
-        self.update_cursor();
-    }
-
     pub fn move_cursor_to_mouse_position(&mut self, mouse: (f64, f64)) {
         let (cursor_x, cursor_y) = self.cursor_from_mouse_position(mouse);
-        let move_y = cursor_y - self.cursor.text_row;
-        let move_x = cursor_x - self.cursor.text_col;
-        self.move_cursor_row(move_y);
-        self.move_cursor_col(move_x);
+        let move_y = cursor_y - self.buffer.cursor.text_row();
+        let move_x = cursor_x - self.buffer.cursor.text_col();
+        self.buffer.cursor.change(|cursor| {
+            cursor.text_row += move_y;
+            cursor.text_col += move_x;
+        });
+        self.update_cursor();
     }
 
     pub fn reset_cursor_col(&mut self, to: i32) {
-        self.cursor.reset_col_to(to);
+        self.buffer.cursor.change(|cursor| cursor.text_col = to);
         self.update_cursor();
     }
 
     pub fn move_cursor_to_end_of_line(&mut self) {
-        if self.cursor.text_row < self.buffer.num_lines() as i32 {
-            self.reset_cursor_col(self.buffer.line_len(self.cursor.text_row).unwrap_or(0) as i32);
+        if self.buffer.cursor.text_row() < self.buffer.num_lines() as i32 {
+            self.reset_cursor_col(
+                self.buffer
+                    .line_len(self.buffer.cursor.text_row())
+                    .unwrap_or(0) as i32,
+            );
         }
     }
 
@@ -413,59 +378,18 @@ impl<'a> DrawState<'a> {
         }
     }
 
-    fn check_cursor(&mut self) {
-        if self.cursor.text_row < 0 {
-            self.cursor.text_row = 0;
-        }
-
-        if self.cursor.text_row > self.buffer.num_lines() as i32 {
-            self.cursor.text_row = self.buffer.num_lines() as i32;
-        }
-
-        if self.cursor.text_col < 0 {
-            self.cursor.text_col = 0;
-        }
-
-        let rowlen = self.buffer.line_len(self.cursor.text_row).unwrap_or(0);
-
-        if self.cursor.text_col > rowlen as i32 {
-            self.cursor.text_col = rowlen as i32;
-        }
-    }
-
     pub fn clone_cursor(&mut self) {
-        self.other_cursor = Some(self.cursor);
+        self.other_cursor = Some(self.buffer.cursor.current());
         self.update_cursor();
     }
 
     pub fn delete_char(&mut self) {
-        let numrows = self.buffer.num_lines() as i32;
-        if self.cursor.text_row >= numrows {
-            return;
-        }
-        if self.cursor.text_col > 0 {
-            self.buffer
-                .delete_char(self.cursor.text_col, self.cursor.text_row);
-            self.cursor.text_col -= 1;
-            self.update_cursor();
-            self.mark_buffer_changed();
-        } else if self.cursor.text_row > 0 && self.cursor.text_col == 0 {
-            let at = self.cursor.text_row;
-            self.cursor.text_col = self.buffer.line_len(at - 1).unwrap_or(0) as i32;
-            self.join_row(at as usize);
-            self.cursor.text_row -= 1;
-            self.update_cursor();
-        }
-    }
-
-    fn join_row(&mut self, at: usize) {
-        if self.buffer.join_row(at) {
-            self.mark_buffer_changed();
-        }
+        self.buffer.delete_char_at_cursor();
+        self.mark_buffer_changed();
+        self.update_cursor();
     }
 
     fn mark_buffer_changed(&mut self) {
-        // self.dirty += 1;
         self.update_highlighted_sections();
     }
 
@@ -481,6 +405,67 @@ impl<'a> DrawState<'a> {
     pub fn set_character_width(&mut self, width: f32) {
         self.character_width = width;
         self.update_font_metrics();
+    }
+
+    pub fn section_texts(&self) -> Vec<SectionText> {
+        let _guard = flame::start_guard("highlighted_sections -> section_texts");
+
+        let mut section_texts = vec![];
+
+        let (cursor_text_row, cursor_text_col) = self.cursor();
+        for highlighted_section in self.highlighted_sections.iter() {
+            if highlighted_section.text_row as i32
+                > self.screen_rows() + self.row_offset().floor() as i32
+            {
+                break;
+            }
+            if (highlighted_section.text_row as i32) < (self.row_offset().floor() as i32) {
+                continue;
+            }
+
+            let hl = highlighted_section.highlight;
+            let row_text = &self.buffer.rows[highlighted_section.text_row].render;
+            let first_col_byte =
+                char_position_to_byte_position(row_text, highlighted_section.first_col_idx);
+            let last_col_byte =
+                char_position_to_byte_position(row_text, highlighted_section.last_col_idx);
+            let render_text = &row_text[first_col_byte..=last_col_byte];
+            if highlighted_section.text_row == cursor_text_row
+                && highlighted_section.first_col_idx <= cursor_text_col
+                && highlighted_section.last_col_idx >= cursor_text_col
+            {
+                let cursor_offset = cursor_text_col - highlighted_section.first_col_idx;
+                let cursor_byte_offset = char_position_to_byte_position(render_text, cursor_offset);
+                let next_byte_offset =
+                    char_position_to_byte_position(render_text, cursor_offset + 1);
+                section_texts.push(SectionText {
+                    text: &render_text[0..cursor_byte_offset],
+                    scale: Scale::uniform(self.font_scale()),
+                    color: highlight_to_color(hl),
+                    ..SectionText::default()
+                });
+                section_texts.push(SectionText {
+                    text: &render_text[cursor_byte_offset..next_byte_offset],
+                    scale: Scale::uniform(self.font_scale()),
+                    color: highlight_to_color(Highlight::Cursor),
+                    ..SectionText::default()
+                });
+                section_texts.push(SectionText {
+                    text: &render_text[next_byte_offset..],
+                    scale: Scale::uniform(self.font_scale()),
+                    color: highlight_to_color(hl),
+                    ..SectionText::default()
+                });
+            } else {
+                section_texts.push(SectionText {
+                    text: &render_text,
+                    scale: Scale::uniform(self.font_scale()),
+                    color: highlight_to_color(hl),
+                    ..SectionText::default()
+                });
+            };
+        }
+        section_texts
     }
 }
 
