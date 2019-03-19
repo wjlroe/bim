@@ -520,3 +520,21 @@ fn test_update_highlighted_sections() {
     ];
     assert_eq!(expected_highlights, draw_state.highlighted_sections);
 }
+
+#[test]
+fn test_update_highlighted_sections_no_syntax() {
+    use crate::highlight::Highlight;
+
+    let mut buffer = Buffer::default();
+    buffer.set_filename("testfile.txt".to_string());
+    buffer.append_row("This is a test file\r\n");
+    let mut draw_state = DrawState::new(100.0, 100.0, 18.0, 1.0, buffer);
+    draw_state.update_highlighted_sections();
+    let expected_highlights = vec![HighlightedSection {
+        highlight: Highlight::Normal,
+        text_row: 0,
+        first_col_idx: 0,
+        last_col_idx: 19,
+    }];
+    assert_eq!(expected_highlights, draw_state.highlighted_sections);
+}

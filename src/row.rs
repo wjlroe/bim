@@ -120,12 +120,11 @@ impl<'a> Row<'a> {
         use crate::highlight::Highlight::*;
 
         self.hl.clear();
-        let syntax = self.syntax.upgrade();
+        let syntax = self.syntax.upgrade().unwrap_or(std::rc::Rc::new(None));
         if syntax.is_none() {
-            return false;
-        }
-        let syntax = syntax.unwrap();
-        if syntax.is_none() {
+            for _ in 0..=self.rsize {
+                self.hl.push(Normal);
+            }
             return false;
         }
         let syntax = syntax.unwrap();
