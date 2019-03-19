@@ -266,11 +266,14 @@ impl<'a> DrawState<'a> {
     where
         C: CursorT,
     {
+        let rcursor_x = self
+            .buffer
+            .text_cursor_to_render(self.buffer.cursor.text_col(), self.buffer.cursor.text_row());
         let cursor_width = self.character_width();
         let cursor_height = self.line_height();
 
         let cursor_y = cursor.text_row() as f32;
-        let cursor_x = cursor.text_col() as f32;
+        let cursor_x = rcursor_x as f32;
         let x_on_screen = (cursor_width * cursor_x) + cursor_width / 2.0 + self.left_padding;
         let y_on_screen = (cursor_height * (cursor_y - self.row_offset)) + cursor_height / 2.0;
         (x_on_screen, y_on_screen)
