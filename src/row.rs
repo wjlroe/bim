@@ -639,11 +639,6 @@ mod test {
 
         {
             let row = new_row_without_syntax("\t£interesting\r\n");
-            println!("chars: {:?}", row.as_str().chars().collect::<Vec<_>>());
-            println!(
-                "char_indices: {:?}",
-                row.as_str().char_indices().collect::<Vec<_>>()
-            );
             assert_eq!(0, row.text_cursor_to_render(0));
             assert_eq!(8, row.text_cursor_to_render(1));
             assert_eq!(9, row.text_cursor_to_render(2));
