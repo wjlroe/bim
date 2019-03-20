@@ -392,6 +392,12 @@ impl<'a> DrawState<'a> {
         self.update_cursor();
     }
 
+    pub fn insert_newline_and_return(&mut self) {
+        self.buffer.insert_newline_and_return();
+        self.mark_buffer_changed();
+        self.update_cursor();
+    }
+
     fn mark_buffer_changed(&mut self) {
         self.update_highlighted_sections();
     }

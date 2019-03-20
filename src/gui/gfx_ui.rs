@@ -66,6 +66,7 @@ fn keyboard_event_to_command(event: KeyboardInput) -> Option<Cmd> {
             Some(VirtualKeyCode::Back) => Some(Cmd::DeleteCharBackward),
             Some(VirtualKeyCode::Delete) => Some(Cmd::DeleteCharForward),
             Some(VirtualKeyCode::M) => Some(Cmd::PrintInfo),
+            Some(VirtualKeyCode::Return) => Some(Cmd::Linebreak),
             _ => None,
         }
     } else {
@@ -187,7 +188,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         Some(Cmd::DeleteCharBackward) => window.delete_char_backward(),
                         Some(Cmd::DeleteCharForward) => window.delete_char_forward(),
                         Some(Cmd::PrintInfo) => window.print_info(),
-                        Some(Cmd::Linebreak) => {}
+                        Some(Cmd::Linebreak) => window.insert_newline_and_return(),
                         Some(Cmd::Save) => {}
                         Some(Cmd::InsertChar(_)) => {}
                         Some(Cmd::Search) => {}
