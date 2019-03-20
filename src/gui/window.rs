@@ -136,6 +136,10 @@ impl<'a> Window<'a> {
         self.draw_state.delete_char();
     }
 
+    pub fn insert_newline_and_return(&mut self) {
+        self.draw_state.insert_newline_and_return();
+    }
+
     pub fn resize(&mut self, logical_size: LogicalSize) {
         self.logical_size = logical_size;
     }
