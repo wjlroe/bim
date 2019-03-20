@@ -416,6 +416,10 @@ impl<'a> DrawState<'a> {
         let mut section_texts = vec![];
 
         let (cursor_text_row, cursor_text_col) = self.cursor();
+        let rcursor_x = self
+            .buffer
+            .text_cursor_to_render(cursor_text_col as i32, cursor_text_row as i32)
+            as usize;
         for highlighted_section in self.highlighted_sections.iter() {
             if highlighted_section.text_row as i32
                 > self.screen_rows() + self.row_offset().floor() as i32
@@ -434,10 +438,10 @@ impl<'a> DrawState<'a> {
                 char_position_to_byte_position(row_text, highlighted_section.last_col_idx);
             let render_text = &row_text[first_col_byte..=last_col_byte];
             if highlighted_section.text_row == cursor_text_row
-                && highlighted_section.first_col_idx <= cursor_text_col
-                && highlighted_section.last_col_idx >= cursor_text_col
+                && highlighted_section.first_col_idx <= rcursor_x
+                && highlighted_section.last_col_idx >= rcursor_x
             {
-                let cursor_offset = cursor_text_col - highlighted_section.first_col_idx;
+                let cursor_offset = rcursor_x - highlighted_section.first_col_idx;
                 let cursor_byte_offset = char_position_to_byte_position(render_text, cursor_offset);
                 let next_byte_offset =
                     char_position_to_byte_position(render_text, cursor_offset + 1);

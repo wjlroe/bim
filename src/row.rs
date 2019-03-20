@@ -31,6 +31,55 @@ pub const DEFAULT_NEWLINE: Newline = Newline::Dos;
 #[cfg(not(windows))]
 pub const DEFAULT_NEWLINE: Newline = Newline::Unix;
 
+struct RenderCursor {
+    text_cursor: i32,
+    render_cursor: i32,
+}
+
+impl RenderCursor {
+    fn new(text_cursor: i32, render_cursor: i32) -> Self {
+        Self {
+            text_cursor,
+            render_cursor,
+        }
+    }
+}
+
+struct RenderCursorIter<'a> {
+    text_cursor: i32,
+    render_cursor: i32,
+    source: std::str::Chars<'a>,
+}
+
+impl<'a> RenderCursorIter<'a> {
+    fn new(source: std::str::Chars<'a>) -> Self {
+        Self {
+            source,
+            text_cursor: 0,
+            render_cursor: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for RenderCursorIter<'a> {
+    type Item = RenderCursor;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(source_char) = self.source.next() {
+            let item = RenderCursor::new(self.text_cursor, self.render_cursor);
+            if source_char == '\t' {
+                self.render_cursor +=
+                    (TAB_STOP as i32 - 1) - (self.render_cursor % TAB_STOP as i32);
+            }
+            self.render_cursor += 1;
+            self.text_cursor += 1;
+            Some(item)
+        } else {
+            None
+        }
+    }
+}
+
 pub struct Row<'a> {
     chars: String,
     pub size: usize,
@@ -244,36 +293,22 @@ impl<'a> Row<'a> {
         }
     }
 
+    fn to_render_cursor_iter(&self) -> RenderCursorIter {
+        RenderCursorIter::new(self.as_str().chars())
+    }
+
     pub fn text_cursor_to_render(&self, cidx: i32) -> i32 {
-        let tab_stop = TAB_STOP as i32;
-        let mut ridx: i32 = 0;
-        for (i, source_char) in self.as_str().char_indices() {
-            if i == cidx as usize {
-                break;
-            }
-            if source_char == '\t' {
-                ridx += (tab_stop - 1) - (ridx % tab_stop);
-            }
-            ridx += 1;
-        }
-        ridx
+        self.to_render_cursor_iter()
+            .find(|render_cursor| render_cursor.text_cursor == cidx)
+            .map(|render_cursor| render_cursor.render_cursor)
+            .unwrap_or(0)
     }
 
     pub fn render_cursor_to_text(&self, ridx: usize) -> usize {
-        let tab_stop = TAB_STOP;
-        let mut cur_cx: usize = 0;
-        let mut cur_rx: usize = 0;
-        for source_char in self.as_str().chars() {
-            if source_char == '\t' {
-                cur_rx += (tab_stop - 1) - (cur_rx % tab_stop);
-            }
-            cur_rx += 1;
-            if cur_rx > ridx {
-                break;
-            }
-            cur_cx += 1;
-        }
-        cur_cx
+        self.to_render_cursor_iter()
+            .find(|render_cursor| render_cursor.render_cursor == ridx as i32)
+            .map(|render_cursor| render_cursor.text_cursor)
+            .unwrap_or(0) as usize
     }
 
     fn render_cursor_to_byte_position(&self, at: usize) -> usize {
@@ -585,6 +620,33 @@ mod test {
             assert_eq!(0, row.render_cursor_to_text(0));
             assert_eq!(1, row.render_cursor_to_text(8));
             assert_eq!(2, row.render_cursor_to_text(9));
+        }
+    }
+
+    #[test]
+    fn test_text_cursor_to_render() {
+        {
+            let row = new_row_without_syntax("nothing interesting\r\n");
+            assert_eq!(5, row.text_cursor_to_render(5));
+        }
+
+        {
+            let row = new_row_without_syntax("\tinteresting\r\n");
+            assert_eq!(0, row.text_cursor_to_render(0));
+            assert_eq!(8, row.text_cursor_to_render(1));
+            assert_eq!(9, row.text_cursor_to_render(2));
+        }
+
+        {
+            let row = new_row_without_syntax("\t£interesting\r\n");
+            println!("chars: {:?}", row.as_str().chars().collect::<Vec<_>>());
+            println!(
+                "char_indices: {:?}",
+                row.as_str().char_indices().collect::<Vec<_>>()
+            );
+            assert_eq!(0, row.text_cursor_to_render(0));
+            assert_eq!(8, row.text_cursor_to_render(1));
+            assert_eq!(9, row.text_cursor_to_render(2));
         }
     }
 
