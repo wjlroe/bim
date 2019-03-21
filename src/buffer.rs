@@ -358,9 +358,9 @@ impl<'a> Buffer<'a> {
                 direction: Right,
                 ..
             } => {
-                let new_y = self.line_len(self.cursor.text_col()).unwrap_or(0) as i32;
+                let new_x = self.line_len(self.cursor.text_row()).unwrap_or(0) as i32;
                 self.cursor.change(|cursor| {
-                    cursor.text_col = new_y;
+                    cursor.text_col = new_x;
                 });
             }
             MoveCursor {
