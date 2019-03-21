@@ -77,11 +77,15 @@ fn keyboard_event_to_command(event: KeyboardInput) -> Option<Cmd> {
                     } else if keycode == VirtualKeyCode::M && event.modifiers.ctrl {
                         Some(Cmd::PrintInfo)
                     } else {
+                        println!("Don't know what to do with received: {:?}", event);
                         None
                     }
                 }
             }
-            _ => None,
+            _ => {
+                println!("No virtual keycode received: {:?}", event);
+                None
+            }
         }
     } else {
         None

@@ -41,6 +41,16 @@ lazy_static! {
         map.insert(VirtualKeyCode::Key7, '7');
         map.insert(VirtualKeyCode::Key8, '8');
         map.insert(VirtualKeyCode::Key9, '9');
+        map.insert(VirtualKeyCode::Numpad0, '0');
+        map.insert(VirtualKeyCode::Numpad1, '1');
+        map.insert(VirtualKeyCode::Numpad2, '2');
+        map.insert(VirtualKeyCode::Numpad3, '3');
+        map.insert(VirtualKeyCode::Numpad4, '4');
+        map.insert(VirtualKeyCode::Numpad5, '5');
+        map.insert(VirtualKeyCode::Numpad6, '6');
+        map.insert(VirtualKeyCode::Numpad7, '7');
+        map.insert(VirtualKeyCode::Numpad8, '8');
+        map.insert(VirtualKeyCode::Numpad9, '9');
         map.insert(VirtualKeyCode::Space, ' ');
         map.insert(VirtualKeyCode::Semicolon, ';');
         map.insert(VirtualKeyCode::Apostrophe, '\'');
@@ -52,6 +62,10 @@ lazy_static! {
         map.insert(VirtualKeyCode::Comma, ',');
         map.insert(VirtualKeyCode::Equals, '=');
         map.insert(VirtualKeyCode::Minus, '-');
+        map.insert(VirtualKeyCode::Add, '+');
+        map.insert(VirtualKeyCode::Subtract, '-');
+        map.insert(VirtualKeyCode::Multiply, '*');
+        map.insert(VirtualKeyCode::Divide, '/');
         map
     };
 }
