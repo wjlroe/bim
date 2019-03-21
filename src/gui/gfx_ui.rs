@@ -4,6 +4,7 @@ use crate::config::RunConfig;
 use crate::debug_log::DebugLog;
 use crate::editor::BIM_VERSION;
 use crate::gui::draw_quad::DrawQuad;
+use crate::gui::keycode_to_char;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::window::Window;
 use crate::gui::{ColorFormat, DepthFormat};
@@ -42,31 +43,44 @@ fn keyboard_event_to_command(event: KeyboardInput) -> Option<Cmd> {
             Some(VirtualKeyCode::PageUp) => Some(Cmd::Move(commands::MoveCursor::page_up(1))),
             Some(VirtualKeyCode::Home) => Some(Cmd::Move(commands::MoveCursor::home())),
             Some(VirtualKeyCode::End) => Some(Cmd::Move(commands::MoveCursor::end())),
-            Some(VirtualKeyCode::Equals) => {
-                if event.modifiers.shift {
-                    Some(Cmd::IncreaseFontSize)
-                } else {
-                    None
-                }
-            }
-            Some(VirtualKeyCode::Minus) => {
-                if event.modifiers.shift {
-                    None
-                } else {
-                    Some(Cmd::DecreaseFontSize)
-                }
-            }
-            Some(VirtualKeyCode::Space) => {
-                if event.modifiers.ctrl {
-                    Some(Cmd::CloneCursor)
-                } else {
-                    None
-                }
-            }
             Some(VirtualKeyCode::Back) => Some(Cmd::DeleteCharBackward),
             Some(VirtualKeyCode::Delete) => Some(Cmd::DeleteCharForward),
-            Some(VirtualKeyCode::M) => Some(Cmd::PrintInfo),
             Some(VirtualKeyCode::Return) => Some(Cmd::Linebreak),
+            Some(keycode) => {
+                if !event.modifiers.ctrl && !event.modifiers.alt && !event.modifiers.logo {
+                    if let Some(mut typed_char) =
+                        keycode_to_char::KEYCODE_TO_CHAR.get(&keycode).cloned()
+                    {
+                        if event.modifiers.shift {
+                            typed_char = typed_char
+                                .to_uppercase()
+                                .to_string()
+                                .chars()
+                                .nth(0)
+                                .unwrap();
+                        }
+                        Some(Cmd::InsertChar(typed_char))
+                    } else {
+                        println!("Unrecognised virtual keycode: {:?}", keycode);
+                        None
+                    }
+                } else {
+                    if keycode == VirtualKeyCode::Minus && event.modifiers.ctrl {
+                        Some(Cmd::DecreaseFontSize)
+                    } else if keycode == VirtualKeyCode::Equals
+                        && event.modifiers.shift
+                        && event.modifiers.ctrl
+                    {
+                        Some(Cmd::IncreaseFontSize)
+                    } else if keycode == VirtualKeyCode::Space && event.modifiers.ctrl {
+                        Some(Cmd::CloneCursor)
+                    } else if keycode == VirtualKeyCode::M && event.modifiers.ctrl {
+                        Some(Cmd::PrintInfo)
+                    } else {
+                        None
+                    }
+                }
+            }
             _ => None,
         }
     } else {
@@ -190,7 +204,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         Some(Cmd::PrintInfo) => window.print_info(),
                         Some(Cmd::Linebreak) => window.insert_newline_and_return(),
                         Some(Cmd::Save) => {}
-                        Some(Cmd::InsertChar(_)) => {}
+                        Some(Cmd::InsertChar(typed_char)) => window.insert_char(typed_char),
                         Some(Cmd::Search) => {}
                         None => {}
                     },

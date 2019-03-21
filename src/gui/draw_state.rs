@@ -398,6 +398,12 @@ impl<'a> DrawState<'a> {
         self.update_cursor();
     }
 
+    pub fn insert_char(&mut self, typed_char: char) {
+        self.buffer.insert_char_at_cursor(typed_char);
+        self.mark_buffer_changed();
+        self.update_cursor();
+    }
+
     fn mark_buffer_changed(&mut self) {
         self.update_highlighted_sections();
     }

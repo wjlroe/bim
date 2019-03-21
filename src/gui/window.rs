@@ -140,6 +140,10 @@ impl<'a> Window<'a> {
         self.draw_state.insert_newline_and_return();
     }
 
+    pub fn insert_char(&mut self, typed_char: char) {
+        self.draw_state.insert_char(typed_char);
+    }
+
     pub fn resize(&mut self, logical_size: LogicalSize) {
         self.logical_size = logical_size;
     }
