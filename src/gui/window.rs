@@ -4,11 +4,13 @@ use crate::gui::draw_state::DrawState;
 use cgmath::Matrix4;
 use gfx_glyph::SectionText;
 use glutin::dpi::{LogicalPosition, LogicalSize};
+use glutin::{MonitorId, WindowedContext};
 
 pub struct Window<'a> {
     logical_size: LogicalSize,
     dpi: f32,
     resized: bool,
+    pub fullscreen: bool,
     draw_state: DrawState<'a>,
 }
 
@@ -26,6 +28,7 @@ impl<'a> Window<'a> {
             logical_size,
             dpi,
             resized: false,
+            fullscreen: false,
             draw_state: DrawState::new(window_width, window_height, font_size, ui_scale, buffer),
         }
     }
@@ -36,6 +39,18 @@ impl<'a> Window<'a> {
 
     pub fn next_frame(&mut self) {
         self.resized = false;
+    }
+
+    pub fn toggle_fullscreen(&mut self, gfx_window: &WindowedContext, monitor: MonitorId) {
+        if self.fullscreen {
+            gfx_window.set_fullscreen(None);
+            self.fullscreen = false;
+            self.resized = true;
+        } else {
+            gfx_window.set_fullscreen(Some(monitor));
+            self.fullscreen = true;
+            self.resized = true;
+        }
     }
 
     pub fn inner_dimensions(&self) -> (f32, f32) {

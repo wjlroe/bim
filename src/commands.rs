@@ -106,6 +106,13 @@ impl MoveCursor {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum WindowCommand {
+    IncreaseFontSize,
+    DecreaseFontSize,
+    Fullscreen,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Cmd {
     Move(MoveCursor),
     DeleteCharBackward,
@@ -115,8 +122,7 @@ pub enum Cmd {
     Save,
     InsertChar(char),
     Search,
-    IncreaseFontSize,
-    DecreaseFontSize,
     CloneCursor,
     PrintInfo,
+    Window(WindowCommand),
 }

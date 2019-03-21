@@ -299,7 +299,7 @@ impl<'a> Terminal<'a> {
             Save => self.save_file(),
             InsertChar(c) => self.insert_char(c),
             Search => {}
-            IncreaseFontSize | DecreaseFontSize => {}
+            Window(_) => {}
             CloneCursor => {}
             PrintInfo => {}
         }

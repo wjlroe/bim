@@ -1,5 +1,5 @@
 use crate::buffer::Buffer;
-use crate::commands::{self, Cmd};
+use crate::commands::{self, Cmd, WindowCommand};
 use crate::config::RunConfig;
 use crate::debug_log::DebugLog;
 use crate::editor::BIM_VERSION;
@@ -46,6 +46,7 @@ fn keyboard_event_to_command(event: KeyboardInput) -> Option<Cmd> {
             Some(VirtualKeyCode::Back) => Some(Cmd::DeleteCharBackward),
             Some(VirtualKeyCode::Delete) => Some(Cmd::DeleteCharForward),
             Some(VirtualKeyCode::Return) => Some(Cmd::Linebreak),
+            Some(VirtualKeyCode::F11) => Some(Cmd::Window(WindowCommand::Fullscreen)),
             Some(keycode) => {
                 if !event.modifiers.ctrl && !event.modifiers.alt && !event.modifiers.logo {
                     if let Some(mut typed_char) =
@@ -66,12 +67,12 @@ fn keyboard_event_to_command(event: KeyboardInput) -> Option<Cmd> {
                     }
                 } else {
                     if keycode == VirtualKeyCode::Minus && event.modifiers.ctrl {
-                        Some(Cmd::DecreaseFontSize)
+                        Some(Cmd::Window(WindowCommand::DecreaseFontSize))
                     } else if keycode == VirtualKeyCode::Equals
                         && event.modifiers.shift
                         && event.modifiers.ctrl
                     {
-                        Some(Cmd::IncreaseFontSize)
+                        Some(Cmd::Window(WindowCommand::IncreaseFontSize))
                     } else if keycode == VirtualKeyCode::Space && event.modifiers.ctrl {
                         Some(Cmd::CloneCursor)
                     } else if keycode == VirtualKeyCode::M && event.modifiers.ctrl {
@@ -200,8 +201,13 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                     } => match keyboard_event_to_command(keyboard_input) {
                         Some(Cmd::Move(move_cursor)) => window.move_cursor(move_cursor),
                         Some(Cmd::Quit) => running = false,
-                        Some(Cmd::IncreaseFontSize) => window.inc_font_size(),
-                        Some(Cmd::DecreaseFontSize) => window.dec_font_size(),
+                        Some(Cmd::Window(window_cmd)) => match window_cmd {
+                            WindowCommand::IncreaseFontSize => window.inc_font_size(),
+                            WindowCommand::DecreaseFontSize => window.dec_font_size(),
+                            WindowCommand::Fullscreen => {
+                                window.toggle_fullscreen(&gfx_window, monitor.clone());
+                            }
+                        },
                         Some(Cmd::CloneCursor) => window.clone_cursor(),
                         Some(Cmd::DeleteCharBackward) => window.delete_char_backward(),
                         Some(Cmd::DeleteCharForward) => window.delete_char_forward(),
