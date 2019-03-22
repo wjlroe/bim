@@ -77,6 +77,8 @@ fn keyboard_event_to_command(event: KeyboardInput) -> Option<Cmd> {
                         Some(Cmd::CloneCursor)
                     } else if keycode == VirtualKeyCode::M && event.modifiers.ctrl {
                         Some(Cmd::PrintInfo)
+                    } else if keycode == VirtualKeyCode::F && event.modifiers.ctrl {
+                        Some(Cmd::Search)
                     } else {
                         println!("Don't know what to do with received: {:?}", event);
                         None
