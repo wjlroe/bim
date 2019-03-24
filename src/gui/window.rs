@@ -1,10 +1,22 @@
 use crate::buffer::Buffer;
-use crate::commands;
+use crate::commands::{self, SearchDirection};
 use crate::gui::draw_state::DrawState;
 use cgmath::Matrix4;
 use gfx_glyph::SectionText;
 use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::{MonitorId, WindowedContext};
+
+#[derive(Clone, Default, PartialEq)]
+struct Search {
+    needle: String,
+    direction: SearchDirection,
+}
+
+impl Search {
+    fn as_string(&self) -> String {
+        format!("Search ({}): {}", self.direction, self.needle)
+    }
+}
 
 pub struct Window<'a> {
     logical_size: LogicalSize,
@@ -12,6 +24,7 @@ pub struct Window<'a> {
     resized: bool,
     pub fullscreen: bool,
     draw_state: DrawState<'a>,
+    search: Option<Search>,
 }
 
 impl<'a> Window<'a> {
@@ -30,6 +43,7 @@ impl<'a> Window<'a> {
             resized: false,
             fullscreen: false,
             draw_state: DrawState::new(window_width, window_height, font_size, ui_scale, buffer),
+            search: None,
         }
     }
 
@@ -66,6 +80,10 @@ impl<'a> Window<'a> {
 
     pub fn left_padding(&self) -> f32 {
         self.draw_state.left_padding()
+    }
+
+    pub fn top_padding(&self) -> f32 {
+        self.draw_state.top_padding()
     }
 
     pub fn row_offset_as_transform(&self) -> Matrix4<f32> {
@@ -156,7 +174,24 @@ impl<'a> Window<'a> {
     }
 
     pub fn insert_char(&mut self, typed_char: char) {
-        self.draw_state.insert_char(typed_char);
+        if let Some(search) = &mut self.search {
+            search.needle.push(typed_char);
+        } else {
+            self.draw_state.insert_char(typed_char);
+        }
+    }
+
+    pub fn start_search(&mut self) {
+        self.search = Some(Search::default());
+        self.draw_state.search_visible = true;
+    }
+
+    pub fn search_text(&self) -> Option<String> {
+        if let Some(search) = &self.search {
+            Some(search.as_string())
+        } else {
+            None
+        }
     }
 
     pub fn resize(&mut self, logical_size: LogicalSize) {

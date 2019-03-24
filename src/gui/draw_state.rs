@@ -36,6 +36,7 @@ pub struct DrawState<'a> {
     row_offset: f32,
     col_offset: f32,
     screen_rows: i32,
+    pub search_visible: bool,
 }
 
 impl<'a> Default for DrawState<'a> {
@@ -59,6 +60,7 @@ impl<'a> Default for DrawState<'a> {
             row_offset: 0.0,
             col_offset: 0.0,
             screen_rows: 0,
+            search_visible: false,
         }
     }
 }
@@ -120,7 +122,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn inner_height(&self) -> f32 {
-        self.window_height - self.line_height as f32
+        self.window_height - self.bottom_padding() - self.top_padding()
     }
 
     pub fn screen_rows(&self) -> i32 {
@@ -137,6 +139,18 @@ impl<'a> DrawState<'a> {
 
     pub fn font_scale(&self) -> f32 {
         self.ui_scale * self.font_size
+    }
+
+    pub fn top_padding(&self) -> f32 {
+        if self.search_visible {
+            self.line_height() // if search is on
+        } else {
+            0.0
+        }
+    }
+
+    pub fn bottom_padding(&self) -> f32 {
+        self.line_height() // status line
     }
 
     pub fn left_padding(&self) -> f32 {
@@ -255,7 +269,9 @@ impl<'a> DrawState<'a> {
     }
 
     fn cursor_from_mouse_position(&self, mouse: (f64, f64)) -> (i32, i32) {
-        let row_on_screen = (mouse.1 / f64::from(self.line_height())).floor() as i32;
+        let row_on_screen = ((mouse.1 - f64::from(self.top_padding()))
+            / f64::from(self.line_height()))
+        .floor() as i32;
         let col_on_screen = ((mouse.0 - f64::from(self.left_padding()))
             / f64::from(self.character_width()))
         .floor() as i32;
@@ -275,7 +291,9 @@ impl<'a> DrawState<'a> {
         let cursor_y = cursor.text_row() as f32;
         let cursor_x = rcursor_x as f32;
         let x_on_screen = (cursor_width * cursor_x) + cursor_width / 2.0 + self.left_padding;
-        let y_on_screen = (cursor_height * (cursor_y - self.row_offset)) + cursor_height / 2.0;
+        let y_on_screen = (cursor_height * (cursor_y - self.row_offset))
+            + cursor_height / 2.0
+            + self.top_padding();
         (x_on_screen, y_on_screen)
     }
 
@@ -311,7 +329,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn update_screen_rows(&mut self) {
-        self.screen_rows = (self.inner_height() / self.line_height as f32).floor() as i32;
+        self.screen_rows = (self.inner_height() / self.line_height()).floor() as i32;
     }
 
     pub fn print_info(&self) {

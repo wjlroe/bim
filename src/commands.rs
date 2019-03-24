@@ -15,6 +15,12 @@ impl fmt::Display for SearchDirection {
     }
 }
 
+impl Default for SearchDirection {
+    fn default() -> Self {
+        SearchDirection::Forwards
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Direction {
     Up,

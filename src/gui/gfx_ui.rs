@@ -217,7 +217,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         Some(Cmd::Linebreak) => window.insert_newline_and_return(),
                         Some(Cmd::Save) => {}
                         Some(Cmd::InsertChar(typed_char)) => window.insert_char(typed_char),
-                        Some(Cmd::Search) => {}
+                        Some(Cmd::Search) => window.start_search(),
                         None => {}
                     },
                     WindowEvent::Resized(new_logical_size) => {
@@ -271,7 +271,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
             let test_section = VariedSection {
                 bounds: window.inner_dimensions(),
-                screen_position: (window.left_padding(), 0.0),
+                screen_position: (window.left_padding(), window.top_padding()),
                 text: vec![SectionText {
                     text: "AB\nC\n",
                     scale: Scale::uniform(window.font_scale()),
@@ -319,7 +319,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
             let section = VariedSection {
                 bounds: window.inner_dimensions(),
-                screen_position: (window.left_padding(), 0.0),
+                screen_position: (window.left_padding(), window.top_padding()),
                 text: section_texts,
                 z: 1.0,
                 ..VariedSection::default()
@@ -361,6 +361,27 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                 ..Section::default()
             };
             glyph_brush.queue(status_section);
+            glyph_brush.draw_queued(
+                &mut encoder,
+                &draw_quad.data.out_color,
+                &draw_quad.data.out_depth,
+            )?;
+        }
+
+        if let Some(search_text) = window.search_text() {
+            let _guard = flame::start_guard("render search text");
+
+            let search_text = search_text;
+            let search_section = Section {
+                bounds: window.inner_dimensions(),
+                screen_position: (window.left_padding(), 0.0),
+                text: &search_text,
+                color: [0.7, 0.6, 0.5, 1.0],
+                scale: Scale::uniform(window.font_scale()),
+                z: 0.5,
+                ..Section::default()
+            };
+            glyph_brush.queue(search_section);
             glyph_brush.draw_queued(
                 &mut encoder,
                 &draw_quad.data.out_color,
