@@ -158,8 +158,14 @@ impl<'a> Buffer<'a> {
         direction: SearchDirection,
         needle: &str,
     ) -> Option<(usize, usize)> {
-        let add_amount = last_match.map(|(_, l)| l + 1).unwrap_or(0);
-        let num_rows = self.num_lines();
+        self.clear_search_overlay();
+        let first_row = if direction == SearchDirection::Backwards {
+            1
+        } else {
+            0
+        };
+        let add_amount = last_match.map(|(_, l)| l as i32 + 1).unwrap_or(first_row);
+        let num_rows = self.num_lines() as i32;
         let lines = match direction {
             SearchDirection::Forwards => (0..num_rows)
                 .map(|i| (i + add_amount) % num_rows)
@@ -169,16 +175,24 @@ impl<'a> Buffer<'a> {
                 .rev()
                 .collect::<Vec<_>>(),
         };
+        let mut found_match = None;
         for y in lines {
             assert!(y < num_rows, "num_rows = {}, y = {}", num_rows, y);
-            let row = &mut self.rows[y];
+            let row = &mut self.rows[y as usize];
             if let Some(rx) = row.index_of(needle) {
                 let x = row.render_cursor_to_text(rx);
                 row.set_overlay_search(x, x + needle.len());
-                return Some((x, y));
+                found_match = Some((x, y as usize));
+                break;
             }
         }
-        None
+        if let Some((x, y)) = found_match {
+            self.cursor.change(|cursor| {
+                cursor.text_col = x as i32;
+                cursor.text_row = y as i32;
+            });
+        }
+        found_match
     }
 
     pub fn set_syntax(&mut self) {
@@ -549,7 +563,7 @@ fn test_search_match_highlighting() {
 }
 
 #[test]
-fn test_clearing_search_overlay() {
+fn test_clearing_search_overlay_from_onscreen_text() {
     let mut buffer = Buffer::default();
     buffer.append_row("nothing abc123 nothing\r\n");
     let (_, row_idx) = buffer
@@ -559,6 +573,116 @@ fn test_clearing_search_overlay() {
     let row = &buffer.rows[row_idx];
     let onscreen = row.onscreen_text(0, 22);
     assert!(!onscreen.contains("\x1b[34m"));
+}
+
+#[test]
+fn test_search_backwards_beyond_beginning_of_the_buffer() {
+    let mut buffer = Buffer::default();
+    buffer.append_row("nothing interesting here\r\n");
+    buffer.append_row("nothing again\r\n");
+    assert_eq!(
+        Some((0, 1)),
+        buffer.search_for(None, SearchDirection::Backwards, "nothing")
+    );
+    assert_eq!(
+        Some((0, 1)),
+        buffer.search_for(Some((0, 0)), SearchDirection::Backwards, "nothing")
+    );
+}
+
+#[test]
+fn test_search_clearing_previous_overlays() {
+    let mut buffer = Buffer::default();
+    buffer.append_row("#define _SOMETHING\r\n");
+    buffer.append_row("#define _WOOT\r\n");
+    buffer.append_row("#define _123\r\n");
+    for row in &buffer.rows {
+        assert_eq!(None, row.overlay.iter().find(|item| item.is_some()));
+    }
+    let mut last_match = buffer.search_for(None, SearchDirection::Forwards, "define");
+    assert!(buffer.rows[0]
+        .overlay
+        .iter()
+        .find(|item| item.is_some())
+        .is_some());
+    assert!(buffer.rows[1]
+        .overlay
+        .iter()
+        .find(|item| item.is_some())
+        .is_none());
+    assert!(buffer.rows[2]
+        .overlay
+        .iter()
+        .find(|item| item.is_some())
+        .is_none());
+    last_match = buffer.search_for(last_match, SearchDirection::Forwards, "define");
+    assert!(buffer.rows[0]
+        .overlay
+        .iter()
+        .find(|item| item.is_some())
+        .is_none());
+    assert!(buffer.rows[1]
+        .overlay
+        .iter()
+        .find(|item| item.is_some())
+        .is_some());
+    assert!(buffer.rows[2]
+        .overlay
+        .iter()
+        .find(|item| item.is_some())
+        .is_none());
+    last_match = buffer.search_for(last_match, SearchDirection::Forwards, "define");
+    assert!(buffer.rows[0]
+        .overlay
+        .iter()
+        .find(|item| item.is_some())
+        .is_none());
+    assert!(buffer.rows[1]
+        .overlay
+        .iter()
+        .find(|item| item.is_some())
+        .is_none());
+    assert!(buffer.rows[2]
+        .overlay
+        .iter()
+        .find(|item| item.is_some())
+        .is_some());
+    buffer.search_for(last_match, SearchDirection::Forwards, "define");
+    assert!(buffer.rows[0]
+        .overlay
+        .iter()
+        .find(|item| item.is_some())
+        .is_some());
+    assert!(buffer.rows[1]
+        .overlay
+        .iter()
+        .find(|item| item.is_some())
+        .is_none());
+    assert!(buffer.rows[2]
+        .overlay
+        .iter()
+        .find(|item| item.is_some())
+        .is_none());
+}
+
+#[test]
+fn test_move_cursor_to_search_match() {
+    let mut buffer = Buffer::default();
+    buffer.append_row("#define _SOMETHING\r\n");
+    buffer.append_row("#define _123\r\n");
+    buffer.append_row("123 #define _INDENT\r\n");
+    let mut last_match = buffer.search_for(None, SearchDirection::Forwards, "define");
+    assert_eq!(0, buffer.cursor.text_row());
+    assert_eq!(1, buffer.cursor.text_col());
+    last_match = buffer.search_for(last_match, SearchDirection::Forwards, "define");
+    assert_eq!(1, buffer.cursor.text_row());
+    assert_eq!(1, buffer.cursor.text_col());
+    last_match = buffer.search_for(last_match, SearchDirection::Forwards, "define");
+    assert_eq!(2, buffer.cursor.text_row());
+    assert_eq!(5, buffer.cursor.text_col());
+    buffer.search_for(last_match, SearchDirection::Forwards, "define");
+    assert_eq!(0, buffer.cursor.text_row());
+    assert_eq!(1, buffer.cursor.text_col());
 }
 
 #[test]

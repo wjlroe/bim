@@ -1,10 +1,29 @@
 use crate::buffer::Buffer;
-use crate::commands;
+use crate::commands::{self, Cmd, MoveCursor, SearchCmd, SearchDirection};
+use crate::config::BIM_QUIT_TIMES;
 use crate::gui::draw_state::DrawState;
+use crate::keycodes::Key;
 use cgmath::Matrix4;
 use gfx_glyph::SectionText;
 use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::{MonitorId, WindowedContext};
+
+#[derive(Clone, Default, PartialEq)]
+struct Search {
+    needle: String,
+    direction: SearchDirection,
+    last_match: Option<(usize, usize)>,
+    run_search: bool,
+    restore_cursor: bool,
+    saved_row_offset: f32,
+    saved_col_offset: f32,
+}
+
+impl Search {
+    fn as_string(&self) -> String {
+        format!("Search ({}): {}", self.direction, self.needle)
+    }
+}
 
 pub struct Window<'a> {
     logical_size: LogicalSize,
@@ -12,6 +31,8 @@ pub struct Window<'a> {
     resized: bool,
     pub fullscreen: bool,
     draw_state: DrawState<'a>,
+    search: Option<Search>,
+    quit_times: i8,
 }
 
 impl<'a> Window<'a> {
@@ -30,11 +51,17 @@ impl<'a> Window<'a> {
             resized: false,
             fullscreen: false,
             draw_state: DrawState::new(window_width, window_height, font_size, ui_scale, buffer),
+            search: None,
+            quit_times: BIM_QUIT_TIMES,
         }
     }
 
     pub fn has_resized(&self) -> bool {
         self.resized
+    }
+
+    pub fn should_quit(&self) -> bool {
+        self.quit_times <= 0
     }
 
     pub fn next_frame(&mut self) {
@@ -66,6 +93,10 @@ impl<'a> Window<'a> {
 
     pub fn left_padding(&self) -> f32 {
         self.draw_state.left_padding()
+    }
+
+    pub fn top_padding(&self) -> f32 {
+        self.draw_state.top_padding()
     }
 
     pub fn row_offset_as_transform(&self) -> Matrix4<f32> {
@@ -127,36 +158,186 @@ impl<'a> Window<'a> {
         self.resized = true;
     }
 
-    pub fn print_info(&mut self) {
+    fn print_info(&mut self) {
         self.draw_state.print_info();
     }
 
-    pub fn move_cursor(&mut self, movement: commands::MoveCursor) {
+    pub fn handle_key(&mut self, key: Key) {
+        if self.search.is_some() {
+            self.handle_search_key(key);
+        } else {
+            self.handle_buffer_key(key);
+        }
+    }
+
+    fn handle_search_key(&mut self, key: Key) {
+        let cmd = match key {
+            Key::ArrowLeft | Key::ArrowUp => Some(SearchCmd::PrevMatch),
+            Key::ArrowRight | Key::ArrowDown => Some(SearchCmd::NextMatch),
+            Key::Escape => Some(SearchCmd::Quit),
+            Key::Return => Some(SearchCmd::Exit),
+            Key::Other(typed_char) => Some(SearchCmd::InsertChar(typed_char)),
+            Key::Backspace | Key::Delete => Some(SearchCmd::DeleteChar),
+            _ => None,
+        };
+        if let Some(search_cmd) = cmd {
+            self.handle_search_cmd(search_cmd);
+        }
+    }
+
+    fn handle_search_cmd(&mut self, cmd: SearchCmd) {
+        if let Some(search) = &mut self.search {
+            match cmd {
+                SearchCmd::Quit => {
+                    search.run_search = false;
+                    search.restore_cursor = true;
+                }
+                SearchCmd::Exit => {
+                    search.run_search = false;
+                    search.restore_cursor = false;
+                }
+                SearchCmd::NextMatch => {
+                    search.direction = SearchDirection::Forwards;
+                }
+                SearchCmd::PrevMatch => {
+                    search.direction = SearchDirection::Backwards;
+                }
+                SearchCmd::InsertChar(typed_char) => {
+                    search.needle.push(typed_char);
+                    search.last_match = None;
+                }
+                SearchCmd::DeleteChar => {
+                    if let Some(_) = search.needle.pop() {
+                        search.last_match = None;
+                    } else {
+                        search.run_search = false;
+                    }
+                }
+            }
+
+            if search.run_search {
+                search.last_match =
+                    self.draw_state
+                        .search_for(search.last_match, search.direction, &search.needle);
+            } else {
+                if search.restore_cursor {
+                    self.draw_state.buffer.cursor.restore_saved();
+                    self.draw_state.row_offset = search.saved_row_offset;
+                    self.draw_state.col_offset = search.saved_col_offset;
+                }
+                self.search = None;
+                self.draw_state.search_visible = false;
+                self.draw_state.stop_search();
+            }
+        }
+    }
+
+    fn handle_buffer_key(&mut self, key: Key) {
+        let buffer_cmd = match key {
+            Key::ArrowLeft => Some(Cmd::Move(MoveCursor::left(1))),
+            Key::ArrowRight => Some(Cmd::Move(MoveCursor::right(1))),
+            Key::ArrowUp => Some(Cmd::Move(MoveCursor::up(1))),
+            Key::ArrowDown => Some(Cmd::Move(MoveCursor::down(1))),
+            Key::PageDown => Some(Cmd::Move(MoveCursor::page_down(1))),
+            Key::PageUp => Some(Cmd::Move(MoveCursor::page_up(1))),
+            Key::Home => Some(Cmd::Move(MoveCursor::home())),
+            Key::End => Some(Cmd::Move(MoveCursor::end())),
+            Key::Delete => Some(Cmd::DeleteCharForward),
+            Key::Backspace => Some(Cmd::DeleteCharBackward),
+            Key::Return => Some(Cmd::Linebreak),
+            Key::Other(typed_char) => Some(Cmd::InsertChar(typed_char)),
+            Key::Function(fn_key) => {
+                println!("Unrecognised key: F{}", fn_key);
+                None
+            }
+            Key::Control(Some('-')) => None,
+            Key::Control(Some('+')) => None,
+            Key::Control(Some(' ')) => Some(Cmd::CloneCursor),
+            Key::Control(Some('m')) => Some(Cmd::PrintInfo),
+            Key::Control(Some('f')) => Some(Cmd::Search),
+            Key::Control(Some('q')) => Some(Cmd::Quit),
+            Key::Control(Some(ctrl_char)) => {
+                println!("Unrecognised keypress: Ctrl-{}", ctrl_char);
+                None
+            }
+            Key::Control(None) => None,
+            Key::Escape => None,
+        };
+        if let Some(cmd) = buffer_cmd {
+            self.handle_buffer_cmd(cmd);
+        }
+    }
+
+    fn handle_buffer_cmd(&mut self, cmd: Cmd) {
+        match cmd {
+            Cmd::Move(movement) => self.move_cursor(movement),
+            Cmd::DeleteCharBackward => self.delete_char_backward(),
+            Cmd::DeleteCharForward => self.delete_char_forward(),
+            Cmd::Linebreak => self.insert_newline_and_return(),
+            Cmd::InsertChar(typed_char) => self.insert_char(typed_char),
+            Cmd::Search => self.start_search(),
+            Cmd::CloneCursor => self.clone_cursor(),
+            Cmd::Quit => self.try_quit(),
+            Cmd::PrintInfo => self.print_info(),
+            Cmd::Escape => {}
+            Cmd::Save => {}
+        }
+    }
+
+    fn start_search(&mut self) {
+        let mut search = Search::default();
+        search.run_search = true;
+        search.saved_col_offset = self.draw_state.col_offset();
+        search.saved_row_offset = self.draw_state.row_offset();
+        self.draw_state.buffer.cursor.save_cursor();
+        self.search = Some(search);
+        self.draw_state.search_visible = true;
+        self.draw_state.update_search();
+    }
+
+    fn try_quit(&mut self) {
+        if self.draw_state.buffer.is_dirty() {
+            // show the warning
+            self.quit_times -= 1;
+        } else {
+            self.quit_times = 0;
+        }
+    }
+
+    fn move_cursor(&mut self, movement: commands::MoveCursor) {
         self.draw_state
             .buffer
             .move_cursor(movement, self.draw_state.screen_rows() as usize);
         self.draw_state.update_cursor();
     }
 
-    pub fn clone_cursor(&mut self) {
+    fn clone_cursor(&mut self) {
         self.draw_state.clone_cursor();
     }
 
-    pub fn delete_char_backward(&mut self) {
+    fn delete_char_backward(&mut self) {
         self.draw_state.delete_char();
     }
 
-    pub fn delete_char_forward(&mut self) {
+    fn delete_char_forward(&mut self) {
         self.move_cursor(commands::MoveCursor::right(1));
         self.draw_state.delete_char();
     }
 
-    pub fn insert_newline_and_return(&mut self) {
+    fn insert_newline_and_return(&mut self) {
         self.draw_state.insert_newline_and_return();
     }
 
-    pub fn insert_char(&mut self, typed_char: char) {
+    fn insert_char(&mut self, typed_char: char) {
         self.draw_state.insert_char(typed_char);
+    }
+
+    pub fn search_text(&self) -> Option<String> {
+        if let Some(search) = &self.search {
+            Some(search.as_string())
+        } else {
+            None
+        }
     }
 
     pub fn resize(&mut self, logical_size: LogicalSize) {

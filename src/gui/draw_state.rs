@@ -1,4 +1,5 @@
 use crate::buffer::Buffer;
+use crate::commands::SearchDirection;
 use crate::cursor::{Cursor, CursorT};
 use crate::highlight::HighlightedSection;
 use crate::highlight::{highlight_to_color, Highlight};
@@ -33,9 +34,10 @@ pub struct DrawState<'a> {
     pub buffer: Buffer<'a>,
     pub highlighted_sections: Vec<HighlightedSection>,
     pub status_line: StatusLine,
-    row_offset: f32,
-    col_offset: f32,
+    pub row_offset: f32,
+    pub col_offset: f32,
     screen_rows: i32,
+    pub search_visible: bool,
 }
 
 impl<'a> Default for DrawState<'a> {
@@ -59,6 +61,7 @@ impl<'a> Default for DrawState<'a> {
             row_offset: 0.0,
             col_offset: 0.0,
             screen_rows: 0,
+            search_visible: false,
         }
     }
 }
@@ -120,7 +123,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn inner_height(&self) -> f32 {
-        self.window_height - self.line_height as f32
+        self.window_height - self.bottom_padding() - self.top_padding()
     }
 
     pub fn screen_rows(&self) -> i32 {
@@ -137,6 +140,18 @@ impl<'a> DrawState<'a> {
 
     pub fn font_scale(&self) -> f32 {
         self.ui_scale * self.font_size
+    }
+
+    pub fn top_padding(&self) -> f32 {
+        if self.search_visible {
+            self.line_height() // if search is on
+        } else {
+            0.0
+        }
+    }
+
+    pub fn bottom_padding(&self) -> f32 {
+        self.line_height() // status line
     }
 
     pub fn left_padding(&self) -> f32 {
@@ -179,7 +194,6 @@ impl<'a> DrawState<'a> {
         Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0))
     }
 
-    // FIXME: Should scrolling be a Buffer concern (rather than Terminal&DrawState)
     fn scroll(&mut self) {
         if self.line_height > 0.0 {
             if self.buffer.cursor.text_row() >= self.row_offset.floor() as i32 + self.screen_rows()
@@ -215,15 +229,19 @@ impl<'a> DrawState<'a> {
             let mut first_char_seen = false;
             let mut current_section = HighlightedSection::default();
             current_section.text_row = row_idx;
+            let mut overlay = row.overlay.iter();
 
             for (col_idx, hl) in row.hl.iter().enumerate() {
-                if current_section.highlight == *hl {
+                let char_overlay: Option<Highlight> =
+                    overlay.next().cloned().unwrap_or_else(|| None);
+                let overlay_or_hl = char_overlay.unwrap_or_else(|| *hl);
+                if current_section.highlight == overlay_or_hl {
                     current_section.last_col_idx = col_idx;
                 } else {
                     if first_char_seen {
                         self.highlighted_sections.push(current_section);
                     }
-                    current_section.highlight = *hl;
+                    current_section.highlight = overlay_or_hl;
                     current_section.first_col_idx = col_idx;
                     current_section.last_col_idx = col_idx;
                 }
@@ -255,7 +273,9 @@ impl<'a> DrawState<'a> {
     }
 
     fn cursor_from_mouse_position(&self, mouse: (f64, f64)) -> (i32, i32) {
-        let row_on_screen = (mouse.1 / f64::from(self.line_height())).floor() as i32;
+        let row_on_screen = ((mouse.1 - f64::from(self.top_padding()))
+            / f64::from(self.line_height()))
+        .floor() as i32;
         let col_on_screen = ((mouse.0 - f64::from(self.left_padding()))
             / f64::from(self.character_width()))
         .floor() as i32;
@@ -275,7 +295,9 @@ impl<'a> DrawState<'a> {
         let cursor_y = cursor.text_row() as f32;
         let cursor_x = rcursor_x as f32;
         let x_on_screen = (cursor_width * cursor_x) + cursor_width / 2.0 + self.left_padding;
-        let y_on_screen = (cursor_height * (cursor_y - self.row_offset)) + cursor_height / 2.0;
+        let y_on_screen = (cursor_height * (cursor_y - self.row_offset))
+            + cursor_height / 2.0
+            + self.top_padding();
         (x_on_screen, y_on_screen)
     }
 
@@ -311,16 +333,18 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn update_screen_rows(&mut self) {
-        self.screen_rows = (self.inner_height() / self.line_height as f32).floor() as i32;
+        self.screen_rows = (self.inner_height() / self.line_height()).floor() as i32;
     }
 
     pub fn print_info(&self) {
         println!(
-            "status_height: {}, inner: ({}, {}), status_transform: {:?}",
+            "status_height: {}, inner: ({}, {}), status_transform: {:?}, cursor on screen: {:?}, cursor_transform: {:?}",
             self.line_height(),
             self.inner_width(),
             self.inner_height(),
-            self.status_transform
+            self.status_transform,
+            self.onscreen_cursor(&self.buffer.cursor),
+            self.cursor_transform
         );
     }
 
@@ -401,6 +425,29 @@ impl<'a> DrawState<'a> {
     pub fn insert_char(&mut self, typed_char: char) {
         self.buffer.insert_char_at_cursor(typed_char);
         self.mark_buffer_changed();
+        self.update_cursor();
+    }
+
+    pub fn search_for(
+        &mut self,
+        last_match: Option<(usize, usize)>,
+        direction: SearchDirection,
+        needle: &str,
+    ) -> Option<(usize, usize)> {
+        let next_match = self.buffer.search_for(last_match, direction, needle);
+        self.update_search();
+        next_match
+    }
+
+    pub fn update_search(&mut self) {
+        self.update_cursor();
+        self.update_highlighted_sections();
+    }
+
+    pub fn stop_search(&mut self) {
+        self.search_visible = false;
+        self.buffer.clear_search_overlay();
+        self.update_highlighted_sections();
         self.update_cursor();
     }
 

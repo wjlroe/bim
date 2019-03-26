@@ -1,5 +1,4 @@
 use crate::buffer::Buffer;
-use crate::commands::{self, Cmd, WindowCommand};
 use crate::config::RunConfig;
 use crate::debug_log::DebugLog;
 use crate::editor::BIM_VERSION;
@@ -8,6 +7,7 @@ use crate::gui::keycode_to_char;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::window::Window;
 use crate::gui::{ColorFormat, DepthFormat};
+use crate::keycodes::Key;
 use flame;
 use gfx;
 use gfx::Device;
@@ -31,22 +31,26 @@ const CURSOR_BG: [f32; 3] = [250.0 / 256.0, 250.0 / 256.0, 250.0 / 256.0];
 const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
 const LINE_COL_BG: [f32; 3] = [0.0, 0.0, 0.0];
 
-fn keyboard_event_to_command(event: KeyboardInput) -> Option<Cmd> {
+fn keyboard_event_to_keycode(event: KeyboardInput) -> Option<Key> {
     if event.state == ElementState::Pressed {
         match event.virtual_keycode {
-            Some(VirtualKeyCode::Escape) => Some(Cmd::Quit),
-            Some(VirtualKeyCode::Left) => Some(Cmd::Move(commands::MoveCursor::left(1))),
-            Some(VirtualKeyCode::Right) => Some(Cmd::Move(commands::MoveCursor::right(1))),
-            Some(VirtualKeyCode::Up) => Some(Cmd::Move(commands::MoveCursor::up(1))),
-            Some(VirtualKeyCode::Down) => Some(Cmd::Move(commands::MoveCursor::down(1))),
-            Some(VirtualKeyCode::PageDown) => Some(Cmd::Move(commands::MoveCursor::page_down(1))),
-            Some(VirtualKeyCode::PageUp) => Some(Cmd::Move(commands::MoveCursor::page_up(1))),
-            Some(VirtualKeyCode::Home) => Some(Cmd::Move(commands::MoveCursor::home())),
-            Some(VirtualKeyCode::End) => Some(Cmd::Move(commands::MoveCursor::end())),
-            Some(VirtualKeyCode::Back) => Some(Cmd::DeleteCharBackward),
-            Some(VirtualKeyCode::Delete) => Some(Cmd::DeleteCharForward),
-            Some(VirtualKeyCode::Return) => Some(Cmd::Linebreak),
-            Some(VirtualKeyCode::F11) => Some(Cmd::Window(WindowCommand::Fullscreen)),
+            Some(VirtualKeyCode::Escape) => Some(Key::Escape),
+            Some(VirtualKeyCode::Left) => Some(Key::ArrowLeft),
+            Some(VirtualKeyCode::Right) => Some(Key::ArrowRight),
+            Some(VirtualKeyCode::Up) => Some(Key::ArrowUp),
+            Some(VirtualKeyCode::Down) => Some(Key::ArrowDown),
+            Some(VirtualKeyCode::PageDown) => Some(Key::PageDown),
+            Some(VirtualKeyCode::PageUp) => Some(Key::PageUp),
+            Some(VirtualKeyCode::Home) => Some(Key::Home),
+            Some(VirtualKeyCode::End) => Some(Key::End),
+            Some(VirtualKeyCode::Back) => Some(Key::Backspace),
+            Some(VirtualKeyCode::Delete) => Some(Key::Delete),
+            Some(VirtualKeyCode::Return) => Some(Key::Return),
+            Some(VirtualKeyCode::F11) => Some(Key::Function(11)),
+            Some(VirtualKeyCode::LControl) => None,
+            Some(VirtualKeyCode::RControl) => None,
+            Some(VirtualKeyCode::LAlt) => None,
+            Some(VirtualKeyCode::RAlt) => None,
             Some(keycode) => {
                 if !event.modifiers.ctrl && !event.modifiers.alt && !event.modifiers.logo {
                     if let Some(mut typed_char) =
@@ -60,23 +64,27 @@ fn keyboard_event_to_command(event: KeyboardInput) -> Option<Cmd> {
                                 .nth(0)
                                 .unwrap();
                         }
-                        Some(Cmd::InsertChar(typed_char))
+                        Some(Key::Other(typed_char))
                     } else {
                         println!("Unrecognised virtual keycode: {:?}", keycode);
                         None
                     }
                 } else {
                     if keycode == VirtualKeyCode::Minus && event.modifiers.ctrl {
-                        Some(Cmd::Window(WindowCommand::DecreaseFontSize))
+                        Some(Key::Control(Some('-')))
                     } else if keycode == VirtualKeyCode::Equals
                         && event.modifiers.shift
                         && event.modifiers.ctrl
                     {
-                        Some(Cmd::Window(WindowCommand::IncreaseFontSize))
+                        Some(Key::Control(Some('+')))
                     } else if keycode == VirtualKeyCode::Space && event.modifiers.ctrl {
-                        Some(Cmd::CloneCursor)
+                        Some(Key::Control(Some(' ')))
                     } else if keycode == VirtualKeyCode::M && event.modifiers.ctrl {
-                        Some(Cmd::PrintInfo)
+                        Some(Key::Control(Some('m')))
+                    } else if keycode == VirtualKeyCode::F && event.modifiers.ctrl {
+                        Some(Key::Control(Some('f')))
+                    } else if keycode == VirtualKeyCode::Q && event.modifiers.ctrl {
+                        Some(Key::Control(Some('q')))
                     } else {
                         println!("Don't know what to do with received: {:?}", event);
                         None
@@ -176,7 +184,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     let _default_status_text = format!("bim editor - version {}", BIM_VERSION);
 
-    while running {
+    while running && !window.should_quit() {
         flame::start("frame");
         window.next_frame();
         #[allow(clippy::single_match)]
@@ -198,26 +206,19 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                     WindowEvent::KeyboardInput {
                         input: keyboard_input,
                         ..
-                    } => match keyboard_event_to_command(keyboard_input) {
-                        Some(Cmd::Move(move_cursor)) => window.move_cursor(move_cursor),
-                        Some(Cmd::Quit) => running = false,
-                        Some(Cmd::Window(window_cmd)) => match window_cmd {
-                            WindowCommand::IncreaseFontSize => window.inc_font_size(),
-                            WindowCommand::DecreaseFontSize => window.dec_font_size(),
-                            WindowCommand::Fullscreen => {
-                                window.toggle_fullscreen(&gfx_window, monitor.clone());
+                    } => {
+                        if let Some(key) = keyboard_event_to_keycode(keyboard_input) {
+                            window.handle_key(key);
+                            match key {
+                                Key::Control(Some('-')) => window.dec_font_size(),
+                                Key::Control(Some('+')) => window.inc_font_size(),
+                                Key::Function(11) => {
+                                    window.toggle_fullscreen(&gfx_window, monitor.clone())
+                                }
+                                _ => {}
                             }
-                        },
-                        Some(Cmd::CloneCursor) => window.clone_cursor(),
-                        Some(Cmd::DeleteCharBackward) => window.delete_char_backward(),
-                        Some(Cmd::DeleteCharForward) => window.delete_char_forward(),
-                        Some(Cmd::PrintInfo) => window.print_info(),
-                        Some(Cmd::Linebreak) => window.insert_newline_and_return(),
-                        Some(Cmd::Save) => {}
-                        Some(Cmd::InsertChar(typed_char)) => window.insert_char(typed_char),
-                        Some(Cmd::Search) => {}
-                        None => {}
-                    },
+                        }
+                    }
                     WindowEvent::Resized(new_logical_size) => {
                         window.resize(new_logical_size);
                         action_queue.push(Action::ResizeWindow);
@@ -269,7 +270,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
             let test_section = VariedSection {
                 bounds: window.inner_dimensions(),
-                screen_position: (window.left_padding(), 0.0),
+                screen_position: (window.left_padding(), window.top_padding()),
                 text: vec![SectionText {
                     text: "AB\nC\n",
                     scale: Scale::uniform(window.font_scale()),
@@ -317,7 +318,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
             let section = VariedSection {
                 bounds: window.inner_dimensions(),
-                screen_position: (window.left_padding(), 0.0),
+                screen_position: (window.left_padding(), window.top_padding()),
                 text: section_texts,
                 z: 1.0,
                 ..VariedSection::default()
@@ -351,7 +352,10 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             let status_text = window.status_text();
             let status_section = Section {
                 bounds: window.inner_dimensions(),
-                screen_position: (window.left_padding(), window.inner_dimensions().1),
+                screen_position: (
+                    window.left_padding(),
+                    window.inner_dimensions().1 + window.top_padding(),
+                ),
                 text: &status_text,
                 color: [1.0, 1.0, 1.0, 1.0],
                 scale: Scale::uniform(window.font_scale()),
@@ -359,6 +363,27 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                 ..Section::default()
             };
             glyph_brush.queue(status_section);
+            glyph_brush.draw_queued(
+                &mut encoder,
+                &draw_quad.data.out_color,
+                &draw_quad.data.out_depth,
+            )?;
+        }
+
+        if let Some(search_text) = window.search_text() {
+            let _guard = flame::start_guard("render search text");
+
+            let search_text = search_text;
+            let search_section = Section {
+                bounds: window.inner_dimensions(),
+                screen_position: (window.left_padding(), 0.0),
+                text: &search_text,
+                color: [0.7, 0.6, 0.5, 1.0],
+                scale: Scale::uniform(window.font_scale()),
+                z: 0.5,
+                ..Section::default()
+            };
+            glyph_brush.queue(search_section);
             glyph_brush.draw_queued(
                 &mut encoder,
                 &draw_quad.data.out_color,
