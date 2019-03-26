@@ -1,4 +1,5 @@
 use crate::buffer::Buffer;
+use crate::commands::SearchDirection;
 use crate::cursor::{Cursor, CursorT};
 use crate::highlight::HighlightedSection;
 use crate::highlight::{highlight_to_color, Highlight};
@@ -229,15 +230,19 @@ impl<'a> DrawState<'a> {
             let mut first_char_seen = false;
             let mut current_section = HighlightedSection::default();
             current_section.text_row = row_idx;
+            let mut overlay = row.overlay.iter();
 
             for (col_idx, hl) in row.hl.iter().enumerate() {
-                if current_section.highlight == *hl {
+                let char_overlay: Option<Highlight> =
+                    overlay.next().cloned().unwrap_or_else(|| None);
+                let overlay_or_hl = char_overlay.unwrap_or_else(|| *hl);
+                if current_section.highlight == overlay_or_hl {
                     current_section.last_col_idx = col_idx;
                 } else {
                     if first_char_seen {
                         self.highlighted_sections.push(current_section);
                     }
-                    current_section.highlight = *hl;
+                    current_section.highlight = overlay_or_hl;
                     current_section.first_col_idx = col_idx;
                     current_section.last_col_idx = col_idx;
                 }
@@ -334,11 +339,13 @@ impl<'a> DrawState<'a> {
 
     pub fn print_info(&self) {
         println!(
-            "status_height: {}, inner: ({}, {}), status_transform: {:?}",
+            "status_height: {}, inner: ({}, {}), status_transform: {:?}, cursor on screen: {:?}, cursor_transform: {:?}",
             self.line_height(),
             self.inner_width(),
             self.inner_height(),
-            self.status_transform
+            self.status_transform,
+            self.onscreen_cursor(&self.buffer.cursor),
+            self.cursor_transform
         );
     }
 
@@ -419,6 +426,29 @@ impl<'a> DrawState<'a> {
     pub fn insert_char(&mut self, typed_char: char) {
         self.buffer.insert_char_at_cursor(typed_char);
         self.mark_buffer_changed();
+        self.update_cursor();
+    }
+
+    pub fn search_for(
+        &mut self,
+        last_match: Option<(usize, usize)>,
+        direction: SearchDirection,
+        needle: &str,
+    ) -> Option<(usize, usize)> {
+        let next_match = self.buffer.search_for(last_match, direction, needle);
+        self.update_search();
+        next_match
+    }
+
+    pub fn update_search(&mut self) {
+        self.update_cursor();
+        self.update_highlighted_sections();
+    }
+
+    pub fn stop_search(&mut self) {
+        self.search_visible = false;
+        self.buffer.clear_search_overlay();
+        self.update_highlighted_sections();
         self.update_cursor();
     }
 

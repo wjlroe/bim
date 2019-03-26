@@ -13,6 +13,7 @@ pub enum Key {
     Backspace,
     Escape,
     Control(Option<char>),
+    Function(u8),
     Other(char),
 }
 

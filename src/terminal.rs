@@ -1,5 +1,6 @@
 use crate::buffer::Buffer;
 use crate::commands::{Cmd, MoveCursor, SearchDirection};
+use crate::config::BIM_QUIT_TIMES;
 use crate::cursor::CursorT;
 use crate::debug_log::DebugLog;
 use crate::editor::BIM_VERSION;
@@ -11,7 +12,6 @@ use std::process::exit;
 use std::time::Duration;
 
 const UI_ROWS: i32 = 2;
-const BIM_QUIT_TIMES: i8 = 3;
 const BIM_DEBUG_LOG: &str = ".bim_debug";
 
 pub struct Terminal<'a> {
@@ -299,66 +299,67 @@ impl<'a> Terminal<'a> {
             Save => self.save_file(),
             InsertChar(c) => self.insert_char(c),
             Search => {}
-            Window(_) => {}
             CloneCursor => {}
             PrintInfo => {}
+            Escape => {}
         }
 
         self.quit_times = BIM_QUIT_TIMES;
     }
 
     pub fn key_to_cmd(&self, key: Key) -> Option<Cmd> {
-        use crate::commands::Cmd::*;
-        use crate::keycodes::Key::*;
+        use crate::commands::{Cmd, MoveCursor};
+        use crate::keycodes::Key;
 
         let _ = self
             .debug_log
             .debugln_timestamped(&format!("key press: {:?}", key));
         match key {
-            ArrowLeft => Some(Move(MoveCursor::left(1))),
-            ArrowRight => Some(Move(MoveCursor::right(1))),
-            ArrowUp => Some(Move(MoveCursor::up(1))),
-            ArrowDown => Some(Move(MoveCursor::down(1))),
-            PageUp => Some(Move(MoveCursor::page_up(1))),
-            PageDown => Some(Move(MoveCursor::page_down(1))),
-            Home => Some(Move(MoveCursor::home())),
-            End => Some(Move(MoveCursor::end())),
-            Delete => Some(DeleteCharForward),
-            Backspace => Some(DeleteCharBackward),
-            Return => Some(Linebreak),
-            Escape => None,
-            Control(None) => None,
-            Control(Some(c)) => {
+            Key::ArrowLeft => Some(Cmd::Move(MoveCursor::left(1))),
+            Key::ArrowRight => Some(Cmd::Move(MoveCursor::right(1))),
+            Key::ArrowUp => Some(Cmd::Move(MoveCursor::up(1))),
+            Key::ArrowDown => Some(Cmd::Move(MoveCursor::down(1))),
+            Key::PageUp => Some(Cmd::Move(MoveCursor::page_up(1))),
+            Key::PageDown => Some(Cmd::Move(MoveCursor::page_down(1))),
+            Key::Home => Some(Cmd::Move(MoveCursor::home())),
+            Key::End => Some(Cmd::Move(MoveCursor::end())),
+            Key::Delete => Some(Cmd::DeleteCharForward),
+            Key::Backspace => Some(Cmd::DeleteCharBackward),
+            Key::Return => Some(Cmd::Linebreak),
+            Key::Escape => None,
+            Key::Function(_) => None,
+            Key::Control(None) => None,
+            Key::Control(Some(c)) => {
                 if ctrl_key('q', c as u32) {
-                    Some(Quit)
+                    Some(Cmd::Quit)
                 } else if ctrl_key('f', c as u32) {
-                    Some(Search)
+                    Some(Cmd::Search)
                 } else if ctrl_key('h', c as u32) {
-                    Some(DeleteCharBackward)
+                    Some(Cmd::DeleteCharBackward)
                 } else if ctrl_key('s', c as u32) {
-                    Some(Save)
+                    Some(Cmd::Save)
                 } else {
                     None
                 }
             }
-            Other(c) => {
+            Key::Other(c) => {
                 let _ = self.debug_log.debugln_timestamped(&format!(
                     "other key: {character}, {key_num:x}, {key_num} as u32",
                     character = c,
                     key_num = c as u32
                 ));
                 if ctrl_key('h', c as u32) {
-                    Some(DeleteCharBackward)
+                    Some(Cmd::DeleteCharBackward)
                 } else if ctrl_key('q', c as u32) {
-                    Some(Quit)
+                    Some(Cmd::Quit)
                 } else if ctrl_key('s', c as u32) {
-                    Some(Save)
+                    Some(Cmd::Save)
                 } else if ctrl_key('l', c as u32) {
                     None
                 } else if ctrl_key('f', c as u32) {
-                    Some(Search)
+                    Some(Cmd::Search)
                 } else if !c.is_control() {
-                    Some(InsertChar(c))
+                    Some(Cmd::InsertChar(c))
                 } else {
                     None
                 }

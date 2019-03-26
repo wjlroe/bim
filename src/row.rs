@@ -86,7 +86,7 @@ pub struct Row<'a> {
     pub render: String,
     rsize: usize,
     pub hl: Vec<Highlight>,
-    overlay: Vec<Option<Highlight>>,
+    pub overlay: Vec<Option<Highlight>>,
     syntax: Weak<Option<&'a Syntax<'a>>>,
     pub hl_open_comment: bool,
 }
@@ -289,6 +289,7 @@ impl<'a> Row<'a> {
     }
 
     pub fn set_overlay_search(&mut self, begin: usize, end: usize) {
+        self.clear_overlay_search();
         for x in begin..end {
             if let Some(elem) = self.overlay.get_mut(x) {
                 *elem = Some(Highlight::SearchMatch);

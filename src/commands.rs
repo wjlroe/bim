@@ -112,13 +112,6 @@ impl MoveCursor {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum WindowCommand {
-    IncreaseFontSize,
-    DecreaseFontSize,
-    Fullscreen,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Cmd {
     Move(MoveCursor),
     DeleteCharBackward,
@@ -130,5 +123,15 @@ pub enum Cmd {
     Search,
     CloneCursor,
     PrintInfo,
-    Window(WindowCommand),
+    Escape,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum SearchCmd {
+    Quit, // go back to prev. location
+    Exit, // keep search location as cursor
+    NextMatch,
+    PrevMatch,
+    DeleteChar,
+    InsertChar(char),
 }
