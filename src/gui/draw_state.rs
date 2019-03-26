@@ -194,7 +194,6 @@ impl<'a> DrawState<'a> {
         Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0))
     }
 
-    // FIXME: Should scrolling be a Buffer concern (rather than Terminal&DrawState)
     fn scroll(&mut self) {
         if self.line_height > 0.0 {
             if self.buffer.cursor.text_row() >= self.row_offset.floor() as i32 + self.screen_rows()
