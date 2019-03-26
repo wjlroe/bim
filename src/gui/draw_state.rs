@@ -34,8 +34,8 @@ pub struct DrawState<'a> {
     pub buffer: Buffer<'a>,
     pub highlighted_sections: Vec<HighlightedSection>,
     pub status_line: StatusLine,
-    row_offset: f32,
-    col_offset: f32,
+    pub row_offset: f32,
+    pub col_offset: f32,
     screen_rows: i32,
     pub search_visible: bool,
 }

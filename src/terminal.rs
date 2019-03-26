@@ -447,16 +447,11 @@ impl<'a> Terminal<'a> {
             "search_for: '{}', direction: {}",
             needle, direction
         ));
-        self.buffer
-            .search_for(last_match, direction, needle)
-            .and_then(|(x, y)| {
-                self.buffer.cursor.change(|cursor| {
-                    cursor.text_col = x as i32;
-                    cursor.text_row = y as i32;
-                });
-                self.row_offset = self.buffer.num_lines() as i32;
-                Some((x, y))
-            })
+        let found_match = self.buffer.search_for(last_match, direction, needle);
+        if found_match.is_some() {
+            self.row_offset = self.buffer.num_lines() as i32;
+        }
+        found_match
     }
 
     pub fn save_cursor(&mut self) {

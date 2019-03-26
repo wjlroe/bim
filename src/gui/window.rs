@@ -14,6 +14,9 @@ struct Search {
     direction: SearchDirection,
     last_match: Option<(usize, usize)>,
     run_search: bool,
+    restore_cursor: bool,
+    saved_row_offset: f32,
+    saved_col_offset: f32,
 }
 
 impl Search {
@@ -187,11 +190,12 @@ impl<'a> Window<'a> {
             match cmd {
                 SearchCmd::Quit => {
                     search.run_search = false;
-                    // restore cursor!
+                    search.restore_cursor = true;
                 }
                 SearchCmd::Exit => {
                     search.run_search = false;
-                } // TODO: these should be different!
+                    search.restore_cursor = false;
+                }
                 SearchCmd::NextMatch => {
                     search.direction = SearchDirection::Forwards;
                 }
@@ -212,11 +216,15 @@ impl<'a> Window<'a> {
             }
 
             if search.run_search {
-                // TODO: move the cursor!
                 search.last_match =
                     self.draw_state
                         .search_for(search.last_match, search.direction, &search.needle);
             } else {
+                if search.restore_cursor {
+                    self.draw_state.buffer.cursor.restore_saved();
+                    self.draw_state.row_offset = search.saved_row_offset;
+                    self.draw_state.col_offset = search.saved_col_offset;
+                }
                 self.search = None;
                 self.draw_state.search_visible = false;
                 self.draw_state.stop_search();
@@ -279,6 +287,9 @@ impl<'a> Window<'a> {
     fn start_search(&mut self) {
         let mut search = Search::default();
         search.run_search = true;
+        search.saved_col_offset = self.draw_state.col_offset();
+        search.saved_row_offset = self.draw_state.row_offset();
+        self.draw_state.buffer.cursor.save_cursor();
         self.search = Some(search);
         self.draw_state.search_visible = true;
         self.draw_state.update_search();
