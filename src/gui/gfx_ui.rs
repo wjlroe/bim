@@ -33,6 +33,7 @@ const LINE_COL_BG: [f32; 3] = [0.0, 0.0, 0.0];
 
 fn keyboard_event_to_keycode(event: KeyboardInput) -> Option<Key> {
     if event.state == ElementState::Pressed {
+        #[allow(clippy::collapsible_if)]
         match event.virtual_keycode {
             Some(VirtualKeyCode::Escape) => Some(Key::Escape),
             Some(VirtualKeyCode::Left) => Some(Key::ArrowLeft),

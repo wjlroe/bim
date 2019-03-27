@@ -207,7 +207,7 @@ impl<'a> Window<'a> {
                     search.last_match = None;
                 }
                 SearchCmd::DeleteChar => {
-                    if let Some(_) = search.needle.pop() {
+                    if search.needle.pop().is_some() {
                         search.last_match = None;
                     } else {
                         search.run_search = false;
