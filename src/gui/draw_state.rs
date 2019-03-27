@@ -274,7 +274,8 @@ impl<'a> DrawState<'a> {
 
     fn cursor_from_mouse_position(&self, mouse: (f64, f64)) -> (i32, i32) {
         let row_on_screen = ((mouse.1 - f64::from(self.top_padding()))
-            / f64::from(self.line_height()))
+            / f64::from(self.line_height())
+            + f64::from(self.row_offset))
         .floor() as i32;
         let col_on_screen = ((mouse.0 - f64::from(self.left_padding()))
             / f64::from(self.character_width()))
@@ -366,8 +367,11 @@ impl<'a> DrawState<'a> {
 
     pub fn move_cursor_to_mouse_position(&mut self, mouse: (f64, f64)) {
         let (cursor_x, cursor_y) = self.cursor_from_mouse_position(mouse);
-        let move_y = cursor_y - self.buffer.cursor.text_row();
-        let move_x = cursor_x - self.buffer.cursor.text_col();
+        let clicked_line = i32::min(self.buffer.num_lines() as i32, cursor_y);
+        let clicked_line_length = self.buffer.line_len(clicked_line).unwrap_or(0) as i32;
+        let clicked_line_x = i32::min(clicked_line_length, cursor_x);
+        let move_y = clicked_line - self.buffer.cursor.text_row();
+        let move_x = clicked_line_x - self.buffer.cursor.text_col();
         self.buffer.cursor.change(|cursor| {
             cursor.text_row += move_y;
             cursor.text_col += move_x;
