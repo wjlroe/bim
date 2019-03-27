@@ -367,7 +367,7 @@ impl<'a> DrawState<'a> {
 
     pub fn move_cursor_to_mouse_position(&mut self, mouse: (f64, f64)) {
         let (cursor_x, cursor_y) = self.cursor_from_mouse_position(mouse);
-        let clicked_line = i32::min(self.buffer.num_lines() as i32, cursor_y);
+        let clicked_line = i32::min((self.buffer.num_lines() as i32) - 1, cursor_y);
         let clicked_line_length = self.buffer.line_len(clicked_line).unwrap_or(0) as i32;
         let clicked_line_x = i32::min(clicked_line_length, cursor_x);
         let move_y = clicked_line - self.buffer.cursor.text_row();
