@@ -337,15 +337,14 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn print_info(&self) {
+        println!("status_height: {}", self.line_height());
+        println!("inner: ({}, {})", self.inner_width(), self.inner_height());
+        println!("status_transform: {:?}", self.status_transform);
         println!(
-            "status_height: {}, inner: ({}, {}), status_transform: {:?}, cursor on screen: {:?}, cursor_transform: {:?}",
-            self.line_height(),
-            self.inner_width(),
-            self.inner_height(),
-            self.status_transform,
-            self.onscreen_cursor(&self.buffer.cursor),
-            self.cursor_transform
+            "cursor on screen: {:?}",
+            self.onscreen_cursor(&self.buffer.cursor)
         );
+        println!("cursor_transform: {:?}", self.cursor_transform);
     }
 
     pub fn inc_font_size(&mut self) {
