@@ -306,7 +306,7 @@ impl<'a> Buffer<'a> {
                 direction: Down,
                 amount,
             } => {
-                let max_movement = self.num_lines() as i32 - self.cursor.text_row();
+                let max_movement = self.num_lines() as i32 - 1 - self.cursor.text_row();
                 let possible_amount = std::cmp::min(amount as i32, max_movement);
                 self.cursor
                     .change(|cursor| cursor.text_row += possible_amount);
@@ -342,11 +342,14 @@ impl<'a> Buffer<'a> {
             } => {
                 let mut new_cursor = self.cursor.current();
                 let mut right_amount = amount as i32;
+                let num_lines = self.num_lines() as i32;
                 while right_amount > 0 {
                     if let Some(row_size) = self.line_len(new_cursor.text_row) {
                         if new_cursor.text_col < row_size as i32 {
                             new_cursor.text_col += 1;
-                        } else if new_cursor.text_col == row_size as i32 {
+                        } else if new_cursor.text_col == row_size as i32
+                            && new_cursor.text_row < num_lines - 1
+                        {
                             new_cursor.text_row += 1;
                             new_cursor.text_col = 0;
                         } else {
