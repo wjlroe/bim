@@ -394,10 +394,26 @@ impl<'a> DrawState<'a> {
         }
     }
 
+    fn is_cursor_onscreen(&self) -> bool {
+        let row = self.buffer.cursor.text_row();
+        let row_offset = self.row_offset.floor() as i32;
+        row >= row_offset && row < row_offset + self.screen_rows
+    }
+
+    fn move_cursor_onscreen(&mut self) {
+        let row_offset = self.row_offset.floor() as i32;
+        self.buffer.cursor.change(|cursor| {
+            cursor.text_row = row_offset;
+        });
+    }
+
     pub fn scroll_window_vertically(&mut self, amount: f32) {
         self.row_offset += amount;
         if self.row_offset < 0.0 {
             self.row_offset = 0.0;
+        }
+        if !self.is_cursor_onscreen() {
+            self.move_cursor_onscreen();
         }
     }
 
