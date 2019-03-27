@@ -21,6 +21,7 @@ pub mod highlight;
 mod keycodes;
 mod row;
 mod status;
+mod status_line;
 mod syntax;
 mod terminal;
 pub mod utils;

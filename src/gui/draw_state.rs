@@ -3,20 +3,13 @@ use crate::commands::SearchDirection;
 use crate::cursor::{Cursor, CursorT};
 use crate::highlight::HighlightedSection;
 use crate::highlight::{highlight_to_color, Highlight};
+use crate::status_line::StatusLine;
 use crate::utils::char_position_to_byte_position;
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 use flame;
 use gfx_glyph::{Scale, SectionText};
 
 const LINE_COLS_AT: [u32; 2] = [80, 120];
-
-#[derive(Clone, Default)]
-pub struct StatusLine {
-    pub filename: String,
-    pub num_lines: String,
-    pub filetype: String,
-    pub cursor: String,
-}
 
 pub struct DrawState<'a> {
     window_width: f32,
