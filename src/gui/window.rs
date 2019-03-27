@@ -146,6 +146,7 @@ impl<'a> Window<'a> {
     pub fn mouse_scroll(&mut self, delta_x: f32, delta_y: f32) {
         self.draw_state.scroll_window_vertically(-delta_y);
         self.draw_state.scroll_window_horizontally(-delta_x);
+        self.draw_state.update_cursor();
     }
 
     pub fn inc_font_size(&mut self) {
