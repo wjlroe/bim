@@ -412,6 +412,10 @@ impl<'a> DrawState<'a> {
         if self.row_offset < 0.0 {
             self.row_offset = 0.0;
         }
+        let max_offset = self.buffer.num_lines() as f32;
+        if self.row_offset >= max_offset {
+            self.row_offset = max_offset - 1.0;
+        }
         if !self.is_cursor_onscreen() {
             self.move_cursor_onscreen();
         }
