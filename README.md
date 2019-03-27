@@ -2,6 +2,8 @@
 
 Experiments in text editing.
 
+[![Build Status](https://travis-ci.org/wjlroe/bim.svg?branch=master)](https://travis-ci.org/wjlroe/bim)
+
 ![Basic syntax highlighting!](https://i.imgur.com/uSDZ2Wn.png)
 
 ## The kilo code
