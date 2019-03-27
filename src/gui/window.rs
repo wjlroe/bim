@@ -1,29 +1,13 @@
 use crate::buffer::Buffer;
-use crate::commands::{self, Cmd, MoveCursor, SearchCmd, SearchDirection};
+use crate::commands::{self, Cmd, MoveCursor, SearchCmd};
 use crate::config::BIM_QUIT_TIMES;
 use crate::gui::draw_state::DrawState;
 use crate::keycodes::Key;
+use crate::search::Search;
 use cgmath::Matrix4;
 use gfx_glyph::SectionText;
 use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::{MonitorId, WindowedContext};
-
-#[derive(Clone, Default, PartialEq)]
-struct Search {
-    needle: String,
-    direction: SearchDirection,
-    last_match: Option<(usize, usize)>,
-    run_search: bool,
-    restore_cursor: bool,
-    saved_row_offset: f32,
-    saved_col_offset: f32,
-}
-
-impl Search {
-    fn as_string(&self) -> String {
-        format!("Search ({}): {}", self.direction, self.needle)
-    }
-}
 
 pub struct Window<'a> {
     logical_size: LogicalSize,
@@ -189,42 +173,26 @@ impl<'a> Window<'a> {
     fn handle_search_cmd(&mut self, cmd: SearchCmd) {
         if let Some(search) = &mut self.search {
             match cmd {
-                SearchCmd::Quit => {
-                    search.run_search = false;
-                    search.restore_cursor = true;
-                }
-                SearchCmd::Exit => {
-                    search.run_search = false;
-                    search.restore_cursor = false;
-                }
-                SearchCmd::NextMatch => {
-                    search.direction = SearchDirection::Forwards;
-                }
-                SearchCmd::PrevMatch => {
-                    search.direction = SearchDirection::Backwards;
-                }
-                SearchCmd::InsertChar(typed_char) => {
-                    search.needle.push(typed_char);
-                    search.last_match = None;
-                }
-                SearchCmd::DeleteChar => {
-                    if search.needle.pop().is_some() {
-                        search.last_match = None;
-                    } else {
-                        search.run_search = false;
-                    }
-                }
+                SearchCmd::Quit => search.stop(true),
+                SearchCmd::Exit => search.stop(false),
+                SearchCmd::NextMatch => search.go_forwards(),
+                SearchCmd::PrevMatch => search.go_backwards(),
+                SearchCmd::InsertChar(typed_char) => search.push_char(typed_char),
+                SearchCmd::DeleteChar => search.del_char(),
             }
 
-            if search.run_search {
-                search.last_match =
-                    self.draw_state
-                        .search_for(search.last_match, search.direction, &search.needle);
+            if search.run_search() {
+                let last_match = self.draw_state.search_for(
+                    search.last_match(),
+                    search.direction(),
+                    search.needle(),
+                );
+                search.set_last_match(last_match);
             } else {
-                if search.restore_cursor {
+                if search.restore_cursor() {
                     self.draw_state.buffer.cursor.restore_saved();
-                    self.draw_state.row_offset = search.saved_row_offset;
-                    self.draw_state.col_offset = search.saved_col_offset;
+                    self.draw_state.row_offset = search.saved_row_offset();
+                    self.draw_state.col_offset = search.saved_col_offset();
                 }
                 self.search = None;
                 self.draw_state.search_visible = false;
@@ -286,10 +254,7 @@ impl<'a> Window<'a> {
     }
 
     fn start_search(&mut self) {
-        let mut search = Search::default();
-        search.run_search = true;
-        search.saved_col_offset = self.draw_state.col_offset();
-        search.saved_row_offset = self.draw_state.row_offset();
+        let search = Search::new(self.draw_state.col_offset(), self.draw_state.row_offset());
         self.draw_state.buffer.cursor.save_cursor();
         self.search = Some(search);
         self.draw_state.search_visible = true;
