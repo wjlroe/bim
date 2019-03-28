@@ -211,6 +211,10 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         if let Some(key) = keyboard_event_to_keycode(keyboard_input) {
                             window.handle_key(key);
                             match key {
+                                Key::Control(Some('p')) => flame::dump_html(
+                                    &mut std::fs::File::create("flame-graph.html").unwrap(),
+                                )
+                                .unwrap_or(()),
                                 Key::Control(Some('-')) => window.dec_font_size(),
                                 Key::Control(Some('+')) => window.inc_font_size(),
                                 Key::Function(11) => {
@@ -235,6 +239,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                         persist_window_state.logical_position = new_logical_position;
                         persist_window_state.save();
                     }
+                    WindowEvent::Focused(in_focus) => window.in_focus = in_focus,
                     _ => (),
                 };
             }
@@ -404,9 +409,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
         flame::end_collapse("frame");
     }
-
-    // Dump the report to disk
-    flame::dump_html(&mut std::fs::File::create("flame-graph.html").unwrap())?;
 
     Ok(())
 }
