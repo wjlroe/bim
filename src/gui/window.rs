@@ -17,6 +17,7 @@ pub struct Window<'a> {
     draw_state: DrawState<'a>,
     search: Option<Search>,
     quit_times: i8,
+    pub in_focus: bool,
 }
 
 impl<'a> Window<'a> {
@@ -37,6 +38,7 @@ impl<'a> Window<'a> {
             draw_state: DrawState::new(window_width, window_height, font_size, ui_scale, buffer),
             search: None,
             quit_times: BIM_QUIT_TIMES,
+            in_focus: true,
         }
     }
 
