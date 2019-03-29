@@ -4,10 +4,12 @@ use crate::config::BIM_QUIT_TIMES;
 use crate::gui::draw_state::DrawState;
 use crate::keycodes::Key;
 use crate::search::Search;
+use crate::status::Status;
 use cgmath::Matrix4;
 use gfx_glyph::SectionText;
 use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::{MonitorId, WindowedContext};
+use std::time::Duration;
 
 pub struct Window<'a> {
     logical_size: LogicalSize,
@@ -18,6 +20,7 @@ pub struct Window<'a> {
     search: Option<Search>,
     quit_times: i8,
     pub in_focus: bool,
+    pub status_message: Option<Status>,
 }
 
 impl<'a> Window<'a> {
@@ -37,8 +40,9 @@ impl<'a> Window<'a> {
             fullscreen: false,
             draw_state: DrawState::new(window_width, window_height, font_size, ui_scale, buffer),
             search: None,
-            quit_times: BIM_QUIT_TIMES,
+            quit_times: BIM_QUIT_TIMES + 1,
             in_focus: true,
+            status_message: None,
         }
     }
 
@@ -73,6 +77,14 @@ impl<'a> Window<'a> {
         )
     }
 
+    pub fn window_height(&self) -> f32 {
+        self.draw_state.window_height()
+    }
+
+    pub fn window_width(&self) -> f32 {
+        self.draw_state.window_width()
+    }
+
     pub fn font_scale(&self) -> f32 {
         self.draw_state.font_scale()
     }
@@ -103,6 +115,10 @@ impl<'a> Window<'a> {
 
     pub fn status_transform(&self) -> Matrix4<f32> {
         self.draw_state.status_transform()
+    }
+
+    pub fn transform_from_width_height(&self, width: f32, height: f32) -> Matrix4<f32> {
+        self.draw_state.transform_from_width_height(width, height)
     }
 
     pub fn status_text(&self) -> String {
@@ -265,11 +281,21 @@ impl<'a> Window<'a> {
 
     fn try_quit(&mut self) {
         if self.draw_state.buffer.is_dirty() {
-            // show the warning
             self.quit_times -= 1;
+            self.set_status_msg(format!(
+                "{} {} {} {}",
+                "WARNING! File has unsaved changes.",
+                "Press Ctrl-Q",
+                self.quit_times,
+                "more times to quit"
+            ));
         } else {
             self.quit_times = 0;
         }
+    }
+
+    fn set_status_msg(&mut self, msg: String) {
+        self.status_message = Some(Status::new_with_timeout(msg, Duration::from_secs(5)));
     }
 
     fn move_cursor(&mut self, movement: commands::MoveCursor) {

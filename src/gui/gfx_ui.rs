@@ -8,10 +8,14 @@ use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::window::Window;
 use crate::gui::{ColorFormat, DepthFormat};
 use crate::keycodes::Key;
+use cgmath::Matrix4;
 use flame;
 use gfx;
 use gfx::Device;
-use gfx_glyph::{GlyphBrushBuilder, GlyphCruncher, Scale, Section, SectionText, VariedSection};
+use gfx_glyph::{
+    GlyphBrushBuilder, GlyphCruncher, HorizontalAlign, Layout, Scale, Section, SectionText,
+    VariedSection, VerticalAlign,
+};
 use glutin::dpi::LogicalSize;
 use glutin::Api::OpenGl;
 use glutin::{
@@ -30,6 +34,8 @@ const STATUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
 const CURSOR_BG: [f32; 3] = [250.0 / 256.0, 250.0 / 256.0, 250.0 / 256.0];
 const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
 const LINE_COL_BG: [f32; 3] = [0.0, 0.0, 0.0];
+const POPUP_BG: [f32; 3] = [51.0 / 255.0, 0.0, 102.0 / 255.0];
+const POPUP_OUTLINE: [f32; 3] = [240.0 / 255.0, 240.0 / 255.0, 240.0 / 255.0];
 
 fn keyboard_event_to_keycode(event: KeyboardInput) -> Option<Key> {
     if event.state == ElementState::Pressed {
@@ -390,6 +396,44 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
                 ..Section::default()
             };
             glyph_brush.queue(search_section);
+            glyph_brush.draw_queued(
+                &mut encoder,
+                &draw_quad.data.out_color,
+                &draw_quad.data.out_depth,
+            )?;
+        }
+
+        if let Some(status_msg) = &window.status_message {
+            let _guard = flame::start_guard("render popup text");
+
+            let layout = Layout::default()
+                .h_align(HorizontalAlign::Center)
+                .v_align(VerticalAlign::Center);
+            let popup_section = Section {
+                bounds: window.inner_dimensions(),
+                screen_position: (window.window_width() / 2.0, window.window_height() / 2.0),
+                text: &status_msg.message,
+                color: [224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0, 1.0],
+                scale: Scale::uniform(window.font_scale() * 2.0),
+                z: 0.5,
+                layout,
+                ..Section::default()
+            };
+
+            if let Some(msg_bounds) = glyph_brush.pixel_bounds(popup_section) {
+                let width = msg_bounds.max.x - msg_bounds.min.x;
+                let height = msg_bounds.max.y - msg_bounds.min.y;
+                let text_size_transform =
+                    window.transform_from_width_height(width as f32, height as f32);
+
+                let popup_bg_transform = Matrix4::from_scale(1.1) * text_size_transform;
+                draw_quad.draw(&mut encoder, POPUP_BG, popup_bg_transform);
+
+                let bg_transform = Matrix4::from_scale(1.1) * popup_bg_transform;
+                draw_quad.draw(&mut encoder, POPUP_OUTLINE, bg_transform);
+            }
+
+            glyph_brush.queue(popup_section);
             glyph_brush.draw_queued(
                 &mut encoder,
                 &draw_quad.data.out_color,
