@@ -9,7 +9,6 @@ use crate::gui::quad;
 use crate::keycodes::Key;
 use crate::search::Search;
 use crate::status::Status;
-use cgmath::Matrix4;
 use flame;
 use gfx::{pso, Device, Encoder};
 use gfx_device_gl;
@@ -17,6 +16,7 @@ use gfx_glyph::{
     GlyphBrush, GlyphCruncher, HorizontalAlign, Layout, Scale, Section, SectionText, VariedSection,
     VerticalAlign,
 };
+use cgmath::{Matrix4, Vector2, vec2};
 use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::{ElementState, Event, MonitorId, MouseScrollDelta, WindowEvent, WindowedContext};
 use std::error::Error;
@@ -191,11 +191,13 @@ impl<'a> Window<'a> {
         self.encoder
             .clear_depth(&self.quad_bundle.data.out_depth, 1.0);
 
+        let window_dim: (f32, f32) = self.inner_dimensions().into();
+
         if self.has_resized() {
             let _guard = flame::start_guard("window_resized");
 
             let test_section = VariedSection {
-                bounds: self.inner_dimensions(),
+                bounds: window_dim,
                 screen_position: (self.left_padding(), self.top_padding()),
                 text: vec![SectionText {
                     text: "AB\nC\n",
@@ -252,7 +254,7 @@ impl<'a> Window<'a> {
             let _guard = flame::start_guard("render section_texts");
 
             let section = VariedSection {
-                bounds: self.inner_dimensions(),
+                bounds: window_dim,
                 screen_position: (self.left_padding(), self.top_padding()),
                 text: self.draw_state.section_texts(),
                 z: 1.0,
@@ -297,10 +299,10 @@ impl<'a> Window<'a> {
 
             let status_text = self.status_text();
             let status_section = Section {
-                bounds: self.inner_dimensions(),
+                bounds: window_dim,
                 screen_position: (
                     self.left_padding(),
-                    self.inner_dimensions().1 + self.top_padding(),
+                    window_dim.1 + self.top_padding(),
                 ),
                 text: &status_text,
                 color: [1.0, 1.0, 1.0, 1.0],
@@ -321,7 +323,7 @@ impl<'a> Window<'a> {
 
             let search_text = search_text;
             let search_section = Section {
-                bounds: self.inner_dimensions(),
+                bounds: window_dim,
                 screen_position: (self.left_padding(), 0.0),
                 text: &search_text,
                 color: [0.7, 0.6, 0.5, 1.0],
@@ -343,8 +345,9 @@ impl<'a> Window<'a> {
             let layout = Layout::default()
                 .h_align(HorizontalAlign::Center)
                 .v_align(VerticalAlign::Center);
-            let popup_section = Section {
-                bounds: self.inner_dimensions(),
+	    let popup_bounds: Vector2<f32> = self.inner_dimensions() - vec2(20.0, 20.0);
+	    let popup_section = Section {
+                bounds: popup_bounds.into(),
                 screen_position: (self.window_width() / 2.0, self.window_height() / 2.0),
                 text: &status_msg.message,
                 color: [224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0, 1.0],
@@ -425,11 +428,12 @@ impl<'a> Window<'a> {
         }
     }
 
-    pub fn inner_dimensions(&self) -> (f32, f32) {
+    pub fn inner_dimensions(&self) -> Vector2<f32> {
         (
             self.draw_state.inner_width(),
             self.draw_state.inner_height(),
         )
+            .into()
     }
 
     pub fn window_height(&self) -> f32 {
