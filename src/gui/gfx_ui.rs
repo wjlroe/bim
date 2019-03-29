@@ -174,13 +174,10 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     let mut action_queue = vec![];
 
     let mut buffer = Buffer::default();
-    let filename = match run_type {
-        RunOpenFile(ref filename_arg) => filename_arg,
-        _ => "testfiles/kilo-dos2.c",
-    };
-    if let Err(e) = buffer.open(filename) {
-        panic!("Error: {}", e);
-    };
+    if let RunOpenFile(ref filename) = run_type {
+        buffer.open(filename)?;
+    }
+
     let mut window = Window::new(
         logical_size,
         dpi,
