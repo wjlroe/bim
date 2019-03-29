@@ -243,6 +243,7 @@ impl<'a> Window<'a> {
             Key::Control(Some('m')) => Some(Cmd::PrintInfo),
             Key::Control(Some('f')) => Some(Cmd::Search),
             Key::Control(Some('q')) => Some(Cmd::Quit),
+            Key::Control(Some('s')) => Some(Cmd::Save),
             Key::Control(Some(ctrl_char)) => {
                 println!("Unrecognised keypress: Ctrl-{}", ctrl_char);
                 None
@@ -267,7 +268,18 @@ impl<'a> Window<'a> {
             Cmd::Quit => self.try_quit(),
             Cmd::PrintInfo => self.print_info(),
             Cmd::Escape => {}
-            Cmd::Save => {}
+            Cmd::Save => self.save_file(),
+        }
+    }
+
+    fn save_file(&mut self) {
+        match self.draw_state.buffer.save_to_file() {
+            Ok(bytes_saved) => {
+                self.set_status_msg(format!("{} bytes written to disk", bytes_saved))
+            }
+            Err(err) => {
+                self.set_status_msg(format!("Can't save! Error: {}", err));
+            }
         }
     }
 

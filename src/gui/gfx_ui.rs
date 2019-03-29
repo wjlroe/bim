@@ -92,6 +92,8 @@ fn keyboard_event_to_keycode(event: KeyboardInput) -> Option<Key> {
                         Some(Key::Control(Some('f')))
                     } else if keycode == VirtualKeyCode::Q && event.modifiers.ctrl {
                         Some(Key::Control(Some('q')))
+                    } else if keycode == VirtualKeyCode::S && event.modifiers.ctrl {
+                        Some(Key::Control(Some('s')))
                     } else {
                         println!("Don't know what to do with received: {:?}", event);
                         None
