@@ -79,13 +79,10 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     let encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
     let mut buffer = Buffer::default();
-    let filename = match run_type {
-        RunOpenFile(ref filename_arg) => filename_arg,
-        _ => "testfiles/kilo-dos2.c",
-    };
-    if let Err(e) = buffer.open(filename) {
-        panic!("Error: {}", e);
-    };
+    if let RunOpenFile(ref filename) = run_type {
+        buffer.open(filename)?;
+    }
+
     let mut window = Window::new(
         monitor,
         gfx_window,

@@ -36,7 +36,10 @@ impl<'a> Buffer<'a> {
     }
 
     pub fn text_cursor_to_render(&self, cursor_x: i32, cursor_y: i32) -> i32 {
-        self.rows[cursor_y as usize].text_cursor_to_render(cursor_x)
+        self.rows
+            .get(cursor_y as usize)
+            .map(|row| row.text_cursor_to_render(cursor_x))
+            .unwrap_or(0)
     }
 
     fn insert_row(&mut self, at: usize, text: &str) {
