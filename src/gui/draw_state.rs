@@ -326,6 +326,14 @@ impl<'a> DrawState<'a> {
         line_transforms
     }
 
+    pub fn transform_from_width_height(&self, width: f32, height: f32) -> Matrix4<f32> {
+        Matrix4::from_nonuniform_scale(
+            width / self.window_width(),
+            height / self.window_height(),
+            1.0,
+        )
+    }
+
     pub fn update_screen_rows(&mut self) {
         self.screen_rows = (self.inner_height() / self.line_height()).floor() as i32;
     }
