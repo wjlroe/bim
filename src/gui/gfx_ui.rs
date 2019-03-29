@@ -8,7 +8,7 @@ use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::window::Window;
 use crate::gui::{ColorFormat, DepthFormat};
 use crate::keycodes::Key;
-use cgmath::Matrix4;
+use cgmath::{vec2, Matrix4, Vector2};
 use flame;
 use gfx;
 use gfx::Device;
@@ -276,11 +276,13 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         encoder.clear(&draw_quad.data.out_color, background);
         encoder.clear_depth(&draw_quad.data.out_depth, 1.0);
 
+        let window_dim: (f32, f32) = window.inner_dimensions().into();
+
         if window.has_resized() {
             let _guard = flame::start_guard("window_resized");
 
             let test_section = VariedSection {
-                bounds: window.inner_dimensions(),
+                bounds: window_dim,
                 screen_position: (window.left_padding(), window.top_padding()),
                 text: vec![SectionText {
                     text: "AB\nC\n",
@@ -328,7 +330,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             let _guard = flame::start_guard("render section_texts");
 
             let section = VariedSection {
-                bounds: window.inner_dimensions(),
+                bounds: window_dim,
                 screen_position: (window.left_padding(), window.top_padding()),
                 text: section_texts,
                 z: 1.0,
@@ -362,11 +364,8 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
             let status_text = window.status_text();
             let status_section = Section {
-                bounds: window.inner_dimensions(),
-                screen_position: (
-                    window.left_padding(),
-                    window.inner_dimensions().1 + window.top_padding(),
-                ),
+                bounds: window_dim,
+                screen_position: (window.left_padding(), window_dim.1 + window.top_padding()),
                 text: &status_text,
                 color: [1.0, 1.0, 1.0, 1.0],
                 scale: Scale::uniform(window.font_scale()),
@@ -386,7 +385,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
             let search_text = search_text;
             let search_section = Section {
-                bounds: window.inner_dimensions(),
+                bounds: window_dim,
                 screen_position: (window.left_padding(), 0.0),
                 text: &search_text,
                 color: [0.7, 0.6, 0.5, 1.0],
@@ -408,8 +407,9 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
             let layout = Layout::default()
                 .h_align(HorizontalAlign::Center)
                 .v_align(VerticalAlign::Center);
+            let popup_bounds: Vector2<f32> = window.inner_dimensions() - vec2(20.0, 20.0);
             let popup_section = Section {
-                bounds: window.inner_dimensions(),
+                bounds: popup_bounds.into(),
                 screen_position: (window.window_width() / 2.0, window.window_height() / 2.0),
                 text: &status_msg.message,
                 color: [224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0, 1.0],

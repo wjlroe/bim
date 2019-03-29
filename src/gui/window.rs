@@ -5,7 +5,7 @@ use crate::gui::draw_state::DrawState;
 use crate::keycodes::Key;
 use crate::search::Search;
 use crate::status::Status;
-use cgmath::Matrix4;
+use cgmath::{Matrix4, Vector2};
 use gfx_glyph::SectionText;
 use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::{MonitorId, WindowedContext};
@@ -70,11 +70,20 @@ impl<'a> Window<'a> {
         }
     }
 
-    pub fn inner_dimensions(&self) -> (f32, f32) {
+    pub fn inner_dimensions(&self) -> Vector2<f32> {
         (
             self.draw_state.inner_width(),
             self.draw_state.inner_height(),
         )
+            .into()
+    }
+
+    pub fn window_dimensions(&self) -> Vector2<f32> {
+        (
+            self.draw_state.window_width(),
+            self.draw_state.window_height(),
+        )
+            .into()
     }
 
     pub fn window_height(&self) -> f32 {
