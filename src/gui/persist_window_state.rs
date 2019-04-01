@@ -33,6 +33,7 @@ impl PersistWindowState {
                     Err(e) => println!("Error reading config file: {:?}", e),
                 }
             }
+            Err(ref e) if e.kind() == std::io::ErrorKind::NotFound => {}
             Err(e) => println!("Error opening config file: {:?}", e),
         }
         Self::default()
