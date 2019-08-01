@@ -1,6 +1,7 @@
 image: "rust:1.36"
 
 before_script:
+  - rustup component add rustfmt
   - curl https://pre-commit.com/install-local.py | python -
   - rustc --version
   - rustfmt --version
