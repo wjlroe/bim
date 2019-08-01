@@ -12,7 +12,6 @@ precommit:
 
 cargo:
   script:
-    - cargo build
     - cargo test
   cache:
     paths:
