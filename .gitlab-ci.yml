@@ -14,3 +14,6 @@ cargo:
   script:
     - cargo build
     - cargo test
+  cache:
+    paths:
+      - target/
