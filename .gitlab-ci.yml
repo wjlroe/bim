@@ -8,7 +8,7 @@ before_script:
 precommit:
   script:
     - curl https://pre-commit.com/install-local.py | python -
-    - pre-commit run --all-files
+    - $HOME/bin/pre-commit run --all-files
 
 cargo:
   script:
