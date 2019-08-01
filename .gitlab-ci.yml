@@ -1,0 +1,18 @@
+image: "rust:1.36"
+
+before_script:
+  - rustup component add rustfmt
+  - rustc --version
+  - rustfmt --version
+
+precommit:
+  script:
+    - curl https://pre-commit.com/install-local.py | python -
+    - $HOME/bin/pre-commit run --all-files
+
+cargo:
+  script:
+    - cargo test
+  cache:
+    paths:
+      - target/
