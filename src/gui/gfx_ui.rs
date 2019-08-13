@@ -38,6 +38,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         }
     }
     let dpi = monitor.get_hidpi_factor() as f32;
+    let _ = debug_log.debugln_timestamped(&format!("DPI: {}", dpi));
     // If there's an icon.png lying about, use it as the window_icon...
     let icon = Icon::from_path("icon32.png").ok();
     let window_builder = WindowBuilder::new()

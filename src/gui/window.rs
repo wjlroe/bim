@@ -147,6 +147,7 @@ impl<'a> Window<'a> {
                         action_queue.push(Action::ResizeWindow);
                     }
                     WindowEvent::HiDpiFactorChanged(new_dpi) => {
+                        let _ = self.debug_log.debugln_timestamped(&format!("new DPI: {}", new_dpi));
                         self.set_dpi(new_dpi as f32);
                         action_queue.push(Action::ResizeWindow);
                     }
