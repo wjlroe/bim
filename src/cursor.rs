@@ -3,7 +3,7 @@ pub trait CursorT {
     fn text_col(&self) -> i32;
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Cursor {
     pub text_row: i32,
     pub text_col: i32,

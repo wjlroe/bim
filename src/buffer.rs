@@ -276,7 +276,7 @@ impl<'a> Buffer<'a> {
 
     pub fn insert_char(&mut self, character: char, cursor_x: i32, cursor_y: i32) {
         if cursor_y == self.rows.len() as i32 {
-            self.rows.push(Row::new("", Rc::downgrade(&self.syntax)));
+            self.rows.push(Row::new("\n", Rc::downgrade(&self.syntax)));
         }
         self.rows[cursor_y as usize].insert_char(cursor_x as usize, character);
         self.dirty += 1;
@@ -545,7 +545,7 @@ fn test_insert_char() {
     buffer.insert_char('1', 1, 0);
     assert_eq!(2, buffer.dirty);
     assert_eq!(
-        vec!["£1"],
+        vec!["£1\n"],
         buffer
             .rows
             .iter()
@@ -712,4 +712,20 @@ fn test_move_cursor() {
         9,
         buffer.text_cursor_to_render(buffer.cursor.text_col(), buffer.cursor.text_row())
     );
+}
+
+#[test]
+fn test_move_cursor_with_inserted_text() {
+    use crate::cursor::Cursor;
+
+    let mut buffer = Buffer::default();
+    assert_eq!(Cursor::default(), buffer.cursor.current());
+    assert_eq!(0, buffer.cursor.text_row());
+    assert_eq!(0, buffer.cursor.text_col());
+
+    buffer.insert_char_at_cursor('H');
+    assert_eq!(Cursor::new(0, 1), buffer.cursor.current());
+    assert_eq!(0, buffer.cursor.text_row());
+    assert_eq!(1, buffer.cursor.text_col());
+    assert_eq!(1, buffer.text_cursor_to_render(1, 0));
 }
