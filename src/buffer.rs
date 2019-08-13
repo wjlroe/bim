@@ -35,6 +35,10 @@ impl<'a> Buffer<'a> {
             .map(|row| row.onscreen_text(offset, cols))
     }
 
+    // TODO: maybe introduce a RenderCursor and return it without params
+    // we will still need to translate positions in the text to render
+    // positions probably, but this just returns the column... it doesn't
+    // care about line wrapping for instance...
     pub fn text_cursor_to_render(&self, cursor_x: i32, cursor_y: i32) -> i32 {
         self.rows
             .get(cursor_y as usize)
