@@ -308,9 +308,6 @@ impl<'a> Terminal<'a> {
     }
 
     pub fn key_to_cmd(&self, key: Key) -> Option<Cmd> {
-        use crate::commands::{Cmd, MoveCursor};
-        use crate::keycodes::Key;
-
         let _ = self
             .debug_log
             .debugln_timestamped(&format!("key press: {:?}", key));

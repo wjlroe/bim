@@ -2,7 +2,6 @@ use crate::commands::{MoveCursor, SearchDirection};
 use crate::cursor::{CursorT, CursorWithHistory};
 use crate::row::{Row, DEFAULT_NEWLINE};
 use crate::syntax::{Syntax, SYNTAXES};
-use simple_error::bail;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -148,7 +147,7 @@ impl<'a> Buffer<'a> {
             self.dirty = 0;
             Ok(bytes_saved)
         } else {
-            bail!("No filename!")
+            Err(String::from("No filename!").into())
         }
     }
 
