@@ -1,9 +1,10 @@
-use glutin::VirtualKeyCode;
+use crate::keycodes::Key;
+use glutin::{ElementState, KeyboardInput, VirtualKeyCode};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
 lazy_static! {
-    pub static ref KEYCODE_TO_CHAR: HashMap<VirtualKeyCode, char> = {
+    static ref KEYCODE_TO_CHAR: HashMap<VirtualKeyCode, char> = {
         let mut map = HashMap::new();
         map.insert(VirtualKeyCode::A, 'a');
         map.insert(VirtualKeyCode::B, 'b');
@@ -68,4 +69,75 @@ lazy_static! {
         map.insert(VirtualKeyCode::Divide, '/');
         map
     };
+}
+
+pub fn keyboard_event_to_keycode(event: KeyboardInput) -> Option<Key> {
+    if event.state == ElementState::Pressed {
+        #[allow(clippy::collapsible_if)]
+        match event.virtual_keycode {
+            Some(VirtualKeyCode::Escape) => Some(Key::Escape),
+            Some(VirtualKeyCode::Left) => Some(Key::ArrowLeft),
+            Some(VirtualKeyCode::Right) => Some(Key::ArrowRight),
+            Some(VirtualKeyCode::Up) => Some(Key::ArrowUp),
+            Some(VirtualKeyCode::Down) => Some(Key::ArrowDown),
+            Some(VirtualKeyCode::PageDown) => Some(Key::PageDown),
+            Some(VirtualKeyCode::PageUp) => Some(Key::PageUp),
+            Some(VirtualKeyCode::Home) => Some(Key::Home),
+            Some(VirtualKeyCode::End) => Some(Key::End),
+            Some(VirtualKeyCode::Back) => Some(Key::Backspace),
+            Some(VirtualKeyCode::Delete) => Some(Key::Delete),
+            Some(VirtualKeyCode::Return) => Some(Key::Return),
+            Some(VirtualKeyCode::F11) => Some(Key::Function(11)),
+            Some(VirtualKeyCode::LControl) => None,
+            Some(VirtualKeyCode::RControl) => None,
+            Some(VirtualKeyCode::LAlt) => None,
+            Some(VirtualKeyCode::RAlt) => None,
+            Some(keycode) => {
+                if !event.modifiers.ctrl && !event.modifiers.alt && !event.modifiers.logo {
+                    if let Some(mut typed_char) = KEYCODE_TO_CHAR.get(&keycode).cloned() {
+                        if event.modifiers.shift {
+                            typed_char = typed_char
+                                .to_uppercase()
+                                .to_string()
+                                .chars()
+                                .nth(0)
+                                .unwrap();
+                        }
+                        Some(Key::Other(typed_char))
+                    } else {
+                        println!("Unrecognised virtual keycode: {:?}", keycode);
+                        None
+                    }
+                } else {
+                    if keycode == VirtualKeyCode::Minus && event.modifiers.ctrl {
+                        Some(Key::Control(Some('-')))
+                    } else if keycode == VirtualKeyCode::Equals
+                        && event.modifiers.shift
+                        && event.modifiers.ctrl
+                    {
+                        Some(Key::Control(Some('+')))
+                    } else if keycode == VirtualKeyCode::Space && event.modifiers.ctrl {
+                        Some(Key::Control(Some(' ')))
+                    } else if keycode == VirtualKeyCode::M && event.modifiers.ctrl {
+                        Some(Key::Control(Some('m')))
+                    } else if keycode == VirtualKeyCode::F && event.modifiers.ctrl {
+                        Some(Key::Control(Some('f')))
+                    } else if keycode == VirtualKeyCode::Q && event.modifiers.ctrl {
+                        Some(Key::Control(Some('q')))
+                    } else if keycode == VirtualKeyCode::S && event.modifiers.ctrl {
+                        Some(Key::Control(Some('s')))
+                    } else {
+                        println!("Don't know what to do with received: {:?}", event);
+                        None
+                    }
+                }
+            }
+            _ => {
+                println!("No virtual keycode received: {:?}", event);
+                None
+            }
+        }
+    } else {
+        None
+    }
 }
