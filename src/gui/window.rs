@@ -9,6 +9,7 @@ use crate::gui::quad;
 use crate::keycodes::Key;
 use crate::search::Search;
 use crate::status::Status;
+use cgmath::{vec2, Matrix4, Vector2};
 use flame;
 use gfx::{pso, Device, Encoder};
 use gfx_device_gl;
@@ -16,7 +17,6 @@ use gfx_glyph::{
     GlyphBrush, GlyphCruncher, HorizontalAlign, Layout, Scale, Section, SectionText, VariedSection,
     VerticalAlign,
 };
-use cgmath::{Matrix4, Vector2, vec2};
 use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::{ElementState, Event, MonitorId, MouseScrollDelta, WindowEvent, WindowedContext};
 use std::error::Error;
@@ -147,7 +147,9 @@ impl<'a> Window<'a> {
                         action_queue.push(Action::ResizeWindow);
                     }
                     WindowEvent::HiDpiFactorChanged(new_dpi) => {
-                        let _ = self.debug_log.debugln_timestamped(&format!("new DPI: {}", new_dpi));
+                        let _ = self
+                            .debug_log
+                            .debugln_timestamped(&format!("new DPI: {}", new_dpi));
                         self.set_dpi(new_dpi as f32);
                         action_queue.push(Action::ResizeWindow);
                     }
@@ -301,10 +303,7 @@ impl<'a> Window<'a> {
             let status_text = self.status_text();
             let status_section = Section {
                 bounds: window_dim,
-                screen_position: (
-                    self.left_padding(),
-                    window_dim.1 + self.top_padding(),
-                ),
+                screen_position: (self.left_padding(), window_dim.1 + self.top_padding()),
                 text: &status_text,
                 color: [1.0, 1.0, 1.0, 1.0],
                 scale: Scale::uniform(self.font_scale()),
@@ -346,8 +345,8 @@ impl<'a> Window<'a> {
             let layout = Layout::default()
                 .h_align(HorizontalAlign::Center)
                 .v_align(VerticalAlign::Center);
-	    let popup_bounds: Vector2<f32> = self.inner_dimensions() - vec2(20.0, 20.0);
-	    let popup_section = Section {
+            let popup_bounds: Vector2<f32> = self.inner_dimensions() - vec2(20.0, 20.0);
+            let popup_section = Section {
                 bounds: popup_bounds.into(),
                 screen_position: (self.window_width() / 2.0, self.window_height() / 2.0),
                 text: &status_msg.message,
