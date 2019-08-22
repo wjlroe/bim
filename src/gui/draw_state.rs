@@ -94,6 +94,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn update_cursor(&mut self) {
+        self.update_screen_rows();
         self.scroll();
         self.update_status_line();
         self.update_cursor_transform();
