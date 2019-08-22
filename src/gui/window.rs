@@ -26,6 +26,7 @@ use std::time::Duration;
 
 enum Action {
     ResizeWindow,
+    SaveFileAs(String),
 }
 
 const STATUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
@@ -34,6 +35,11 @@ const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
 const LINE_COL_BG: [f32; 3] = [0.0, 0.0, 0.0];
 const POPUP_BG: [f32; 3] = [51.0 / 255.0, 0.0, 102.0 / 255.0];
 const POPUP_OUTLINE: [f32; 3] = [240.0 / 255.0, 240.0 / 255.0, 240.0 / 255.0];
+
+// Marker for what to do when the prompt comes back
+enum PromptAction {
+    SaveFile,
+}
 
 pub struct Window<'a> {
     monitor: MonitorId,
@@ -44,6 +50,7 @@ pub struct Window<'a> {
     pub fullscreen: bool,
     draw_state: DrawState<'a>,
     prompt: Option<Prompt>,
+    prompt_next_action: Option<PromptAction>,
     quit_times: i8,
     pub in_focus: bool,
     pub status_message: Option<Status>,
@@ -54,6 +61,7 @@ pub struct Window<'a> {
     encoder: Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
     quad_bundle:
         pso::bundle::Bundle<gfx_device_gl::Resources, quad::pipe::Data<gfx_device_gl::Resources>>,
+    action_queue: Vec<Action>,
 }
 
 impl<'a> Window<'a> {
@@ -86,6 +94,7 @@ impl<'a> Window<'a> {
             fullscreen: false,
             draw_state: DrawState::new(window_width, window_height, font_size, ui_scale, buffer),
             prompt: None,
+            prompt_next_action: None,
             quit_times: BIM_QUIT_TIMES + 1,
             in_focus: true,
             status_message: None,
@@ -95,6 +104,33 @@ impl<'a> Window<'a> {
             device,
             encoder,
             quad_bundle,
+            action_queue: vec![],
+        }
+    }
+
+    fn handle_actions(&mut self) {
+        while let Some(action) = self.action_queue.pop() {
+            match action {
+                Action::ResizeWindow => {
+                    let physical_size = self.logical_size.to_physical(self.dpi.into());
+                    let _ = self
+                        .debug_log
+                        .debugln_timestamped(&format!("physical_size: {:?}", physical_size,));
+                    self.window.resize(physical_size);
+                    gfx_window_glutin::update_views(
+                        &self.window,
+                        &mut self.quad_bundle.data.out_color,
+                        &mut self.quad_bundle.data.out_depth,
+                    );
+                    {
+                        let (width, height, ..) = self.quad_bundle.data.out_color.get_dimensions();
+                        self.set_window_dimensions((width, height));
+                    }
+                }
+                Action::SaveFileAs(filename) => {
+                    self.save_file_as(filename);
+                }
+            }
         }
     }
 
@@ -102,7 +138,6 @@ impl<'a> Window<'a> {
         let mut running = true;
         flame::start("frame");
         self.next_frame();
-        let mut action_queue = vec![];
         match event {
             Event::WindowEvent { event, .. } => {
                 match event {
@@ -146,14 +181,14 @@ impl<'a> Window<'a> {
                     }
                     WindowEvent::Resized(new_logical_size) => {
                         self.resize(new_logical_size);
-                        action_queue.push(Action::ResizeWindow);
+                        self.action_queue.push(Action::ResizeWindow);
                     }
                     WindowEvent::HiDpiFactorChanged(new_dpi) => {
                         let _ = self
                             .debug_log
                             .debugln_timestamped(&format!("new DPI: {}", new_dpi));
                         self.set_dpi(new_dpi as f32);
-                        action_queue.push(Action::ResizeWindow);
+                        self.action_queue.push(Action::ResizeWindow);
                     }
                     WindowEvent::Moved(new_logical_position) => {
                         if let Some(monitor_name) =
@@ -171,25 +206,7 @@ impl<'a> Window<'a> {
             _ => (),
         };
 
-        while let Some(action) = action_queue.pop() {
-            match action {
-                Action::ResizeWindow => {
-                    let physical_size = self.logical_size.to_physical(self.dpi.into());
-                    self.debug_log
-                        .debugln_timestamped(&format!("physical_size: {:?}", physical_size,))?;
-                    self.window.resize(physical_size);
-                    gfx_window_glutin::update_views(
-                        &self.window,
-                        &mut self.quad_bundle.data.out_color,
-                        &mut self.quad_bundle.data.out_depth,
-                    );
-                    {
-                        let (width, height, ..) = self.quad_bundle.data.out_color.get_dimensions();
-                        self.set_window_dimensions((width, height));
-                    }
-                }
-            }
-        }
+        self.handle_actions();
 
         // Purple background
         let background = [0.16078, 0.16471, 0.26667, 1.0];
@@ -556,6 +573,22 @@ impl<'a> Window<'a> {
                         self.draw_state.stop_search();
                     }
                 }
+                Prompt::Input(input_prompt) => {
+                    if input_prompt.is_done() {
+                        // TODO: handle what to do with this string...
+                        println!("input is: {}", input_prompt.input);
+                        match self.prompt_next_action {
+                            Some(PromptAction::SaveFile) => {
+                                self.action_queue
+                                    .push(Action::SaveFileAs(input_prompt.input.clone()));
+                                self.prompt = None;
+                                self.prompt_next_action = None;
+                                self.draw_state.top_prompt_visible = false;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
             }
         }
     }
@@ -613,13 +646,28 @@ impl<'a> Window<'a> {
         }
     }
 
+    fn save_file_as(&mut self, filename: String) {
+        self.draw_state.buffer.filename = Some(filename);
+        self.save_file();
+    }
+
     fn save_file(&mut self) {
-        match self.draw_state.buffer.save_to_file() {
-            Ok(bytes_saved) => {
-                self.set_status_msg(format!("{} bytes written to disk", bytes_saved))
-            }
-            Err(err) => {
-                self.set_status_msg(format!("Can't save! Error: {}", err));
+        if self.draw_state.buffer.filename.is_none() {
+            // prompt for filename
+            // how do we know we're waiting on this?
+            // TODO: cursor still showing where the prompt is...
+            // TODO: show cursor after input next char
+            self.prompt = Some(Prompt::new_input(String::from("Save file as")));
+            self.prompt_next_action = Some(PromptAction::SaveFile);
+            self.draw_state.top_prompt_visible = true;
+        } else {
+            match self.draw_state.buffer.save_to_file() {
+                Ok(bytes_saved) => {
+                    self.set_status_msg(format!("{} bytes written to disk", bytes_saved))
+                }
+                Err(err) => {
+                    self.set_status_msg(format!("Can't save! Error: {}", err));
+                }
             }
         }
     }
