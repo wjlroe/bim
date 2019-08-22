@@ -60,7 +60,9 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         device.with_gl(|gl| gl.Disable(gfx_gl::FRAMEBUFFER_SRGB));
     }
 
-    gfx_window.set_position(persist_window_state.logical_position);
+    gfx_window
+        .window()
+        .set_position(persist_window_state.logical_position);
 
     let (window_width, window_height, ..) = main_color.get_dimensions();
     debug_log.debugln_timestamped(&format!(

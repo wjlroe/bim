@@ -18,7 +18,9 @@ use gfx_glyph::{
     VerticalAlign,
 };
 use glutin::dpi::{LogicalPosition, LogicalSize};
-use glutin::{ElementState, Event, MonitorId, MouseScrollDelta, WindowEvent, WindowedContext};
+use glutin::{
+    ElementState, Event, MonitorId, MouseScrollDelta, PossiblyCurrent, WindowEvent, WindowedContext,
+};
 use std::error::Error;
 use std::time::Duration;
 
@@ -35,7 +37,7 @@ const POPUP_OUTLINE: [f32; 3] = [240.0 / 255.0, 240.0 / 255.0, 240.0 / 255.0];
 
 pub struct Window<'a> {
     monitor: MonitorId,
-    window: WindowedContext,
+    window: WindowedContext<PossiblyCurrent>,
     logical_size: LogicalSize,
     dpi: f32,
     resized: bool,
@@ -57,7 +59,7 @@ pub struct Window<'a> {
 impl<'a> Window<'a> {
     pub fn new(
         monitor: MonitorId,
-        window: WindowedContext,
+        window: WindowedContext<PossiblyCurrent>,
         logical_size: LogicalSize,
         dpi: f32,
         window_width: f32,
@@ -154,7 +156,9 @@ impl<'a> Window<'a> {
                         action_queue.push(Action::ResizeWindow);
                     }
                     WindowEvent::Moved(new_logical_position) => {
-                        if let Some(monitor_name) = self.window.get_current_monitor().get_name() {
+                        if let Some(monitor_name) =
+                            self.window.window().get_current_monitor().get_name()
+                        {
                             self.persist_window_state.monitor_name = Some(monitor_name);
                         }
                         self.persist_window_state.logical_position = new_logical_position;
@@ -265,12 +269,14 @@ impl<'a> Window<'a> {
             };
             self.glyph_brush.queue(section);
 
-            self.glyph_brush.draw_queued_with_transform(
-                self.row_offset_as_transform().into(),
-                &mut self.encoder,
-                &self.quad_bundle.data.out_color,
-                &self.quad_bundle.data.out_depth,
-            )?;
+            let default_transform: Matrix4<f32> =
+                gfx_glyph::default_transform(&self.quad_bundle.data.out_color).into();
+            let transform = self.row_offset_as_transform() * default_transform;
+            self.glyph_brush
+                .use_queue()
+                .transform(transform)
+                .depth_target(&self.quad_bundle.data.out_depth)
+                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
         }
 
         {
@@ -311,11 +317,10 @@ impl<'a> Window<'a> {
                 ..Section::default()
             };
             self.glyph_brush.queue(status_section);
-            self.glyph_brush.draw_queued(
-                &mut self.encoder,
-                &self.quad_bundle.data.out_color,
-                &self.quad_bundle.data.out_depth,
-            )?;
+            self.glyph_brush
+                .use_queue()
+                .depth_target(&self.quad_bundle.data.out_depth)
+                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
         }
 
         if let Some(search_text) = self.search_text() {
@@ -332,11 +337,10 @@ impl<'a> Window<'a> {
                 ..Section::default()
             };
             self.glyph_brush.queue(search_section);
-            self.glyph_brush.draw_queued(
-                &mut self.encoder,
-                &self.quad_bundle.data.out_color,
-                &self.quad_bundle.data.out_depth,
-            )?;
+            self.glyph_brush
+                .use_queue()
+                .depth_target(&self.quad_bundle.data.out_depth)
+                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
         }
 
         if let Some(status_msg) = &self.status_message {
@@ -381,11 +385,10 @@ impl<'a> Window<'a> {
             }
 
             self.glyph_brush.queue(popup_section);
-            self.glyph_brush.draw_queued(
-                &mut self.encoder,
-                &self.quad_bundle.data.out_color,
-                &self.quad_bundle.data.out_depth,
-            )?;
+            self.glyph_brush
+                .use_queue()
+                .depth_target(&self.quad_bundle.data.out_depth)
+                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
         }
 
         flame::start("encoder.flush");
@@ -418,11 +421,11 @@ impl<'a> Window<'a> {
 
     pub fn toggle_fullscreen(&mut self, monitor: MonitorId) {
         if self.fullscreen {
-            self.window.set_fullscreen(None);
+            self.window.window().set_fullscreen(None);
             self.fullscreen = false;
             self.resized = true;
         } else {
-            self.window.set_fullscreen(Some(monitor));
+            self.window.window().set_fullscreen(Some(monitor));
             self.fullscreen = true;
             self.resized = true;
         }
