@@ -348,6 +348,7 @@ impl<'a> DrawState<'a> {
             self.onscreen_cursor(&self.buffer.cursor)
         );
         println!("cursor_transform: {:?}", self.cursor_transform);
+        println!("screen_rows: {}", self.screen_rows);
     }
 
     pub fn inc_font_size(&mut self) {
