@@ -2,10 +2,16 @@
 
 use bim::config::RunConfig;
 use bim::editor::Editor;
+use bim::gui::gfx_ui;
 use bim::EditorImpl;
-use std::env;
+use std::{env, error::Error};
 
-fn run(run_type: RunConfig) {
+enum Interface {
+    Terminal,
+    Gui,
+}
+
+fn run_terminal(run_type: RunConfig) {
     use bim::config::RunConfig::*;
 
     let editor = EditorImpl {};
@@ -26,18 +32,32 @@ fn run(run_type: RunConfig) {
     }
 }
 
-fn main() {
-    let filename_arg = env::args().skip(1).nth(0);
-    let run_type = match filename_arg {
-        Some(arg) => {
-            if arg == "--debug" {
-                RunConfig::Debug
-            } else {
-                RunConfig::RunOpenFile(arg)
+fn run_gui(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
+    gfx_ui::run(run_type)?;
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let mut run_type = RunConfig::Run;
+    let mut interface = Interface::Gui;
+
+    for arg in env::args().skip(1) {
+        match arg.as_str() {
+            "--debug" => run_type = RunConfig::Debug,
+            "--no-window-system" | "-nw" => interface = Interface::Terminal,
+            _ => {
+                if !arg.starts_with("-") {
+                    // i.e. not a flag
+                    run_type = RunConfig::RunOpenFile(String::from(arg))
+                }
             }
         }
-        _ => RunConfig::Run,
-    };
+    }
 
-    run(run_type);
+    match interface {
+        Interface::Terminal => run_terminal(run_type),
+        Interface::Gui => run_gui(run_type)?,
+    }
+
+    Ok(())
 }

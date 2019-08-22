@@ -44,12 +44,6 @@ name = "bim"
 doctest = false
 doc = false
 
-[[bin]]
-name = "xbim"
-path = "src/xbim.rs"
-doctest = false
-doc = false
-
 [profile.release]
 debug = false
 lto = true
