@@ -569,9 +569,9 @@ impl<'a> Window<'a> {
                     self.draw_state.buffer.cursor.restore_saved();
                     self.draw_state.row_offset = search.saved_row_offset();
                     self.draw_state.col_offset = search.saved_col_offset();
+                        self.draw_state.top_prompt_visible = false;
                 }
                 self.search = None;
-                self.draw_state.search_visible = false;
                 self.draw_state.stop_search();
             }
         }

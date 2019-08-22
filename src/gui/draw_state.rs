@@ -30,7 +30,7 @@ pub struct DrawState<'a> {
     pub row_offset: f32,
     pub col_offset: f32,
     screen_rows: i32,
-    pub search_visible: bool,
+    pub top_prompt_visible: bool,
 }
 
 impl<'a> Default for DrawState<'a> {
@@ -54,7 +54,7 @@ impl<'a> Default for DrawState<'a> {
             row_offset: 0.0,
             col_offset: 0.0,
             screen_rows: 0,
-            search_visible: false,
+            top_prompt_visible: false,
         }
     }
 }
@@ -137,7 +137,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn top_padding(&self) -> f32 {
-        if self.search_visible {
+        if self.top_prompt_visible {
             self.line_height() // if search is on
         } else {
             0.0
@@ -470,7 +470,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn stop_search(&mut self) {
-        self.search_visible = false;
+        self.top_prompt_visible = false;
         self.buffer.clear_search_overlay();
         self.update_highlighted_sections();
         self.update_cursor();
