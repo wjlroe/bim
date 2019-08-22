@@ -1,4 +1,6 @@
+use crate::commands::SearchCmd;
 use crate::commands::SearchDirection;
+use crate::keycodes::Key;
 
 #[derive(Clone, Default, PartialEq)]
 pub struct Search {
@@ -80,5 +82,34 @@ impl Search {
 
     pub fn set_last_match(&mut self, last_match: Option<(usize, usize)>) {
         self.last_match = last_match;
+    }
+
+    pub fn handle_search_key(&mut self, key: Key) -> bool {
+        let cmd = match key {
+            Key::ArrowLeft | Key::ArrowUp => Some(SearchCmd::PrevMatch),
+            Key::ArrowRight | Key::ArrowDown => Some(SearchCmd::NextMatch),
+            Key::Escape => Some(SearchCmd::Quit),
+            Key::Return => Some(SearchCmd::Exit),
+            Key::Other(typed_char) => Some(SearchCmd::InsertChar(typed_char)),
+            Key::Backspace | Key::Delete => Some(SearchCmd::DeleteChar),
+            _ => None,
+        };
+        if let Some(search_cmd) = cmd {
+            self.handle_search_cmd(search_cmd);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn handle_search_cmd(&mut self, cmd: SearchCmd) {
+        match cmd {
+            SearchCmd::Quit => self.stop(true),
+            SearchCmd::Exit => self.stop(false),
+            SearchCmd::NextMatch => self.go_forwards(),
+            SearchCmd::PrevMatch => self.go_backwards(),
+            SearchCmd::InsertChar(typed_char) => self.push_char(typed_char),
+            SearchCmd::DeleteChar => self.del_char(),
+        }
     }
 }

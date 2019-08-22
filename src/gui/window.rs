@@ -1,5 +1,5 @@
 use crate::buffer::Buffer;
-use crate::commands::{self, Cmd, MoveCursor, SearchCmd};
+use crate::commands::{self, Cmd, MoveCursor};
 use crate::config::BIM_QUIT_TIMES;
 use crate::debug_log::DebugLog;
 use crate::gui::draw_state::DrawState;
@@ -7,7 +7,7 @@ use crate::gui::keycode_to_char;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::quad;
 use crate::keycodes::Key;
-use crate::search::Search;
+use crate::prompt::Prompt;
 use crate::status::Status;
 use cgmath::{vec2, Matrix4, Vector2};
 use flame;
@@ -43,7 +43,7 @@ pub struct Window<'a> {
     resized: bool,
     pub fullscreen: bool,
     draw_state: DrawState<'a>,
-    search: Option<Search>,
+    prompt: Option<Prompt>,
     quit_times: i8,
     pub in_focus: bool,
     pub status_message: Option<Status>,
@@ -85,7 +85,7 @@ impl<'a> Window<'a> {
             resized: false,
             fullscreen: false,
             draw_state: DrawState::new(window_width, window_height, font_size, ui_scale, buffer),
-            search: None,
+            prompt: None,
             quit_times: BIM_QUIT_TIMES + 1,
             in_focus: true,
             status_message: None,
@@ -323,20 +323,19 @@ impl<'a> Window<'a> {
                 .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
         }
 
-        if let Some(search_text) = self.search_text() {
-            let _guard = flame::start_guard("render search text");
+        if let Some(top_left_text) = self.prompt_top_left() {
+            let _guard = flame::start_guard("render top left prompt text");
 
-            let search_text = search_text;
-            let search_section = Section {
+            let top_left_section = Section {
                 bounds: window_dim,
                 screen_position: (self.left_padding(), 0.0),
-                text: &search_text,
+                text: &top_left_text,
                 color: [0.7, 0.6, 0.5, 1.0],
                 scale: Scale::uniform(self.font_scale()),
                 z: 0.5,
                 ..Section::default()
             };
-            self.glyph_brush.queue(search_section);
+            self.glyph_brush.queue(top_left_section);
             self.glyph_brush
                 .use_queue()
                 .depth_target(&self.quad_bundle.data.out_depth)
@@ -524,55 +523,39 @@ impl<'a> Window<'a> {
     }
 
     pub fn handle_key(&mut self, key: Key) {
-        if self.search.is_some() {
-            self.handle_search_key(key);
-        } else {
+        let mut handled = false;
+        if let Some(prompt) = &mut self.prompt {
+            handled = prompt.handle_key(key);
+            self.check_prompt();
+        }
+
+        if !handled {
             self.handle_buffer_key(key);
         }
     }
 
-    fn handle_search_key(&mut self, key: Key) {
-        let cmd = match key {
-            Key::ArrowLeft | Key::ArrowUp => Some(SearchCmd::PrevMatch),
-            Key::ArrowRight | Key::ArrowDown => Some(SearchCmd::NextMatch),
-            Key::Escape => Some(SearchCmd::Quit),
-            Key::Return => Some(SearchCmd::Exit),
-            Key::Other(typed_char) => Some(SearchCmd::InsertChar(typed_char)),
-            Key::Backspace | Key::Delete => Some(SearchCmd::DeleteChar),
-            _ => None,
-        };
-        if let Some(search_cmd) = cmd {
-            self.handle_search_cmd(search_cmd);
-        }
-    }
-
-    fn handle_search_cmd(&mut self, cmd: SearchCmd) {
-        if let Some(search) = &mut self.search {
-            match cmd {
-                SearchCmd::Quit => search.stop(true),
-                SearchCmd::Exit => search.stop(false),
-                SearchCmd::NextMatch => search.go_forwards(),
-                SearchCmd::PrevMatch => search.go_backwards(),
-                SearchCmd::InsertChar(typed_char) => search.push_char(typed_char),
-                SearchCmd::DeleteChar => search.del_char(),
-            }
-
-            if search.run_search() {
-                let last_match = self.draw_state.search_for(
-                    search.last_match(),
-                    search.direction(),
-                    search.needle(),
-                );
-                search.set_last_match(last_match);
-            } else {
-                if search.restore_cursor() {
-                    self.draw_state.buffer.cursor.restore_saved();
-                    self.draw_state.row_offset = search.saved_row_offset();
-                    self.draw_state.col_offset = search.saved_col_offset();
+    fn check_prompt(&mut self) {
+        if let Some(prompt) = &mut self.prompt {
+            match prompt {
+                Prompt::Search(search) => {
+                    if search.run_search() {
+                        let last_match = self.draw_state.search_for(
+                            search.last_match(),
+                            search.direction(),
+                            search.needle(),
+                        );
+                        search.set_last_match(last_match);
+                    } else {
+                        if search.restore_cursor() {
+                            self.draw_state.buffer.cursor.restore_saved();
+                            self.draw_state.row_offset = search.saved_row_offset();
+                            self.draw_state.col_offset = search.saved_col_offset();
+                        }
+                        self.prompt = None;
                         self.draw_state.top_prompt_visible = false;
+                        self.draw_state.stop_search();
+                    }
                 }
-                self.search = None;
-                self.draw_state.stop_search();
             }
         }
     }
@@ -642,10 +625,12 @@ impl<'a> Window<'a> {
     }
 
     fn start_search(&mut self) {
-        let search = Search::new(self.draw_state.col_offset(), self.draw_state.row_offset());
         self.draw_state.buffer.cursor.save_cursor();
-        self.search = Some(search);
-        self.draw_state.search_visible = true;
+        self.prompt = Some(Prompt::new_search(
+            self.draw_state.col_offset(),
+            self.draw_state.row_offset(),
+        ));
+        self.draw_state.top_prompt_visible = true;
         self.draw_state.update_search();
     }
 
@@ -696,9 +681,9 @@ impl<'a> Window<'a> {
         self.draw_state.insert_char(typed_char);
     }
 
-    pub fn search_text(&self) -> Option<String> {
-        if let Some(search) = &self.search {
-            Some(search.as_string())
+    pub fn prompt_top_left(&self) -> Option<String> {
+        if let Some(prompt) = &self.prompt {
+            prompt.top_left_string()
         } else {
             None
         }
