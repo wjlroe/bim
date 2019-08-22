@@ -575,8 +575,6 @@ impl<'a> Window<'a> {
                 }
                 Prompt::Input(input_prompt) => {
                     if input_prompt.is_done() {
-                        // TODO: handle what to do with this string...
-                        println!("input is: {}", input_prompt.input);
                         match self.prompt_next_action {
                             Some(PromptAction::SaveFile) => {
                                 self.action_queue
