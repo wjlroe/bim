@@ -19,3 +19,6 @@ icon*.png
 bim.ico
 callgrind.out*
 flame-graph.html
+
+# RenderDoc capture files
+*.rdc
