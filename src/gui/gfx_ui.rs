@@ -70,7 +70,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         window_width, window_height,
     ))?;
 
-    // let mut draw_quad = DrawQuad::new(&mut factory, main_color, main_depth);
     let quad_bundle = quad::create_bundle(&mut factory, main_color, main_depth);
     let fonts: Vec<&[u8]> = vec![include_bytes!("iosevka-regular.ttf")];
 
