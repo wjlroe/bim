@@ -69,6 +69,11 @@ impl CursorWithHistory {
         self.current = Cursor::new(row, col);
     }
 
+    pub fn move_to_without_history(&mut self, row: i32, col: i32) {
+        self.current.text_row = row;
+        self.current.text_col = col;
+    }
+
     pub fn change<F>(&mut self, func: F)
     where
         F: Fn(&mut Cursor),
@@ -143,4 +148,29 @@ fn test_change_cursor_same_cursor() {
     });
     // Same number of previous cursors, no new ones pushed
     assert_eq!(1, cursor_with_history.previous.len());
+}
+
+#[test]
+fn test_move_to_without_history() {
+    let mut cursor_with_history = CursorWithHistory::default();
+    cursor_with_history.change(|cursor| {
+        cursor.text_row = 3;
+        cursor.text_col = 10;
+    });
+
+    assert_eq!(Cursor::new(3, 10), cursor_with_history.current);
+
+    cursor_with_history.change(|cursor| {
+        cursor.text_row = 0;
+        cursor.text_col = 0;
+    });
+
+    cursor_with_history.move_to_without_history(1, 0);
+    cursor_with_history.move_to_without_history(2, 0);
+    cursor_with_history.move_to_without_history(3, 0);
+    cursor_with_history.move_to_without_history(4, 0);
+
+    cursor_with_history.pop_previous();
+
+    assert_eq!(Cursor::new(3, 10), cursor_with_history.current);
 }
