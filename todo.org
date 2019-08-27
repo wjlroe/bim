@@ -34,3 +34,4 @@
   original window dimensions rather than new ones. Try to update gfx libraries.
 * TODO What is DrawState? Should it be the GUI abstraction on top of a Buffer?
   Then there's a window, a split, a tab, etc.
+* TODO Fix aspect ratio in outline rects
