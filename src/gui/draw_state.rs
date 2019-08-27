@@ -1,13 +1,18 @@
-use crate::buffer::Buffer;
-use crate::commands::SearchDirection;
+use crate::buffer::{Buffer, FileSaveStatus};
 use crate::cursor::{Cursor, CursorT};
+use crate::gui::window::WindowAction;
 use crate::highlight::HighlightedSection;
 use crate::highlight::{highlight_to_color, Highlight};
+use crate::input::Input;
+use crate::keycodes::Key;
+use crate::prompt::PromptAction;
+use crate::search::Search;
 use crate::status_line::StatusLine;
 use crate::utils::char_position_to_byte_position;
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 use flame;
 use gfx_glyph::{Scale, SectionText};
+use std::error::Error;
 
 const LINE_COLS_AT: [u32; 2] = [80, 120];
 
@@ -30,7 +35,8 @@ pub struct DrawState<'a> {
     pub row_offset: f32,
     pub col_offset: f32,
     screen_rows: i32,
-    pub search_visible: bool,
+    pub prompt: Option<Input<'a>>,
+    pub search: Option<Search>,
 }
 
 impl<'a> Default for DrawState<'a> {
@@ -54,7 +60,8 @@ impl<'a> Default for DrawState<'a> {
             row_offset: 0.0,
             col_offset: 0.0,
             screen_rows: 0,
-            search_visible: false,
+            prompt: None,
+            search: None,
         }
     }
 }
@@ -94,6 +101,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn update_cursor(&mut self) {
+        self.update_screen_rows();
         self.scroll();
         self.update_status_line();
         self.update_cursor_transform();
@@ -136,7 +144,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn top_padding(&self) -> f32 {
-        if self.search_visible {
+        if self.top_prompt_visible() {
             self.line_height() // if search is on
         } else {
             0.0
@@ -347,6 +355,7 @@ impl<'a> DrawState<'a> {
             self.onscreen_cursor(&self.buffer.cursor)
         );
         println!("cursor_transform: {:?}", self.cursor_transform);
+        println!("screen_rows: {}", self.screen_rows);
     }
 
     pub fn inc_font_size(&mut self) {
@@ -452,15 +461,20 @@ impl<'a> DrawState<'a> {
         self.update_cursor();
     }
 
-    pub fn search_for(
-        &mut self,
-        last_match: Option<(usize, usize)>,
-        direction: SearchDirection,
-        needle: &str,
-    ) -> Option<(usize, usize)> {
-        let next_match = self.buffer.search_for(last_match, direction, needle);
-        self.update_search();
-        next_match
+    pub fn run_search(&mut self) {
+        let mut update_search = false;
+
+        if let Some(search) = &mut self.search {
+            let last_match =
+                self.buffer
+                    .search_for(search.last_match(), search.direction(), search.needle());
+            search.set_last_match(last_match);
+            update_search = true;
+        }
+
+        if update_search {
+            self.update_search();
+        }
     }
 
     pub fn update_search(&mut self) {
@@ -468,8 +482,14 @@ impl<'a> DrawState<'a> {
         self.update_highlighted_sections();
     }
 
+    pub fn start_search(&mut self) {
+        self.search = Some(Search::new(self.col_offset(), self.row_offset()));
+        self.buffer.cursor.save_cursor();
+        self.update_search();
+    }
+
     pub fn stop_search(&mut self) {
-        self.search_visible = false;
+        self.search = None;
         self.buffer.clear_search_overlay();
         self.update_highlighted_sections();
         self.update_cursor();
@@ -556,6 +576,97 @@ impl<'a> DrawState<'a> {
             };
         }
         section_texts
+    }
+
+    pub fn start_prompt(&mut self, prompt: Input<'a>) {
+        self.prompt = Some(prompt);
+        self.buffer.cursor.save_cursor();
+        self.update_cursor();
+    }
+
+    fn top_prompt_visible(&self) -> bool {
+        self.prompt.is_some() || self.search.is_some()
+    }
+
+    pub fn handle_key(&mut self, key: Key) -> (bool, Option<WindowAction>) {
+        let mut window_action = None;
+        let mut prompt_handled = false;
+        let mut search_handled = false;
+
+        if let Some(prompt) = self.prompt.as_mut() {
+            prompt_handled = prompt.handle_key(key);
+            window_action = self.check_prompt();
+        }
+
+        if !prompt_handled {
+            if let Some(search) = self.search.as_mut() {
+                search_handled = search.handle_key(key);
+                if search_handled {
+                    self.check_search();
+                }
+            }
+        }
+
+        (prompt_handled || search_handled, window_action)
+    }
+
+    pub fn prompt_text(&self) -> Option<&str> {
+        self.prompt.as_ref().map(|prompt| prompt.display_text())
+    }
+
+    pub fn stop_prompt(&mut self) {
+        self.prompt = None;
+        self.buffer.cursor.restore_saved();
+        self.update_cursor();
+    }
+
+    pub fn check_prompt(&mut self) -> Option<WindowAction> {
+        let mut window_action = None;
+        let mut stop_prompt = false;
+
+        if let Some(prompt) = self.prompt.as_mut() {
+            if prompt.is_done() || prompt.is_cancelled() {
+                stop_prompt = true;
+            }
+            if prompt.is_done() {
+                match prompt.next_action() {
+                    Some(PromptAction::SaveFile) => {
+                        window_action =
+                            Some(WindowAction::SaveFileAs(String::from(prompt.input())));
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        if stop_prompt {
+            self.stop_prompt();
+        }
+
+        window_action
+    }
+
+    pub fn check_search(&mut self) {
+        if let Some(search) = self.search.as_ref() {
+            if search.run_search() {
+                self.run_search();
+            } else {
+                if search.restore_cursor() {
+                    self.buffer.cursor.restore_saved();
+                    self.row_offset = search.saved_row_offset();
+                    self.col_offset = search.saved_col_offset();
+                }
+                self.stop_search();
+            }
+        }
+    }
+
+    pub fn save_file(&mut self) -> Result<FileSaveStatus, Box<dyn Error>> {
+        let file_save_status = self.buffer.save_file()?;
+        if file_save_status == FileSaveStatus::NoFilename {
+            self.start_prompt(Input::new_save_file_input("Save file as", true));
+        }
+        Ok(file_save_status)
     }
 }
 

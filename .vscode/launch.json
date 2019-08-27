@@ -17,7 +17,7 @@
       ],
       "externalConsole": false,
       "preLaunchTask": "cargo build",
-      "program": "${workspaceRoot}/target/debug/xbim",
+      "program": "${workspaceRoot}/target/debug/bim",
       "args": [
         "testfiles/kilo-dos2.c"
       ],
@@ -31,7 +31,7 @@
       ],
       "osx": {
         "type": "lldb-mi",
-        "target": "${workspaceRoot}/target/debug/xbim"
+        "target": "${workspaceRoot}/target/debug/bim"
       },
       "windows": {
         "type": "cppvsdbg"
@@ -45,7 +45,7 @@
       "environment": [],
       "externalConsole": false,
       "preLaunchTask": "cargo build release",
-      "program": "${workspaceRoot}/target/release/xbim",
+      "program": "${workspaceRoot}/target/release/bim",
       "args": [
         "testfiles/kilo-dos2.c"
       ],
@@ -59,7 +59,7 @@
       ],
       "osx": {
         "type": "lldb-mi",
-        "target": "${workspaceRoot}/target/release/xbim"
+        "target": "${workspaceRoot}/target/release/bim"
       },
       "windows": {
         "type": "cppvsdbg"
@@ -71,6 +71,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/target/debug/bim.exe",
       "args": [
+        "-nw",
         "kilo-dos2.c"
       ],
       "stopAtEntry": false,

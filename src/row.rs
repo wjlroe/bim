@@ -80,6 +80,7 @@ impl<'a> Iterator for RenderCursorIter<'a> {
     }
 }
 
+#[derive(Default)]
 pub struct Row<'a> {
     chars: String,
     pub size: usize,
@@ -89,6 +90,18 @@ pub struct Row<'a> {
     pub overlay: Vec<Option<Highlight>>,
     syntax: Weak<Option<&'a Syntax<'a>>>,
     pub hl_open_comment: bool,
+}
+
+impl<'a> PartialEq for Row<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.chars == other.chars
+            && self.size == other.size
+            && self.render == other.render
+            && self.rsize == other.rsize
+            && self.hl == other.hl
+            && self.overlay == other.overlay
+            && self.hl_open_comment == other.hl_open_comment
+    }
 }
 
 impl<'a> Row<'a> {
@@ -107,7 +120,7 @@ impl<'a> Row<'a> {
         row
     }
 
-    fn set_text(&mut self, text: &str) {
+    pub fn set_text(&mut self, text: &str) {
         self.chars.clear();
         self.chars.push_str(text);
         self.update();
@@ -330,6 +343,11 @@ impl<'a> Row<'a> {
         self.update();
     }
 
+    pub fn append_char(&mut self, character: char) {
+        self.chars.push(character);
+        self.update();
+    }
+
     pub fn append_text(&mut self, text: &str) {
         let byte_pos = self.render_cursor_to_byte_position(self.size);
         self.chars.truncate(byte_pos);
@@ -341,6 +359,11 @@ impl<'a> Row<'a> {
         let at = if at >= self.size { self.size - 1 } else { at };
         let byte_pos = self.render_cursor_to_byte_position(at);
         self.chars.remove(byte_pos);
+        self.update();
+    }
+
+    pub fn pop_char(&mut self) {
+        self.chars.pop();
         self.update();
     }
 

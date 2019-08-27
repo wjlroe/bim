@@ -38,6 +38,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         }
     }
     let dpi = monitor.get_hidpi_factor() as f32;
+    let _ = debug_log.debugln_timestamped(&format!("DPI: {}", dpi));
     // If there's an icon.png lying about, use it as the window_icon...
     let icon = Icon::from_path("icon32.png").ok();
     let window_builder = WindowBuilder::new()
@@ -59,7 +60,9 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         device.with_gl(|gl| gl.Disable(gfx_gl::FRAMEBUFFER_SRGB));
     }
 
-    gfx_window.set_position(persist_window_state.logical_position);
+    gfx_window
+        .window()
+        .set_position(persist_window_state.logical_position);
 
     let (window_width, window_height, ..) = main_color.get_dimensions();
     debug_log.debugln_timestamped(&format!(
@@ -67,7 +70,6 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         window_width, window_height,
     ))?;
 
-    // let mut draw_quad = DrawQuad::new(&mut factory, main_color, main_depth);
     let quad_bundle = quad::create_bundle(&mut factory, main_color, main_depth);
     let fonts: Vec<&[u8]> = vec![include_bytes!("iosevka-regular.ttf")];
 
@@ -79,13 +81,10 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     let encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
     let mut buffer = Buffer::default();
-    let filename = match run_type {
-        RunOpenFile(ref filename_arg) => filename_arg,
-        _ => "testfiles/kilo-dos2.c",
-    };
-    if let Err(e) = buffer.open(filename) {
-        panic!("Error: {}", e);
-    };
+    if let RunOpenFile(ref filename) = run_type {
+        buffer.open(filename)?;
+    }
+
     let mut window = Window::new(
         monitor,
         gfx_window,

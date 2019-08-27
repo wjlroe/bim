@@ -1,6 +1,8 @@
+use crate::commands::SearchCmd;
 use crate::commands::SearchDirection;
+use crate::keycodes::Key;
 
-#[derive(Clone, Default, PartialEq)]
+#[derive(PartialEq)]
 pub struct Search {
     needle: String,
     direction: SearchDirection,
@@ -13,11 +15,19 @@ pub struct Search {
 
 impl Search {
     pub fn new(saved_row_offset: f32, saved_col_offset: f32) -> Self {
-        let mut search = Self::default();
-        search.run_search = true;
-        search.saved_col_offset = saved_col_offset;
-        search.saved_row_offset = saved_row_offset;
-        search
+        Self {
+            needle: String::new(),
+            direction: SearchDirection::default(),
+            last_match: None,
+            run_search: true,
+            restore_cursor: false,
+            saved_row_offset,
+            saved_col_offset,
+        }
+    }
+
+    pub fn update(&mut self, input_str: &str) {
+        self.needle = String::from(input_str);
     }
 
     pub fn as_string(&self) -> String {
@@ -80,5 +90,34 @@ impl Search {
 
     pub fn set_last_match(&mut self, last_match: Option<(usize, usize)>) {
         self.last_match = last_match;
+    }
+
+    pub fn handle_key(&mut self, key: Key) -> bool {
+        let cmd = match key {
+            Key::ArrowLeft | Key::ArrowUp => Some(SearchCmd::PrevMatch),
+            Key::ArrowRight | Key::ArrowDown => Some(SearchCmd::NextMatch),
+            Key::Escape => Some(SearchCmd::Quit),
+            Key::Return => Some(SearchCmd::Exit),
+            Key::Other(typed_char) => Some(SearchCmd::InsertChar(typed_char)),
+            Key::Backspace | Key::Delete => Some(SearchCmd::DeleteChar),
+            _ => None,
+        };
+        if let Some(search_cmd) = cmd {
+            self.handle_search_cmd(search_cmd);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn handle_search_cmd(&mut self, cmd: SearchCmd) {
+        match cmd {
+            SearchCmd::Quit => self.stop(true),
+            SearchCmd::Exit => self.stop(false),
+            SearchCmd::NextMatch => self.go_forwards(),
+            SearchCmd::PrevMatch => self.go_backwards(),
+            SearchCmd::InsertChar(typed_char) => self.push_char(typed_char),
+            SearchCmd::DeleteChar => self.del_char(),
+        }
     }
 }

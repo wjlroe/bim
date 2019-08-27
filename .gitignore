@@ -10,8 +10,6 @@ build/
 *.VC.*
 *.dSYM
 .*debug
-*.txt
-testfiles/
 .idea/dbnavigator.xml
 .idea/workspace.xml
 .bim_persist_state.yaml
@@ -19,3 +17,6 @@ icon*.png
 bim.ico
 callgrind.out*
 flame-graph.html
+
+# RenderDoc capture files
+*.rdc

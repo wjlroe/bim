@@ -1,5 +1,5 @@
-use crate::buffer::Buffer;
-use crate::commands::{self, Cmd, MoveCursor, SearchCmd};
+use crate::buffer::{Buffer, FileSaveStatus};
+use crate::commands::{self, Cmd, MoveCursor};
 use crate::config::BIM_QUIT_TIMES;
 use crate::debug_log::DebugLog;
 use crate::gui::draw_state::DrawState;
@@ -7,9 +7,8 @@ use crate::gui::keycode_to_char;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::quad;
 use crate::keycodes::Key;
-use crate::search::Search;
 use crate::status::Status;
-use cgmath::Matrix4;
+use cgmath::{vec2, Matrix4, Vector2};
 use flame;
 use gfx::{pso, Device, Encoder};
 use gfx_device_gl;
@@ -18,9 +17,15 @@ use gfx_glyph::{
     VerticalAlign,
 };
 use glutin::dpi::{LogicalPosition, LogicalSize};
-use glutin::{ElementState, Event, MonitorId, MouseScrollDelta, WindowEvent, WindowedContext};
+use glutin::{
+    ElementState, Event, MonitorId, MouseScrollDelta, PossiblyCurrent, WindowEvent, WindowedContext,
+};
 use std::error::Error;
 use std::time::Duration;
+
+pub enum WindowAction {
+    SaveFileAs(String),
+}
 
 enum Action {
     ResizeWindow,
@@ -35,13 +40,12 @@ const POPUP_OUTLINE: [f32; 3] = [240.0 / 255.0, 240.0 / 255.0, 240.0 / 255.0];
 
 pub struct Window<'a> {
     monitor: MonitorId,
-    window: WindowedContext,
+    window: WindowedContext<PossiblyCurrent>,
     logical_size: LogicalSize,
     dpi: f32,
     resized: bool,
     pub fullscreen: bool,
     draw_state: DrawState<'a>,
-    search: Option<Search>,
     quit_times: i8,
     pub in_focus: bool,
     pub status_message: Option<Status>,
@@ -52,12 +56,13 @@ pub struct Window<'a> {
     encoder: Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
     quad_bundle:
         pso::bundle::Bundle<gfx_device_gl::Resources, quad::pipe::Data<gfx_device_gl::Resources>>,
+    action_queue: Vec<Action>,
 }
 
 impl<'a> Window<'a> {
     pub fn new(
         monitor: MonitorId,
-        window: WindowedContext,
+        window: WindowedContext<PossiblyCurrent>,
         logical_size: LogicalSize,
         dpi: f32,
         window_width: f32,
@@ -83,7 +88,6 @@ impl<'a> Window<'a> {
             resized: false,
             fullscreen: false,
             draw_state: DrawState::new(window_width, window_height, font_size, ui_scale, buffer),
-            search: None,
             quit_times: BIM_QUIT_TIMES + 1,
             in_focus: true,
             status_message: None,
@@ -93,6 +97,30 @@ impl<'a> Window<'a> {
             device,
             encoder,
             quad_bundle,
+            action_queue: vec![],
+        }
+    }
+
+    fn handle_actions(&mut self) {
+        while let Some(action) = self.action_queue.pop() {
+            match action {
+                Action::ResizeWindow => {
+                    let physical_size = self.logical_size.to_physical(self.dpi.into());
+                    let _ = self
+                        .debug_log
+                        .debugln_timestamped(&format!("physical_size: {:?}", physical_size,));
+                    self.window.resize(physical_size);
+                    gfx_window_glutin::update_views(
+                        &self.window,
+                        &mut self.quad_bundle.data.out_color,
+                        &mut self.quad_bundle.data.out_depth,
+                    );
+                    {
+                        let (width, height, ..) = self.quad_bundle.data.out_color.get_dimensions();
+                        self.set_window_dimensions((width, height));
+                    }
+                }
+            }
         }
     }
 
@@ -100,7 +128,6 @@ impl<'a> Window<'a> {
         let mut running = true;
         flame::start("frame");
         self.next_frame();
-        let mut action_queue = vec![];
         match event {
             Event::WindowEvent { event, .. } => {
                 match event {
@@ -144,14 +171,19 @@ impl<'a> Window<'a> {
                     }
                     WindowEvent::Resized(new_logical_size) => {
                         self.resize(new_logical_size);
-                        action_queue.push(Action::ResizeWindow);
+                        self.action_queue.push(Action::ResizeWindow);
                     }
                     WindowEvent::HiDpiFactorChanged(new_dpi) => {
+                        let _ = self
+                            .debug_log
+                            .debugln_timestamped(&format!("new DPI: {}", new_dpi));
                         self.set_dpi(new_dpi as f32);
-                        action_queue.push(Action::ResizeWindow);
+                        self.action_queue.push(Action::ResizeWindow);
                     }
                     WindowEvent::Moved(new_logical_position) => {
-                        if let Some(monitor_name) = self.window.get_current_monitor().get_name() {
+                        if let Some(monitor_name) =
+                            self.window.window().get_current_monitor().get_name()
+                        {
                             self.persist_window_state.monitor_name = Some(monitor_name);
                         }
                         self.persist_window_state.logical_position = new_logical_position;
@@ -164,25 +196,7 @@ impl<'a> Window<'a> {
             _ => (),
         };
 
-        while let Some(action) = action_queue.pop() {
-            match action {
-                Action::ResizeWindow => {
-                    let physical_size = self.logical_size.to_physical(self.dpi.into());
-                    self.debug_log
-                        .debugln_timestamped(&format!("physical_size: {:?}", physical_size,))?;
-                    self.window.resize(physical_size);
-                    gfx_window_glutin::update_views(
-                        &self.window,
-                        &mut self.quad_bundle.data.out_color,
-                        &mut self.quad_bundle.data.out_depth,
-                    );
-                    {
-                        let (width, height, ..) = self.quad_bundle.data.out_color.get_dimensions();
-                        self.set_window_dimensions((width, height));
-                    }
-                }
-            }
-        }
+        self.handle_actions();
 
         // Purple background
         let background = [0.16078, 0.16471, 0.26667, 1.0];
@@ -191,11 +205,13 @@ impl<'a> Window<'a> {
         self.encoder
             .clear_depth(&self.quad_bundle.data.out_depth, 1.0);
 
+        let window_dim: (f32, f32) = self.inner_dimensions().into();
+
         if self.has_resized() {
             let _guard = flame::start_guard("window_resized");
 
             let test_section = VariedSection {
-                bounds: self.inner_dimensions(),
+                bounds: window_dim,
                 screen_position: (self.left_padding(), self.top_padding()),
                 text: vec![SectionText {
                     text: "AB\nC\n",
@@ -252,7 +268,7 @@ impl<'a> Window<'a> {
             let _guard = flame::start_guard("render section_texts");
 
             let section = VariedSection {
-                bounds: self.inner_dimensions(),
+                bounds: window_dim,
                 screen_position: (self.left_padding(), self.top_padding()),
                 text: self.draw_state.section_texts(),
                 z: 1.0,
@@ -260,12 +276,14 @@ impl<'a> Window<'a> {
             };
             self.glyph_brush.queue(section);
 
-            self.glyph_brush.draw_queued_with_transform(
-                self.row_offset_as_transform().into(),
-                &mut self.encoder,
-                &self.quad_bundle.data.out_color,
-                &self.quad_bundle.data.out_depth,
-            )?;
+            let default_transform: Matrix4<f32> =
+                gfx_glyph::default_transform(&self.quad_bundle.data.out_color).into();
+            let transform = self.row_offset_as_transform() * default_transform;
+            self.glyph_brush
+                .use_queue()
+                .transform(transform)
+                .depth_target(&self.quad_bundle.data.out_depth)
+                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
         }
 
         {
@@ -297,11 +315,8 @@ impl<'a> Window<'a> {
 
             let status_text = self.status_text();
             let status_section = Section {
-                bounds: self.inner_dimensions(),
-                screen_position: (
-                    self.left_padding(),
-                    self.inner_dimensions().1 + self.top_padding(),
-                ),
+                bounds: window_dim,
+                screen_position: (self.left_padding(), window_dim.1 + self.top_padding()),
                 text: &status_text,
                 color: [1.0, 1.0, 1.0, 1.0],
                 scale: Scale::uniform(self.font_scale()),
@@ -309,32 +324,48 @@ impl<'a> Window<'a> {
                 ..Section::default()
             };
             self.glyph_brush.queue(status_section);
-            self.glyph_brush.draw_queued(
-                &mut self.encoder,
-                &self.quad_bundle.data.out_color,
-                &self.quad_bundle.data.out_depth,
-            )?;
+            self.glyph_brush
+                .use_queue()
+                .depth_target(&self.quad_bundle.data.out_depth)
+                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
         }
 
-        if let Some(search_text) = self.search_text() {
-            let _guard = flame::start_guard("render search text");
+        if let Some(top_left_text) = self.draw_state.prompt_text() {
+            let _guard = flame::start_guard("render top left prompt text");
 
-            let search_text = search_text;
-            let search_section = Section {
-                bounds: self.inner_dimensions(),
+            let top_left_section = Section {
+                bounds: window_dim,
                 screen_position: (self.left_padding(), 0.0),
-                text: &search_text,
+                text: &top_left_text,
                 color: [0.7, 0.6, 0.5, 1.0],
                 scale: Scale::uniform(self.font_scale()),
                 z: 0.5,
                 ..Section::default()
             };
-            self.glyph_brush.queue(search_section);
-            self.glyph_brush.draw_queued(
-                &mut self.encoder,
-                &self.quad_bundle.data.out_color,
-                &self.quad_bundle.data.out_depth,
-            )?;
+            self.glyph_brush.queue(top_left_section);
+            self.glyph_brush
+                .use_queue()
+                .depth_target(&self.quad_bundle.data.out_depth)
+                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
+        }
+
+        if let Some(search) = self.draw_state.search.as_ref() {
+            let _guard = flame::start_guard("render top left search prompt");
+
+            let top_left_section = Section {
+                bounds: window_dim,
+                screen_position: (self.left_padding(), 0.0),
+                text: &search.as_string(),
+                color: [0.7, 0.6, 0.5, 1.0],
+                scale: Scale::uniform(self.font_scale()),
+                z: 0.5,
+                ..Section::default()
+            };
+            self.glyph_brush.queue(top_left_section);
+            self.glyph_brush
+                .use_queue()
+                .depth_target(&self.quad_bundle.data.out_depth)
+                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
         }
 
         if let Some(status_msg) = &self.status_message {
@@ -343,8 +374,9 @@ impl<'a> Window<'a> {
             let layout = Layout::default()
                 .h_align(HorizontalAlign::Center)
                 .v_align(VerticalAlign::Center);
+            let popup_bounds: Vector2<f32> = self.inner_dimensions() - vec2(20.0, 20.0);
             let popup_section = Section {
-                bounds: self.inner_dimensions(),
+                bounds: popup_bounds.into(),
                 screen_position: (self.window_width() / 2.0, self.window_height() / 2.0),
                 text: &status_msg.message,
                 color: [224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0, 1.0],
@@ -378,11 +410,10 @@ impl<'a> Window<'a> {
             }
 
             self.glyph_brush.queue(popup_section);
-            self.glyph_brush.draw_queued(
-                &mut self.encoder,
-                &self.quad_bundle.data.out_color,
-                &self.quad_bundle.data.out_depth,
-            )?;
+            self.glyph_brush
+                .use_queue()
+                .depth_target(&self.quad_bundle.data.out_depth)
+                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
         }
 
         flame::start("encoder.flush");
@@ -415,21 +446,22 @@ impl<'a> Window<'a> {
 
     pub fn toggle_fullscreen(&mut self, monitor: MonitorId) {
         if self.fullscreen {
-            self.window.set_fullscreen(None);
+            self.window.window().set_fullscreen(None);
             self.fullscreen = false;
             self.resized = true;
         } else {
-            self.window.set_fullscreen(Some(monitor));
+            self.window.window().set_fullscreen(Some(monitor));
             self.fullscreen = true;
             self.resized = true;
         }
     }
 
-    pub fn inner_dimensions(&self) -> (f32, f32) {
+    pub fn inner_dimensions(&self) -> Vector2<f32> {
         (
             self.draw_state.inner_width(),
             self.draw_state.inner_height(),
         )
+            .into()
     }
 
     pub fn window_height(&self) -> f32 {
@@ -517,56 +549,26 @@ impl<'a> Window<'a> {
     }
 
     pub fn handle_key(&mut self, key: Key) {
-        if self.search.is_some() {
-            self.handle_search_key(key);
-        } else {
+        let (handled, window_action) = self.draw_state.handle_key(key);
+
+        if let Some(window_action) = window_action {
+            self.do_window_action(window_action);
+        }
+
+        if !handled {
             self.handle_buffer_key(key);
         }
     }
 
-    fn handle_search_key(&mut self, key: Key) {
-        let cmd = match key {
-            Key::ArrowLeft | Key::ArrowUp => Some(SearchCmd::PrevMatch),
-            Key::ArrowRight | Key::ArrowDown => Some(SearchCmd::NextMatch),
-            Key::Escape => Some(SearchCmd::Quit),
-            Key::Return => Some(SearchCmd::Exit),
-            Key::Other(typed_char) => Some(SearchCmd::InsertChar(typed_char)),
-            Key::Backspace | Key::Delete => Some(SearchCmd::DeleteChar),
-            _ => None,
-        };
-        if let Some(search_cmd) = cmd {
-            self.handle_search_cmd(search_cmd);
+    fn do_window_action(&mut self, window_action: WindowAction) {
+        match window_action {
+            WindowAction::SaveFileAs(filename) => self.save_file_as(filename),
         }
     }
 
-    fn handle_search_cmd(&mut self, cmd: SearchCmd) {
-        if let Some(search) = &mut self.search {
-            match cmd {
-                SearchCmd::Quit => search.stop(true),
-                SearchCmd::Exit => search.stop(false),
-                SearchCmd::NextMatch => search.go_forwards(),
-                SearchCmd::PrevMatch => search.go_backwards(),
-                SearchCmd::InsertChar(typed_char) => search.push_char(typed_char),
-                SearchCmd::DeleteChar => search.del_char(),
-            }
-
-            if search.run_search() {
-                let last_match = self.draw_state.search_for(
-                    search.last_match(),
-                    search.direction(),
-                    search.needle(),
-                );
-                search.set_last_match(last_match);
-            } else {
-                if search.restore_cursor() {
-                    self.draw_state.buffer.cursor.restore_saved();
-                    self.draw_state.row_offset = search.saved_row_offset();
-                    self.draw_state.col_offset = search.saved_col_offset();
-                }
-                self.search = None;
-                self.draw_state.search_visible = false;
-                self.draw_state.stop_search();
-            }
+    fn check_prompt(&mut self) {
+        if let Some(window_action) = self.draw_state.check_prompt() {
+            self.do_window_action(window_action);
         }
     }
 
@@ -614,7 +616,7 @@ impl<'a> Window<'a> {
             Cmd::DeleteCharForward => self.delete_char_forward(),
             Cmd::Linebreak => self.insert_newline_and_return(),
             Cmd::InsertChar(typed_char) => self.insert_char(typed_char),
-            Cmd::Search => self.start_search(),
+            Cmd::Search => self.draw_state.start_search(),
             Cmd::CloneCursor => self.clone_cursor(),
             Cmd::Quit => self.try_quit(),
             Cmd::PrintInfo => self.print_info(),
@@ -623,23 +625,21 @@ impl<'a> Window<'a> {
         }
     }
 
+    fn save_file_as(&mut self, filename: String) {
+        self.draw_state.buffer.filename = Some(filename);
+        self.save_file();
+    }
+
     fn save_file(&mut self) {
-        match self.draw_state.buffer.save_to_file() {
-            Ok(bytes_saved) => {
+        match self.draw_state.save_file() {
+            Ok(FileSaveStatus::Saved(bytes_saved)) => {
                 self.set_status_msg(format!("{} bytes written to disk", bytes_saved))
             }
+            Ok(_) => self.check_prompt(), // TODO: do we need to do this here? already covered by handle_key
             Err(err) => {
                 self.set_status_msg(format!("Can't save! Error: {}", err));
             }
         }
-    }
-
-    fn start_search(&mut self) {
-        let search = Search::new(self.draw_state.col_offset(), self.draw_state.row_offset());
-        self.draw_state.buffer.cursor.save_cursor();
-        self.search = Some(search);
-        self.draw_state.search_visible = true;
-        self.draw_state.update_search();
     }
 
     fn try_quit(&mut self) {
@@ -687,14 +687,6 @@ impl<'a> Window<'a> {
 
     fn insert_char(&mut self, typed_char: char) {
         self.draw_state.insert_char(typed_char);
-    }
-
-    pub fn search_text(&self) -> Option<String> {
-        if let Some(search) = &self.search {
-            Some(search.as_string())
-        } else {
-            None
-        }
     }
 
     pub fn resize(&mut self, logical_size: LogicalSize) {

@@ -7,6 +7,13 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::rc::Rc;
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum FileSaveStatus {
+    // FileExists,
+    NoFilename,
+    Saved(usize),
+}
+
 #[derive(Default)]
 pub struct Buffer<'a> {
     pub filename: Option<String>,
@@ -35,8 +42,15 @@ impl<'a> Buffer<'a> {
             .map(|row| row.onscreen_text(offset, cols))
     }
 
+    // TODO: maybe introduce a RenderCursor and return it without params
+    // we will still need to translate positions in the text to render
+    // positions probably, but this just returns the column... it doesn't
+    // care about line wrapping for instance...
     pub fn text_cursor_to_render(&self, cursor_x: i32, cursor_y: i32) -> i32 {
-        self.rows[cursor_y as usize].text_cursor_to_render(cursor_x)
+        self.rows
+            .get(cursor_y as usize)
+            .map(|row| row.text_cursor_to_render(cursor_x))
+            .unwrap_or(0)
     }
 
     fn insert_row(&mut self, at: usize, text: &str) {
@@ -136,7 +150,7 @@ impl<'a> Buffer<'a> {
         self.select_syntax();
     }
 
-    pub fn save_to_file(&mut self) -> Result<usize, Box<dyn Error>> {
+    pub fn save_file(&mut self) -> Result<FileSaveStatus, Box<dyn Error>> {
         if let Some(filename) = self.filename.clone() {
             let mut bytes_saved: usize = 0;
             let mut buffer = BufWriter::new(File::create(filename)?);
@@ -145,9 +159,9 @@ impl<'a> Buffer<'a> {
             }
             buffer.flush()?;
             self.dirty = 0;
-            Ok(bytes_saved)
+            Ok(FileSaveStatus::Saved(bytes_saved))
         } else {
-            Err(String::from("No filename!").into())
+            Ok(FileSaveStatus::NoFilename)
         }
     }
 
@@ -273,7 +287,7 @@ impl<'a> Buffer<'a> {
 
     pub fn insert_char(&mut self, character: char, cursor_x: i32, cursor_y: i32) {
         if cursor_y == self.rows.len() as i32 {
-            self.rows.push(Row::new("", Rc::downgrade(&self.syntax)));
+            self.rows.push(Row::new("\n", Rc::downgrade(&self.syntax)));
         }
         self.rows[cursor_y as usize].insert_char(cursor_x as usize, character);
         self.dirty += 1;
@@ -542,7 +556,7 @@ fn test_insert_char() {
     buffer.insert_char('1', 1, 0);
     assert_eq!(2, buffer.dirty);
     assert_eq!(
-        vec!["£1"],
+        vec!["£1\n"],
         buffer
             .rows
             .iter()
@@ -709,4 +723,20 @@ fn test_move_cursor() {
         9,
         buffer.text_cursor_to_render(buffer.cursor.text_col(), buffer.cursor.text_row())
     );
+}
+
+#[test]
+fn test_move_cursor_with_inserted_text() {
+    use crate::cursor::Cursor;
+
+    let mut buffer = Buffer::default();
+    assert_eq!(Cursor::default(), buffer.cursor.current());
+    assert_eq!(0, buffer.cursor.text_row());
+    assert_eq!(0, buffer.cursor.text_col());
+
+    buffer.insert_char_at_cursor('H');
+    assert_eq!(Cursor::new(0, 1), buffer.cursor.current());
+    assert_eq!(0, buffer.cursor.text_row());
+    assert_eq!(1, buffer.cursor.text_col());
+    assert_eq!(1, buffer.text_cursor_to_render(1, 0));
 }
