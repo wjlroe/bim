@@ -1,4 +1,4 @@
-use crate::buffer::Buffer;
+use crate::buffer::{Buffer, FileSaveStatus};
 use crate::commands::{self, Cmd, MoveCursor};
 use crate::config::BIM_QUIT_TIMES;
 use crate::debug_log::DebugLog;
@@ -7,7 +7,6 @@ use crate::gui::keycode_to_char;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::quad;
 use crate::keycodes::Key;
-use crate::prompt::Prompt;
 use crate::status::Status;
 use cgmath::{vec2, Matrix4, Vector2};
 use flame;
@@ -24,9 +23,12 @@ use glutin::{
 use std::error::Error;
 use std::time::Duration;
 
+pub enum WindowAction {
+    SaveFileAs(String),
+}
+
 enum Action {
     ResizeWindow,
-    SaveFileAs(String),
 }
 
 const STATUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
@@ -36,11 +38,6 @@ const LINE_COL_BG: [f32; 3] = [0.0, 0.0, 0.0];
 const POPUP_BG: [f32; 3] = [51.0 / 255.0, 0.0, 102.0 / 255.0];
 const POPUP_OUTLINE: [f32; 3] = [240.0 / 255.0, 240.0 / 255.0, 240.0 / 255.0];
 
-// Marker for what to do when the prompt comes back
-enum PromptAction {
-    SaveFile,
-}
-
 pub struct Window<'a> {
     monitor: MonitorId,
     window: WindowedContext<PossiblyCurrent>,
@@ -49,8 +46,6 @@ pub struct Window<'a> {
     resized: bool,
     pub fullscreen: bool,
     draw_state: DrawState<'a>,
-    prompt: Option<Prompt>,
-    prompt_next_action: Option<PromptAction>,
     quit_times: i8,
     pub in_focus: bool,
     pub status_message: Option<Status>,
@@ -93,8 +88,6 @@ impl<'a> Window<'a> {
             resized: false,
             fullscreen: false,
             draw_state: DrawState::new(window_width, window_height, font_size, ui_scale, buffer),
-            prompt: None,
-            prompt_next_action: None,
             quit_times: BIM_QUIT_TIMES + 1,
             in_focus: true,
             status_message: None,
@@ -126,9 +119,6 @@ impl<'a> Window<'a> {
                         let (width, height, ..) = self.quad_bundle.data.out_color.get_dimensions();
                         self.set_window_dimensions((width, height));
                     }
-                }
-                Action::SaveFileAs(filename) => {
-                    self.save_file_as(filename);
                 }
             }
         }
@@ -340,13 +330,32 @@ impl<'a> Window<'a> {
                 .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
         }
 
-        if let Some(top_left_text) = self.prompt_top_left() {
+        if let Some(top_left_text) = self.draw_state.prompt_text() {
             let _guard = flame::start_guard("render top left prompt text");
 
             let top_left_section = Section {
                 bounds: window_dim,
                 screen_position: (self.left_padding(), 0.0),
                 text: &top_left_text,
+                color: [0.7, 0.6, 0.5, 1.0],
+                scale: Scale::uniform(self.font_scale()),
+                z: 0.5,
+                ..Section::default()
+            };
+            self.glyph_brush.queue(top_left_section);
+            self.glyph_brush
+                .use_queue()
+                .depth_target(&self.quad_bundle.data.out_depth)
+                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
+        }
+
+        if let Some(search) = self.draw_state.search.as_ref() {
+            let _guard = flame::start_guard("render top left search prompt");
+
+            let top_left_section = Section {
+                bounds: window_dim,
+                screen_position: (self.left_padding(), 0.0),
+                text: &search.as_string(),
                 color: [0.7, 0.6, 0.5, 1.0],
                 scale: Scale::uniform(self.font_scale()),
                 z: 0.5,
@@ -540,10 +549,10 @@ impl<'a> Window<'a> {
     }
 
     pub fn handle_key(&mut self, key: Key) {
-        let mut handled = false;
-        if let Some(prompt) = &mut self.prompt {
-            handled = prompt.handle_key(key);
-            self.check_prompt();
+        let (handled, window_action) = self.draw_state.handle_key(key);
+
+        if let Some(window_action) = window_action {
+            self.do_window_action(window_action);
         }
 
         if !handled {
@@ -551,43 +560,15 @@ impl<'a> Window<'a> {
         }
     }
 
+    fn do_window_action(&mut self, window_action: WindowAction) {
+        match window_action {
+            WindowAction::SaveFileAs(filename) => self.save_file_as(filename),
+        }
+    }
+
     fn check_prompt(&mut self) {
-        if let Some(prompt) = &mut self.prompt {
-            match prompt {
-                Prompt::Search(search) => {
-                    if search.run_search() {
-                        let last_match = self.draw_state.search_for(
-                            search.last_match(),
-                            search.direction(),
-                            search.needle(),
-                        );
-                        search.set_last_match(last_match);
-                    } else {
-                        if search.restore_cursor() {
-                            self.draw_state.buffer.cursor.restore_saved();
-                            self.draw_state.row_offset = search.saved_row_offset();
-                            self.draw_state.col_offset = search.saved_col_offset();
-                        }
-                        self.prompt = None;
-                        self.draw_state.top_prompt_visible = false;
-                        self.draw_state.stop_search();
-                    }
-                }
-                Prompt::Input(input_prompt) => {
-                    if input_prompt.is_done() {
-                        match self.prompt_next_action {
-                            Some(PromptAction::SaveFile) => {
-                                self.action_queue
-                                    .push(Action::SaveFileAs(input_prompt.input.clone()));
-                                self.prompt = None;
-                                self.prompt_next_action = None;
-                                self.draw_state.top_prompt_visible = false;
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
+        if let Some(window_action) = self.draw_state.check_prompt() {
+            self.do_window_action(window_action);
         }
     }
 
@@ -635,7 +616,7 @@ impl<'a> Window<'a> {
             Cmd::DeleteCharForward => self.delete_char_forward(),
             Cmd::Linebreak => self.insert_newline_and_return(),
             Cmd::InsertChar(typed_char) => self.insert_char(typed_char),
-            Cmd::Search => self.start_search(),
+            Cmd::Search => self.draw_state.start_search(),
             Cmd::CloneCursor => self.clone_cursor(),
             Cmd::Quit => self.try_quit(),
             Cmd::PrintInfo => self.print_info(),
@@ -650,34 +631,15 @@ impl<'a> Window<'a> {
     }
 
     fn save_file(&mut self) {
-        if self.draw_state.buffer.filename.is_none() {
-            // prompt for filename
-            // how do we know we're waiting on this?
-            // TODO: cursor still showing where the prompt is...
-            // TODO: show cursor after input next char
-            self.prompt = Some(Prompt::new_input(String::from("Save file as")));
-            self.prompt_next_action = Some(PromptAction::SaveFile);
-            self.draw_state.top_prompt_visible = true;
-        } else {
-            match self.draw_state.buffer.save_to_file() {
-                Ok(bytes_saved) => {
-                    self.set_status_msg(format!("{} bytes written to disk", bytes_saved))
-                }
-                Err(err) => {
-                    self.set_status_msg(format!("Can't save! Error: {}", err));
-                }
+        match self.draw_state.save_file() {
+            Ok(FileSaveStatus::Saved(bytes_saved)) => {
+                self.set_status_msg(format!("{} bytes written to disk", bytes_saved))
+            }
+            Ok(_) => self.check_prompt(), // TODO: do we need to do this here? already covered by handle_key
+            Err(err) => {
+                self.set_status_msg(format!("Can't save! Error: {}", err));
             }
         }
-    }
-
-    fn start_search(&mut self) {
-        self.draw_state.buffer.cursor.save_cursor();
-        self.prompt = Some(Prompt::new_search(
-            self.draw_state.col_offset(),
-            self.draw_state.row_offset(),
-        ));
-        self.draw_state.top_prompt_visible = true;
-        self.draw_state.update_search();
     }
 
     fn try_quit(&mut self) {
@@ -725,14 +687,6 @@ impl<'a> Window<'a> {
 
     fn insert_char(&mut self, typed_char: char) {
         self.draw_state.insert_char(typed_char);
-    }
-
-    pub fn prompt_top_left(&self) -> Option<String> {
-        if let Some(prompt) = &self.prompt {
-            prompt.top_left_string()
-        } else {
-            None
-        }
     }
 
     pub fn resize(&mut self, logical_size: LogicalSize) {

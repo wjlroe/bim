@@ -2,7 +2,7 @@ use crate::commands::SearchCmd;
 use crate::commands::SearchDirection;
 use crate::keycodes::Key;
 
-#[derive(Clone, Default, PartialEq)]
+#[derive(PartialEq)]
 pub struct Search {
     needle: String,
     direction: SearchDirection,
@@ -15,11 +15,19 @@ pub struct Search {
 
 impl Search {
     pub fn new(saved_row_offset: f32, saved_col_offset: f32) -> Self {
-        let mut search = Self::default();
-        search.run_search = true;
-        search.saved_col_offset = saved_col_offset;
-        search.saved_row_offset = saved_row_offset;
-        search
+        Self {
+            needle: String::new(),
+            direction: SearchDirection::default(),
+            last_match: None,
+            run_search: true,
+            restore_cursor: false,
+            saved_row_offset,
+            saved_col_offset,
+        }
+    }
+
+    pub fn update(&mut self, input_str: &str) {
+        self.needle = String::from(input_str);
     }
 
     pub fn as_string(&self) -> String {
@@ -84,7 +92,7 @@ impl Search {
         self.last_match = last_match;
     }
 
-    pub fn handle_search_key(&mut self, key: Key) -> bool {
+    pub fn handle_key(&mut self, key: Key) -> bool {
         let cmd = match key {
             Key::ArrowLeft | Key::ArrowUp => Some(SearchCmd::PrevMatch),
             Key::ArrowRight | Key::ArrowDown => Some(SearchCmd::NextMatch),

@@ -18,6 +18,7 @@ pub mod config;
 mod cursor;
 pub mod debug_log;
 pub mod highlight;
+mod input;
 mod keycodes;
 mod prompt;
 mod row;

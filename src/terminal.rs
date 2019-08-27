@@ -1,4 +1,4 @@
-use crate::buffer::Buffer;
+use crate::buffer::{Buffer, FileSaveStatus};
 use crate::commands::{Cmd, MoveCursor, SearchDirection};
 use crate::config::BIM_QUIT_TIMES;
 use crate::cursor::CursorT;
@@ -421,15 +421,12 @@ impl<'a> Terminal<'a> {
             .debugln_timestamped(&format!("cols: {}", self.screen_cols));
     }
 
-    fn internal_save_file(&mut self) -> Result<usize, Box<dyn Error>> {
-        self.buffer.save_to_file()
-    }
-
     pub fn save_file(&mut self) {
-        match self.internal_save_file() {
-            Ok(bytes_saved) => {
+        match self.buffer.save_file() {
+            Ok(FileSaveStatus::Saved(bytes_saved)) => {
                 self.set_status_message(format!("{} bytes written to disk", bytes_saved));
             }
+            Ok(_) => {} // FIXME: handle NoFilename etc.
             Err(err) => self.set_status_message(format!("Can't save! Error: {:?}", err)),
         }
     }

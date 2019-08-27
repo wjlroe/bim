@@ -7,6 +7,13 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::rc::Rc;
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum FileSaveStatus {
+    // FileExists,
+    NoFilename,
+    Saved(usize),
+}
+
 #[derive(Default)]
 pub struct Buffer<'a> {
     pub filename: Option<String>,
@@ -143,7 +150,7 @@ impl<'a> Buffer<'a> {
         self.select_syntax();
     }
 
-    pub fn save_to_file(&mut self) -> Result<usize, Box<dyn Error>> {
+    pub fn save_file(&mut self) -> Result<FileSaveStatus, Box<dyn Error>> {
         if let Some(filename) = self.filename.clone() {
             let mut bytes_saved: usize = 0;
             let mut buffer = BufWriter::new(File::create(filename)?);
@@ -152,9 +159,9 @@ impl<'a> Buffer<'a> {
             }
             buffer.flush()?;
             self.dirty = 0;
-            Ok(bytes_saved)
+            Ok(FileSaveStatus::Saved(bytes_saved))
         } else {
-            Err(String::from("No filename!").into())
+            Ok(FileSaveStatus::NoFilename)
         }
     }
 

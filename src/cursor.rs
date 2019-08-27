@@ -1,3 +1,5 @@
+use std::fmt;
+
 pub trait CursorT {
     fn text_row(&self) -> i32;
     fn text_col(&self) -> i32;
@@ -8,6 +10,12 @@ pub struct Cursor {
     pub text_row: i32,
     pub text_col: i32,
     pub moved: bool,
+}
+
+impl fmt::Display for Cursor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}, {})", self.text_col, self.text_row)
+    }
 }
 
 impl PartialEq for Cursor {
