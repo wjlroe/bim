@@ -6,8 +6,13 @@ use std::fmt;
 use std::rc::Weak;
 
 const SEPARATORS: &str = ",.()+-/*=~%<>[];";
-const UNIX_NEWLINE: &str = "\n";
-const DOS_NEWLINE: &str = "\r\n";
+pub const UNIX_NEWLINE: &str = "\n";
+pub const DOS_NEWLINE: &str = "\r\n";
+
+#[cfg(windows)]
+pub const DEFAULT_NEWLINE_STR: &str = DOS_NEWLINE;
+#[cfg(not(windows))]
+pub const DEFAULT_NEWLINE: &str = UNIX_NEWLINE;
 
 #[allow(dead_code)]
 pub enum Newline {

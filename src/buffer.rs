@@ -1,6 +1,6 @@
 use crate::commands::{MoveCursor, SearchDirection};
 use crate::cursor::{CursorT, CursorWithHistory};
-use crate::row::{Row, DEFAULT_NEWLINE};
+use crate::row::{Row, DEFAULT_NEWLINE, DEFAULT_NEWLINE_STR, DOS_NEWLINE, UNIX_NEWLINE};
 use crate::syntax::{Syntax, SYNTAXES};
 use std::error::Error;
 use std::fs::File;
@@ -21,6 +21,7 @@ pub struct Buffer<'a> {
     syntax: Rc<Option<&'a Syntax<'a>>>,
     pub cursor: CursorWithHistory,
     dirty: i32,
+    newline: &'a str,
 }
 
 impl<'a> Buffer<'a> {
@@ -73,6 +74,22 @@ impl<'a> Buffer<'a> {
         self.dirty += 1;
     }
 
+    fn update_newline(&mut self) {
+        if self.newline == "" {
+            if self.rows.len() > 0 {
+                if self.rows[0].as_str().ends_with(UNIX_NEWLINE) {
+                    self.newline = UNIX_NEWLINE;
+                } else if self.rows[0].as_str().ends_with(DOS_NEWLINE) {
+                    self.newline = DOS_NEWLINE;
+                } else {
+                    self.newline = DEFAULT_NEWLINE_STR;
+                }
+            } else {
+                self.newline = DEFAULT_NEWLINE_STR;
+            }
+        }
+    }
+
     fn update_syntax_highlighting(&mut self) {
         self.rows
             .iter_mut()
@@ -80,6 +97,7 @@ impl<'a> Buffer<'a> {
     }
 
     fn update(&mut self) {
+        self.update_newline();
         self.update_syntax_highlighting();
     }
 
@@ -218,6 +236,9 @@ impl<'a> Buffer<'a> {
     pub fn append_row(&mut self, text: &str) {
         let at = self.num_lines();
         self.insert_row(at, text);
+        if at == 0 {
+            self.update_newline();
+        }
     }
 
     pub fn insert_newline(&mut self, row: usize, col: usize) {
@@ -286,8 +307,12 @@ impl<'a> Buffer<'a> {
     }
 
     pub fn insert_char(&mut self, character: char, cursor_x: i32, cursor_y: i32) {
+        if self.newline == "" {
+            self.update_newline();
+        }
         if cursor_y == self.rows.len() as i32 {
-            self.rows.push(Row::new("\n", Rc::downgrade(&self.syntax)));
+            self.rows
+                .push(Row::new(self.newline, Rc::downgrade(&self.syntax)));
         }
         self.rows[cursor_y as usize].insert_char(cursor_x as usize, character);
         self.dirty += 1;
@@ -523,28 +548,25 @@ fn test_insert_newline() {
 
 #[test]
 fn test_insert_newline_default() {
-    use crate::row::DEFAULT_NEWLINE;
-
     let mut buffer = Buffer::default();
     buffer.insert_newline(0, 0);
     assert_eq!(1, buffer.dirty);
     assert_eq!(1, buffer.num_lines());
-    assert_eq!(DEFAULT_NEWLINE.to_string(), buffer.rows[0].as_str());
+    assert_eq!(DEFAULT_NEWLINE_STR, buffer.rows[0].as_str());
 }
 
 #[test]
 fn test_insert_newline_after_firstline() {
-    use crate::row::DEFAULT_NEWLINE;
-
     let mut buffer = Buffer::default();
     buffer.insert_char('1', 0, 0);
     assert_eq!(1, buffer.dirty);
     buffer.insert_newline(0, 1);
     assert_eq!(2, buffer.dirty);
     assert_eq!(2, buffer.num_lines());
-    assert!(buffer.rows[0]
-        .as_str()
-        .ends_with(&DEFAULT_NEWLINE.to_string()));
+    println!("{:?}", buffer.rows[0].as_str());
+    assert!(buffer.rows[0].as_str().ends_with(DEFAULT_NEWLINE_STR));
+    println!("{:?}", buffer.rows[1].as_str());
+    assert!(buffer.rows[1].as_str().ends_with(DEFAULT_NEWLINE_STR));
 }
 
 #[test]
@@ -555,8 +577,9 @@ fn test_insert_char() {
     assert_eq!(1, buffer.dirty);
     buffer.insert_char('1', 1, 0);
     assert_eq!(2, buffer.dirty);
+    let expected = format!("£1{}", DEFAULT_NEWLINE_STR);
     assert_eq!(
-        vec!["£1\n"],
+        vec![&expected],
         buffer
             .rows
             .iter()
