@@ -102,7 +102,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     let _default_status_text = format!("bim editor - version {}", BIM_VERSION);
 
-    #[cfg(feature = "event-polling")]
+    #[cfg(not(feature = "event-callbacks"))]
     {
         while window.keep_running() {
             window.start_frame();
@@ -117,10 +117,10 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         }
     }
 
-    #[cfg(not(feature = "event-polling"))]
+    #[cfg(feature = "event-callbacks")]
     {
         use glutin::ControlFlow;
-        const MAX_FRAME_TIME: Duration = std::time::Duration::from_millis(33);
+        const MAX_FRAME_TIME: std::time::Duration = std::time::Duration::from_millis(33);
         let event_proxy = event_loop.create_proxy();
 
         std::thread::spawn(move || loop {

@@ -436,7 +436,7 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    #[cfg(feature = "event-callback")]
+    #[cfg(feature = "event-callbacks")]
     pub fn update_and_render(&mut self, event: Event) -> Result<bool, Box<dyn Error>> {
         self.start_frame();
 
