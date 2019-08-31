@@ -47,6 +47,7 @@ pub struct Window<'a> {
     pub fullscreen: bool,
     draw_state: DrawState<'a>,
     quit_times: i8,
+    running: bool,
     pub in_focus: bool,
     pub status_message: Option<Status>,
     persist_window_state: PersistWindowState,
@@ -89,6 +90,7 @@ impl<'a> Window<'a> {
             fullscreen: false,
             draw_state: DrawState::new(window_width, window_height, font_size, ui_scale, buffer),
             quit_times: BIM_QUIT_TIMES + 1,
+            running: true,
             in_focus: true,
             status_message: None,
             persist_window_state,
@@ -124,10 +126,47 @@ impl<'a> Window<'a> {
         }
     }
 
-    pub fn update_and_render(&mut self, event: Event) -> Result<bool, Box<dyn Error>> {
-        let mut running = true;
-        flame::start("frame");
-        self.next_frame();
+    fn recalc_glyph_sizes(&mut self) {
+        if self.has_resized() {
+            let _guard = flame::start_guard("recalc_glyph_sized");
+            let window_dim: (f32, f32) = self.inner_dimensions().into();
+
+            let test_section = VariedSection {
+                bounds: window_dim,
+                screen_position: (self.left_padding(), self.top_padding()),
+                text: vec![SectionText {
+                    text: "AB\nC\n",
+                    scale: Scale::uniform(self.font_scale()),
+                    ..SectionText::default()
+                }],
+                ..VariedSection::default()
+            };
+
+            flame::start("glyphs");
+            let test_glyphs = self.glyph_brush.glyphs(test_section);
+            flame::end("glyphs");
+            flame::start("glyphs.position()");
+            let positions = test_glyphs
+                .map(|glyph| glyph.position())
+                .collect::<Vec<_>>();
+            flame::end("glyphs.position()");
+            let letter_a = positions[0];
+            let letter_b = positions[1];
+            let letter_c = positions[2];
+
+            let first_line_min_y = letter_a.y;
+            let secon_line_min_y = letter_c.y;
+            let line_height = secon_line_min_y - first_line_min_y;
+            self.set_line_height(line_height);
+
+            let a_pos_x = letter_a.x;
+            let b_pos_x = letter_b.x;
+            let character_width = b_pos_x - a_pos_x;
+            self.set_character_width(character_width);
+        }
+    }
+
+    pub fn update(&mut self, event: Event) -> Result<(), Box<dyn Error>> {
         match event {
             Event::WindowEvent { event, .. } => {
                 match event {
@@ -142,7 +181,7 @@ impl<'a> Window<'a> {
                         delta: MouseScrollDelta::LineDelta(delta_x, delta_y),
                         ..
                     } => self.mouse_scroll(delta_x, delta_y),
-                    WindowEvent::CloseRequested | WindowEvent::Destroyed => running = false,
+                    WindowEvent::CloseRequested | WindowEvent::Destroyed => self.running = false,
                     WindowEvent::KeyboardInput {
                         input: keyboard_input,
                         ..
@@ -197,7 +236,12 @@ impl<'a> Window<'a> {
         };
 
         self.handle_actions();
+        self.recalc_glyph_sizes();
 
+        Ok(())
+    }
+
+    pub fn render(&mut self) -> Result<(), Box<dyn Error>> {
         // Purple background
         let background = [0.16078, 0.16471, 0.26667, 1.0];
         self.encoder
@@ -206,43 +250,6 @@ impl<'a> Window<'a> {
             .clear_depth(&self.quad_bundle.data.out_depth, 1.0);
 
         let window_dim: (f32, f32) = self.inner_dimensions().into();
-
-        if self.has_resized() {
-            let _guard = flame::start_guard("window_resized");
-
-            let test_section = VariedSection {
-                bounds: window_dim,
-                screen_position: (self.left_padding(), self.top_padding()),
-                text: vec![SectionText {
-                    text: "AB\nC\n",
-                    scale: Scale::uniform(self.font_scale()),
-                    ..SectionText::default()
-                }],
-                ..VariedSection::default()
-            };
-
-            flame::start("glyphs");
-            let test_glyphs = self.glyph_brush.glyphs(test_section);
-            flame::end("glyphs");
-            flame::start("glyphs.position()");
-            let positions = test_glyphs
-                .map(|glyph| glyph.position())
-                .collect::<Vec<_>>();
-            flame::end("glyphs.position()");
-            let letter_a = positions[0];
-            let letter_b = positions[1];
-            let letter_c = positions[2];
-
-            let first_line_min_y = letter_a.y;
-            let secon_line_min_y = letter_c.y;
-            let line_height = secon_line_min_y - first_line_min_y;
-            self.set_line_height(line_height);
-
-            let a_pos_x = letter_a.x;
-            let b_pos_x = letter_b.x;
-            let character_width = b_pos_x - a_pos_x;
-            self.set_character_width(character_width);
-        }
 
         {
             let _guard = flame::start_guard("render cursor quad");
@@ -426,18 +433,33 @@ impl<'a> Window<'a> {
         self.device.cleanup();
         flame::end("device.cleanup");
 
+        Ok(())
+    }
+
+    pub fn update_and_render(&mut self, event: Event) -> Result<bool, Box<dyn Error>> {
+        flame::start("frame");
+
+        self.next_frame();
+
+        self.update(event)?;
+
+        self.render()?;
+
         flame::end_collapse("frame");
 
-        let keep_running = running && !self.should_quit();
-        Ok(keep_running)
+        Ok(self.keep_running())
     }
 
     pub fn has_resized(&self) -> bool {
         self.resized
     }
 
-    pub fn should_quit(&self) -> bool {
+    fn should_quit(&self) -> bool {
         self.quit_times <= 0
+    }
+
+    fn keep_running(&self) -> bool {
+        self.running && !self.should_quit()
     }
 
     pub fn next_frame(&mut self) {
