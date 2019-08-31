@@ -436,16 +436,15 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
+    #[cfg(feature = "event-callback")]
     pub fn update_and_render(&mut self, event: Event) -> Result<bool, Box<dyn Error>> {
-        flame::start("frame");
-
-        self.next_frame();
+        self.start_frame();
 
         self.update(event)?;
 
         self.render()?;
 
-        flame::end_collapse("frame");
+        self.end_frame();
 
         Ok(self.keep_running())
     }
@@ -458,12 +457,17 @@ impl<'a> Window<'a> {
         self.quit_times <= 0
     }
 
-    fn keep_running(&self) -> bool {
+    pub fn keep_running(&self) -> bool {
         self.running && !self.should_quit()
     }
 
-    pub fn next_frame(&mut self) {
+    pub fn start_frame(&mut self) {
+        flame::start("frame");
         self.resized = false;
+    }
+
+    pub fn end_frame(&mut self) {
+        flame::end_collapse("frame");
     }
 
     pub fn toggle_fullscreen(&mut self, monitor: MonitorId) {

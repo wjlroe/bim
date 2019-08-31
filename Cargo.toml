@@ -47,3 +47,14 @@ doc = false
 [profile.release]
 debug = false
 lto = true
+
+[features]
+default = ["event-polling"]
+
+# Use EventLoop::poll_events, which should be more reliable performance-wise, just
+# worried about CPU usage.
+event-polling = []
+
+# Use EventLoop::run_forever, which is problematic due to rendering (w/ vsync)
+# introducing loads of lag to processing events...
+event-callback = []
