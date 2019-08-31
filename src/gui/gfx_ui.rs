@@ -117,7 +117,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         }
     }
 
-    #[cfg(feature = "event-callback")]
+    #[cfg(not(feature = "event-polling"))]
     {
         use glutin::ControlFlow;
         const MAX_FRAME_TIME: Duration = std::time::Duration::from_millis(33);
