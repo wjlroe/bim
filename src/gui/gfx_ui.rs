@@ -10,12 +10,9 @@ use gfx;
 use gfx_glyph::GlyphBrushBuilder;
 use glutin::dpi::LogicalSize;
 use glutin::Api::OpenGl;
-use glutin::{ContextBuilder, ControlFlow, EventsLoop, GlProfile, GlRequest, Icon, WindowBuilder};
+use glutin::{ContextBuilder, EventsLoop, GlProfile, GlRequest, Icon, WindowBuilder};
 use std::error::Error;
-use std::thread;
-use std::time::Duration;
 
-const MAX_FRAME_TIME: Duration = Duration::from_millis(33);
 const XBIM_DEBUG_LOG: &str = ".xbim_debug";
 
 pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
@@ -105,26 +102,46 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
 
     let _default_status_text = format!("bim editor - version {}", BIM_VERSION);
 
-    let event_proxy = event_loop.create_proxy();
+    #[cfg(not(feature = "event-callbacks"))]
+    {
+        while window.keep_running() {
+            window.start_frame();
 
-    thread::spawn(move || loop {
-        let _ = event_proxy.wakeup();
-        thread::sleep(MAX_FRAME_TIME);
-    });
+            event_loop.poll_events(|event| {
+                let _ = window.update(event);
+            });
 
-    event_loop.run_forever(|event| match window.update_and_render(event) {
-        Ok(running) => {
-            if running {
-                ControlFlow::Continue
-            } else {
+            window.render()?;
+
+            window.end_frame();
+        }
+    }
+
+    #[cfg(feature = "event-callbacks")]
+    {
+        use glutin::ControlFlow;
+        const MAX_FRAME_TIME: std::time::Duration = std::time::Duration::from_millis(33);
+        let event_proxy = event_loop.create_proxy();
+
+        std::thread::spawn(move || loop {
+            let _ = event_proxy.wakeup();
+            std::thread::sleep(MAX_FRAME_TIME);
+        });
+
+        event_loop.run_forever(|event| match window.update_and_render(event) {
+            Ok(running) => {
+                if running {
+                    ControlFlow::Continue
+                } else {
+                    ControlFlow::Break
+                }
+            }
+            Err(error) => {
+                println!("{:?}", error);
                 ControlFlow::Break
             }
-        }
-        Err(error) => {
-            println!("{:?}", error);
-            ControlFlow::Break
-        }
-    });
+        });
+    }
 
     Ok(())
 }
