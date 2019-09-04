@@ -104,6 +104,7 @@ impl<'a> Window<'a> {
     }
 
     fn handle_actions(&mut self) {
+        // TODO: Vec::pop() - can we handle only the latest ResizeWindow action and discard the rest?
         while let Some(action) = self.action_queue.pop() {
             match action {
                 Action::ResizeWindow => {
