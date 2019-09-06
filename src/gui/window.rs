@@ -3,6 +3,7 @@ use crate::commands::{self, Cmd, MoveCursor};
 use crate::config::BIM_QUIT_TIMES;
 use crate::debug_log::DebugLog;
 use crate::gui::draw_state::DrawState;
+use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::keycode_to_char;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::quad;
@@ -11,10 +12,9 @@ use crate::options::Options;
 use crate::status::Status;
 use cgmath::{vec2, Matrix4, Vector2};
 use flame;
-use gfx::{pso, Device, Encoder};
-use gfx_device_gl;
+use gfx::Device;
 use gfx_glyph::{
-    GlyphBrush, GlyphCruncher, HorizontalAlign, Layout, Scale, Section, SectionText, VariedSection,
+    GlyphCruncher, HorizontalAlign, Layout, Scale, Section, SectionText, VariedSection,
     VerticalAlign,
 };
 use glutin::dpi::{LogicalPosition, LogicalSize};
@@ -53,11 +53,6 @@ pub struct Window<'a> {
     pub status_message: Option<Status>,
     persist_window_state: PersistWindowState,
     debug_log: DebugLog<'a>,
-    glyph_brush: GlyphBrush<'a, gfx_device_gl::Resources, gfx_device_gl::Factory>,
-    device: gfx_device_gl::Device,
-    encoder: Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
-    quad_bundle:
-        pso::bundle::Bundle<gfx_device_gl::Resources, quad::pipe::Data<gfx_device_gl::Resources>>,
     action_queue: Vec<Action>,
     options: Options,
 }
@@ -75,13 +70,6 @@ impl<'a> Window<'a> {
         buffer: Buffer<'a>,
         persist_window_state: PersistWindowState,
         debug_log: DebugLog<'a>,
-        glyph_brush: GlyphBrush<'a, gfx_device_gl::Resources, gfx_device_gl::Factory>,
-        device: gfx_device_gl::Device,
-        encoder: Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
-        quad_bundle: pso::bundle::Bundle<
-            gfx_device_gl::Resources,
-            quad::pipe::Data<gfx_device_gl::Resources>,
-        >,
         options: Options,
     ) -> Self {
         Self {
@@ -98,16 +86,12 @@ impl<'a> Window<'a> {
             status_message: None,
             persist_window_state,
             debug_log,
-            glyph_brush,
-            device,
-            encoder,
-            quad_bundle,
             action_queue: vec![],
             options,
         }
     }
 
-    fn handle_actions(&mut self) {
+    fn handle_actions(&mut self, renderer: &mut GlRenderer) {
         // TODO: Vec::pop() - can we handle only the latest ResizeWindow action and discard the rest?
         while let Some(action) = self.action_queue.pop() {
             match action {
@@ -119,11 +103,12 @@ impl<'a> Window<'a> {
                     self.window.resize(physical_size);
                     gfx_window_glutin::update_views(
                         &self.window,
-                        &mut self.quad_bundle.data.out_color,
-                        &mut self.quad_bundle.data.out_depth,
+                        &mut renderer.quad_bundle.data.out_color,
+                        &mut renderer.quad_bundle.data.out_depth,
                     );
                     {
-                        let (width, height, ..) = self.quad_bundle.data.out_color.get_dimensions();
+                        let (width, height, ..) =
+                            renderer.quad_bundle.data.out_color.get_dimensions();
                         self.set_window_dimensions((width, height));
                     }
                 }
@@ -131,7 +116,7 @@ impl<'a> Window<'a> {
         }
     }
 
-    fn recalc_glyph_sizes(&mut self) {
+    fn recalc_glyph_sizes(&mut self, renderer: &mut GlRenderer<'a>) {
         if self.has_resized() {
             let _guard = flame::start_guard("recalc_glyph_sized");
             let window_dim: (f32, f32) = self.inner_dimensions().into();
@@ -148,7 +133,7 @@ impl<'a> Window<'a> {
             };
 
             flame::start("glyphs");
-            let test_glyphs = self.glyph_brush.glyphs(test_section);
+            let test_glyphs = renderer.glyph_brush.glyphs(test_section);
             flame::end("glyphs");
             flame::start("glyphs.position()");
             let positions = test_glyphs
@@ -171,7 +156,11 @@ impl<'a> Window<'a> {
         }
     }
 
-    pub fn update(&mut self, event: Event) -> Result<(), Box<dyn Error>> {
+    pub fn update(
+        &mut self,
+        renderer: &mut GlRenderer<'a>,
+        event: Event,
+    ) -> Result<(), Box<dyn Error>> {
         match event {
             Event::WindowEvent { event, .. } => {
                 match event {
@@ -240,19 +229,21 @@ impl<'a> Window<'a> {
             _ => (),
         };
 
-        self.handle_actions();
-        self.recalc_glyph_sizes();
+        self.handle_actions(renderer);
+        self.recalc_glyph_sizes(renderer);
 
         Ok(())
     }
 
-    pub fn render(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn render(&mut self, renderer: &mut GlRenderer<'a>) -> Result<(), Box<dyn Error>> {
         // Purple background
         let background = [0.16078, 0.16471, 0.26667, 1.0];
-        self.encoder
-            .clear(&self.quad_bundle.data.out_color, background);
-        self.encoder
-            .clear_depth(&self.quad_bundle.data.out_depth, 1.0);
+        renderer
+            .encoder
+            .clear(&renderer.quad_bundle.data.out_color, background);
+        renderer
+            .encoder
+            .clear_depth(&renderer.quad_bundle.data.out_depth, 1.0);
 
         let window_dim: (f32, f32) = self.inner_dimensions().into();
 
@@ -260,16 +251,16 @@ impl<'a> Window<'a> {
             let _guard = flame::start_guard("render cursor quad");
             let cursor_transform = self.cursor_transform();
             quad::draw(
-                &mut self.encoder,
-                &mut self.quad_bundle,
+                &mut renderer.encoder,
+                &mut renderer.quad_bundle,
                 CURSOR_BG,
                 cursor_transform,
             );
 
             if let Some(cursor_transform) = self.other_cursor_transform() {
                 quad::draw(
-                    &mut self.encoder,
-                    &mut self.quad_bundle,
+                    &mut renderer.encoder,
+                    &mut renderer.quad_bundle,
                     OTHER_CURSOR_BG,
                     cursor_transform,
                 );
@@ -286,24 +277,25 @@ impl<'a> Window<'a> {
                 z: 1.0,
                 ..VariedSection::default()
             };
-            self.glyph_brush.queue(section);
+            renderer.glyph_brush.queue(section);
 
             let default_transform: Matrix4<f32> =
-                gfx_glyph::default_transform(&self.quad_bundle.data.out_color).into();
+                gfx_glyph::default_transform(&renderer.quad_bundle.data.out_color).into();
             let transform = self.row_offset_as_transform() * default_transform;
-            self.glyph_brush
+            renderer
+                .glyph_brush
                 .use_queue()
                 .transform(transform)
-                .depth_target(&self.quad_bundle.data.out_depth)
-                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
+                .depth_target(&renderer.quad_bundle.data.out_depth)
+                .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
         }
 
         {
             let _guard = flame::start_guard("render lines");
             for transform in self.line_transforms() {
                 quad::draw(
-                    &mut self.encoder,
-                    &mut self.quad_bundle,
+                    &mut renderer.encoder,
+                    &mut renderer.quad_bundle,
                     LINE_COL_BG,
                     transform,
                 );
@@ -315,8 +307,8 @@ impl<'a> Window<'a> {
             // Render status background
             let status_transform = self.status_transform();
             quad::draw(
-                &mut self.encoder,
-                &mut self.quad_bundle,
+                &mut renderer.encoder,
+                &mut renderer.quad_bundle,
                 STATUS_BG,
                 status_transform,
             );
@@ -335,11 +327,12 @@ impl<'a> Window<'a> {
                 z: 0.5,
                 ..Section::default()
             };
-            self.glyph_brush.queue(status_section);
-            self.glyph_brush
+            renderer.glyph_brush.queue(status_section);
+            renderer
+                .glyph_brush
                 .use_queue()
-                .depth_target(&self.quad_bundle.data.out_depth)
-                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
+                .depth_target(&renderer.quad_bundle.data.out_depth)
+                .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
         }
 
         if let Some(top_left_text) = self.draw_state.prompt_text() {
@@ -354,11 +347,12 @@ impl<'a> Window<'a> {
                 z: 0.5,
                 ..Section::default()
             };
-            self.glyph_brush.queue(top_left_section);
-            self.glyph_brush
+            renderer.glyph_brush.queue(top_left_section);
+            renderer
+                .glyph_brush
                 .use_queue()
-                .depth_target(&self.quad_bundle.data.out_depth)
-                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
+                .depth_target(&renderer.quad_bundle.data.out_depth)
+                .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
         }
 
         if let Some(search) = self.draw_state.search.as_ref() {
@@ -373,11 +367,12 @@ impl<'a> Window<'a> {
                 z: 0.5,
                 ..Section::default()
             };
-            self.glyph_brush.queue(top_left_section);
-            self.glyph_brush
+            renderer.glyph_brush.queue(top_left_section);
+            renderer
+                .glyph_brush
                 .use_queue()
-                .depth_target(&self.quad_bundle.data.out_depth)
-                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
+                .depth_target(&renderer.quad_bundle.data.out_depth)
+                .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
         }
 
         if let Some(status_msg) = &self.status_message {
@@ -398,7 +393,7 @@ impl<'a> Window<'a> {
                 ..Section::default()
             };
 
-            if let Some(msg_bounds) = self.glyph_brush.pixel_bounds(popup_section) {
+            if let Some(msg_bounds) = renderer.glyph_brush.pixel_bounds(popup_section) {
                 let width = msg_bounds.max.x - msg_bounds.min.x;
                 let height = msg_bounds.max.y - msg_bounds.min.y;
                 let text_size_transform =
@@ -406,48 +401,53 @@ impl<'a> Window<'a> {
 
                 let popup_bg_transform = Matrix4::from_scale(1.1) * text_size_transform;
                 quad::draw(
-                    &mut self.encoder,
-                    &mut self.quad_bundle,
+                    &mut renderer.encoder,
+                    &mut renderer.quad_bundle,
                     POPUP_BG,
                     popup_bg_transform,
                 );
 
                 let bg_transform = Matrix4::from_scale(1.1) * popup_bg_transform;
                 quad::draw(
-                    &mut self.encoder,
-                    &mut self.quad_bundle,
+                    &mut renderer.encoder,
+                    &mut renderer.quad_bundle,
                     POPUP_OUTLINE,
                     bg_transform,
                 );
             }
 
-            self.glyph_brush.queue(popup_section);
-            self.glyph_brush
+            renderer.glyph_brush.queue(popup_section);
+            renderer
+                .glyph_brush
                 .use_queue()
-                .depth_target(&self.quad_bundle.data.out_depth)
-                .draw(&mut self.encoder, &self.quad_bundle.data.out_color)?;
+                .depth_target(&renderer.quad_bundle.data.out_depth)
+                .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
         }
 
         flame::start("encoder.flush");
-        self.encoder.flush(&mut self.device);
+        renderer.encoder.flush(&mut renderer.device);
         flame::end("encoder.flush");
         flame::start("swap_buffers");
         self.window.swap_buffers()?;
         flame::end("swap_buffers");
         flame::start("device.cleanup");
-        self.device.cleanup();
+        renderer.device.cleanup();
         flame::end("device.cleanup");
 
         Ok(())
     }
 
     #[cfg(feature = "event-callbacks")]
-    pub fn update_and_render(&mut self, event: Event) -> Result<bool, Box<dyn Error>> {
+    pub fn update_and_render(
+        &mut self,
+        renderer: &mut GlRenderer<'a>,
+        event: Event,
+    ) -> Result<bool, Box<dyn Error>> {
         self.start_frame();
 
-        self.update(event)?;
+        self.update(renderer, event)?;
 
-        self.render()?;
+        self.render(renderer)?;
 
         self.end_frame();
 

@@ -1,6 +1,7 @@
 use crate::buffer::Buffer;
 use crate::debug_log::DebugLog;
 use crate::editor::BIM_VERSION;
+use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::quad;
 use crate::gui::window::Window;
@@ -77,6 +78,8 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
 
     let encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
+    let mut renderer = GlRenderer::new(glyph_brush, encoder, device, quad_bundle);
+
     let mut buffer = Buffer::default();
     if let RunOpenFile(ref filename) = options.run_type {
         buffer.open(filename)?;
@@ -94,10 +97,6 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
         buffer,
         persist_window_state,
         debug_log,
-        glyph_brush,
-        device,
-        encoder,
-        quad_bundle,
         options,
     );
 
@@ -109,10 +108,10 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
             window.start_frame();
 
             event_loop.poll_events(|event| {
-                let _ = window.update(event);
+                let _ = window.update(&mut renderer, event);
             });
 
-            window.render()?;
+            window.render(&mut renderer)?;
 
             window.end_frame();
         }
@@ -129,7 +128,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
             std::thread::sleep(MAX_FRAME_TIME);
         });
 
-        event_loop.run_forever(|event| match window.update_and_render(event) {
+        event_loop.run_forever(|event| match window.update_and_render(renderer, event) {
             Ok(running) => {
                 if running {
                     ControlFlow::Continue
