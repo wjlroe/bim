@@ -20,6 +20,7 @@ pub mod debug_log;
 pub mod highlight;
 mod input;
 mod keycodes;
+pub mod options;
 mod prompt;
 mod row;
 mod search;

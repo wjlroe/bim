@@ -1,11 +1,11 @@
 use crate::buffer::Buffer;
-use crate::config::RunConfig;
 use crate::debug_log::DebugLog;
 use crate::editor::BIM_VERSION;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::quad;
 use crate::gui::window::Window;
 use crate::gui::{ColorFormat, DepthFormat};
+use crate::options::Options;
 use gfx;
 use gfx_glyph::GlyphBrushBuilder;
 use glutin::dpi::LogicalSize;
@@ -15,7 +15,7 @@ use std::error::Error;
 
 const XBIM_DEBUG_LOG: &str = ".xbim_debug";
 
-pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
+pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
     let debug_log = DebugLog::new(XBIM_DEBUG_LOG);
     debug_log.start()?;
     use crate::config::RunConfig::*;
@@ -78,7 +78,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
     let encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
     let mut buffer = Buffer::default();
-    if let RunOpenFile(ref filename) = run_type {
+    if let RunOpenFile(ref filename) = options.run_type {
         buffer.open(filename)?;
     }
 
@@ -98,6 +98,7 @@ pub fn run(run_type: RunConfig) -> Result<(), Box<dyn Error>> {
         device,
         encoder,
         quad_bundle,
+        options,
     );
 
     let _default_status_text = format!("bim editor - version {}", BIM_VERSION);

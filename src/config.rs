@@ -7,3 +7,9 @@ pub enum RunConfig {
     RunOpenFile(String),
     Run,
 }
+
+impl Default for RunConfig {
+    fn default() -> Self {
+        RunConfig::Run
+    }
+}

@@ -7,6 +7,7 @@ use crate::gui::keycode_to_char;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::quad;
 use crate::keycodes::Key;
+use crate::options::Options;
 use crate::status::Status;
 use cgmath::{vec2, Matrix4, Vector2};
 use flame;
@@ -58,6 +59,7 @@ pub struct Window<'a> {
     quad_bundle:
         pso::bundle::Bundle<gfx_device_gl::Resources, quad::pipe::Data<gfx_device_gl::Resources>>,
     action_queue: Vec<Action>,
+    options: Options,
 }
 
 impl<'a> Window<'a> {
@@ -80,6 +82,7 @@ impl<'a> Window<'a> {
             gfx_device_gl::Resources,
             quad::pipe::Data<gfx_device_gl::Resources>,
         >,
+        options: Options,
     ) -> Self {
         Self {
             monitor,
@@ -100,6 +103,7 @@ impl<'a> Window<'a> {
             encoder,
             quad_bundle,
             action_queue: vec![],
+            options,
         }
     }
 
@@ -670,7 +674,7 @@ impl<'a> Window<'a> {
     }
 
     fn try_quit(&mut self) {
-        if self.draw_state.buffer.is_dirty() {
+        if self.options.show_quit_warning() && self.draw_state.buffer.is_dirty() {
             self.quit_times -= 1;
             self.set_status_msg(format!(
                 "{} {} {} {}",
