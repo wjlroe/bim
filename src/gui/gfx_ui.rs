@@ -80,7 +80,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
 
     let encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
-    let mut renderer = GlRenderer::new(glyph_brush, encoder, device, quad_bundle);
+    let mut renderer = GlRenderer::new(glyph_brush, encoder, device, quad_bundle, window_dim);
 
     let mut buffer = Buffer::default();
     if let RunOpenFiles(filenames) = &options.run_type {

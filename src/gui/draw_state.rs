@@ -277,7 +277,7 @@ impl<'a> DrawState<'a> {
         vec2(col_on_screen, row_on_screen)
     }
 
-    pub fn onscreen_cursor<C>(&self, cursor: &C) -> (f32, f32)
+    pub fn onscreen_cursor<C>(&self, cursor: &C) -> (Vector2<f32>, Vector2<f32>)
     where
         C: CursorT,
     {
@@ -293,24 +293,27 @@ impl<'a> DrawState<'a> {
         let y_on_screen = (cursor_height * (cursor_y - self.row_offset))
             + cursor_height / 2.0
             + self.top_padding();
-        (x_on_screen, y_on_screen)
+        (
+            self.position + vec2(x_on_screen, y_on_screen),
+            vec2(cursor_width, cursor_height),
+        )
     }
 
     fn transform_for_cursor<C>(&self, cursor: &C) -> Matrix4<f32>
     where
         C: CursorT,
     {
-        let cursor_width = self.character_width();
-        let cursor_height = self.line_height();
+        let (cursor_pos, cursor_size) = self.onscreen_cursor(cursor);
+        // let cursor_width = self.character_width();
+        // let cursor_height = self.line_height();
 
         let cursor_scale = Matrix4::from_nonuniform_scale(
-            cursor_width / self.bounds.x,
-            cursor_height / self.bounds.y,
+            cursor_size.x / self.bounds.x,
+            cursor_size.y / self.bounds.y,
             1.0,
         );
-        let (x_on_screen, y_on_screen) = self.onscreen_cursor(cursor);
-        let y_move = -((y_on_screen / self.bounds.y) * 2.0 - 1.0);
-        let x_move = (x_on_screen / self.bounds.x) * 2.0 - 1.0;
+        let y_move = -((cursor_pos.y / self.bounds.y) * 2.0 - 1.0);
+        let x_move = (cursor_pos.x / self.bounds.x) * 2.0 - 1.0;
         let cursor_move = Matrix4::from_translation(Vector3::new(x_move, y_move, 0.2));
         cursor_move * cursor_scale
     }
@@ -728,27 +731,6 @@ impl<'a> DrawState<'a> {
         focused: bool,
     ) -> Result<(), Box<dyn Error>> {
         let _guard = flame::start_guard("render cursors");
-        let use_scissor = false;
-
-        if use_scissor {
-            unsafe {
-                renderer.device.with_gl(|gl| {
-                    gl.Enable(gfx_gl::SCISSOR_TEST);
-                    gl.Viewport(
-                        position.x as i32,
-                        position.y as i32,
-                        bounds.x as i32,
-                        bounds.y as i32,
-                    );
-                    gl.Scissor(
-                        position.x as i32,
-                        position.y as i32,
-                        bounds.x as i32,
-                        bounds.y as i32,
-                    );
-                });
-            }
-        }
 
         let cursor_bg = if focused {
             CURSOR_FOCUSED_BG
@@ -764,6 +746,11 @@ impl<'a> DrawState<'a> {
             cursor_transform,
         );
 
+        // draw differently for comparison...
+        let color = [1.0, 0.0, 0.0];
+        let (cursor_position, cursor_size) = self.onscreen_cursor(&self.buffer.cursor);
+        renderer.draw_quad(color, cursor_position, cursor_size);
+
         if let Some(cursor_transform) = self.other_cursor_transform() {
             quad::draw(
                 &mut renderer.encoder,
@@ -771,14 +758,6 @@ impl<'a> DrawState<'a> {
                 OTHER_CURSOR_BG,
                 cursor_transform,
             );
-        }
-
-        if use_scissor {
-            unsafe {
-                renderer
-                    .device
-                    .with_gl(|gl| gl.Disable(gfx_gl::SCISSOR_TEST));
-            }
         }
 
         Ok(())

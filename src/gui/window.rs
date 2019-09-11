@@ -129,7 +129,7 @@ impl<'a> Window<'a> {
                     {
                         let (width, height, ..) =
                             renderer.quad_bundle.data.out_color.get_dimensions();
-                        self.set_window_dimensions((width, height));
+                        self.set_window_dimensions((width, height), renderer);
                     }
                 }
             }
@@ -570,9 +570,10 @@ impl<'a> Window<'a> {
         self.logical_size = logical_size;
     }
 
-    pub fn set_window_dimensions(&mut self, dimensions: (u16, u16)) {
+    pub fn set_window_dimensions(&mut self, dimensions: (u16, u16), renderer: &mut GlRenderer) {
         self.window_dim = vec2(dimensions.0.into(), dimensions.1.into());
         self.resized = true;
+        renderer.resize(self.window_dim);
         self.container
             .update_gui(GuiAction::UpdateSize(self.window_dim, vec2(0.0, 0.0)));
     }
