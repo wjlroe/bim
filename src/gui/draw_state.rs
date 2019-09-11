@@ -726,8 +726,8 @@ impl<'a> DrawState<'a> {
     fn render_cursors(
         &self,
         renderer: &mut GlRenderer,
-        bounds: Vector2<f32>,
-        position: Vector2<f32>,
+        _bounds: Vector2<f32>,
+        _position: Vector2<f32>,
         focused: bool,
     ) -> Result<(), Box<dyn Error>> {
         let _guard = flame::start_guard("render cursors");
@@ -738,18 +738,8 @@ impl<'a> DrawState<'a> {
             CURSOR_UNFOCUS_BG
         };
 
-        let cursor_transform = self.cursor_transform();
-        quad::draw(
-            &mut renderer.encoder,
-            &mut renderer.quad_bundle,
-            cursor_bg,
-            cursor_transform,
-        );
-
-        // draw differently for comparison...
-        let color = [1.0, 0.0, 0.0];
         let (cursor_position, cursor_size) = self.onscreen_cursor(&self.buffer.cursor);
-        renderer.draw_quad(color, cursor_position, cursor_size);
+        renderer.draw_quad(cursor_bg, cursor_position, cursor_size);
 
         if let Some(cursor_transform) = self.other_cursor_transform() {
             quad::draw(
