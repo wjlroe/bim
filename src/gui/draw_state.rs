@@ -807,7 +807,7 @@ impl<'a> DrawState<'a> {
     pub fn render(&self, renderer: &mut GlRenderer, focused: bool) -> Result<(), Box<dyn Error>> {
         let padded_position = self.position + vec2(self.left_padding(), 0.0);
 
-        self.render_text(renderer, self.bounds, padded_position)?;
+        self.render_text(renderer, self.bounds, self.position)?;
         self.render_cursors(renderer, self.bounds, padded_position, focused)?;
         self.render_lines(renderer, self.bounds, padded_position)?;
         self.render_prompt(renderer, self.bounds, padded_position)?;
