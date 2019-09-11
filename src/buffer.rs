@@ -2,10 +2,24 @@ use crate::commands::{MoveCursor, SearchDirection};
 use crate::cursor::{CursorT, CursorWithHistory};
 use crate::row::{Row, DEFAULT_NEWLINE, DEFAULT_NEWLINE_STR, DOS_NEWLINE, UNIX_NEWLINE};
 use crate::syntax::{Syntax, SYNTAXES};
+use cgmath::Vector2;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::rc::Rc;
+
+pub enum BufferAction {
+    InsertNewlineAndReturn,
+    InsertChar(char),
+    DeleteChar,
+    CloneCursor,
+    MoveCursor(MoveCursor),
+    MouseScroll(Vector2<f32>),
+    MouseClick(Vector2<f32>),
+    SetFilename(String),
+    StartSearch,
+    PrintDebugInfo,
+}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum FileSaveStatus {

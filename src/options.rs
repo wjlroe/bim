@@ -2,6 +2,7 @@ use crate::config::RunConfig;
 
 pub struct Options {
     pub no_quit_warning: bool,
+    pub vsplit: bool,
     pub run_type: RunConfig,
 }
 
@@ -15,6 +16,7 @@ impl Default for Options {
     fn default() -> Self {
         Self {
             no_quit_warning: false,
+            vsplit: false,
             run_type: RunConfig::default(),
         }
     }

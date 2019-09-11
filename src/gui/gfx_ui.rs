@@ -7,6 +7,7 @@ use crate::gui::quad;
 use crate::gui::window::Window;
 use crate::gui::{ColorFormat, DepthFormat};
 use crate::options::Options;
+use cgmath::vec2;
 use gfx;
 use gfx_glyph::GlyphBrushBuilder;
 use glutin::dpi::LogicalSize;
@@ -63,6 +64,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
         .set_position(persist_window_state.logical_position);
 
     let (window_width, window_height, ..) = main_color.get_dimensions();
+    let window_dim = vec2(window_width as f32, window_height as f32); // u16->f32, should we do this?
     debug_log.debugln_timestamped(&format!(
         "window_width: {}, window_height: {}",
         window_width, window_height,
@@ -81,24 +83,22 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
     let mut renderer = GlRenderer::new(glyph_brush, encoder, device, quad_bundle);
 
     let mut buffer = Buffer::default();
-    if let RunOpenFile(ref filename) = options.run_type {
-        buffer.open(filename)?;
+    if let RunOpenFiles(filenames) = &options.run_type {
+        buffer.open(&filenames[0])?;
     }
 
     let mut window = Window::new(
         monitor,
         gfx_window,
+        window_dim,
         logical_size,
-        dpi,
-        window_width.into(),
-        window_height.into(),
         18.0,
         dpi,
         buffer,
         persist_window_state,
         debug_log,
         options,
-    );
+    )?;
 
     let _default_status_text = format!("bim editor - version {}", BIM_VERSION);
 

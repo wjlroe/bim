@@ -1,0 +1,182 @@
+use crate::buffer::{Buffer, BufferAction, FileSaveStatus};
+use crate::gui::actions::GuiAction;
+use crate::gui::gl_renderer::GlRenderer;
+use crate::gui::pane::Pane;
+use crate::gui::window::WindowAction;
+use crate::keycodes::Key;
+use cgmath::{vec2, Vector2};
+use std::error::Error;
+
+enum Arrangement {
+    VSplit,
+}
+
+impl Default for Arrangement {
+    fn default() -> Self {
+        Self::VSplit
+    }
+}
+
+pub struct Container<'a> {
+    focused_idx: usize,
+    panes: Vec<Pane<'a>>,
+    bounds: Vector2<f32>,
+    position: Vector2<f32>,
+    arrangement: Arrangement,
+}
+
+impl<'a> Container<'a> {
+    pub fn single(
+        bounds: Vector2<f32>,
+        position: Vector2<f32>,
+        font_size: f32,
+        ui_scale: f32,
+        buffer: Buffer<'a>,
+    ) -> Self {
+        Self {
+            focused_idx: 0,
+            bounds,
+            position,
+            panes: vec![Pane::new(font_size, ui_scale, buffer, true)],
+            arrangement: Arrangement::default(),
+        }
+    }
+
+    pub fn render(&self, renderer: &mut GlRenderer) -> Result<(), Box<dyn Error>> {
+        for pane in self.panes.iter() {
+            pane.render(renderer)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn update_gui(&mut self, action: GuiAction) {
+        if let GuiAction::UpdateSize(bounds, position) = action {
+            self.bounds = bounds;
+            self.position = position;
+            self.recalc_layout();
+        } else {
+            for pane in self.panes.iter_mut() {
+                pane.update_gui(action);
+            }
+        }
+    }
+
+    pub fn update_current_buffer(&mut self, action: BufferAction) {
+        if let Some(pane) = self.panes.get_mut(self.focused_idx) {
+            pane.update_buffer(action);
+        }
+    }
+
+    pub fn split_vertically(&mut self, filename: Option<&str>) -> Result<(), Box<dyn Error>> {
+        let mut new_pane = None;
+        let mut buffer = Buffer::default();
+        if let Some(filename) = filename {
+            buffer.open(filename)?;
+        }
+        if let Some(pane) = self.panes.get(self.focused_idx) {
+            new_pane = Some(Pane::new(pane.font_size(), pane.ui_scale(), buffer, false));
+        }
+        if let Some(pane) = new_pane {
+            self.panes.push(pane);
+            self.recalc_layout();
+        }
+        Ok(())
+    }
+
+    fn recalc_layout(&mut self) {
+        match self.arrangement {
+            Arrangement::VSplit => {
+                let each_width = self.bounds.x / self.panes.len() as f32;
+                let bounds = vec2(each_width, self.bounds.y);
+                let mut position = vec2(self.position.x, self.position.y);
+                for pane in self.panes.iter_mut() {
+                    pane.update_gui(GuiAction::UpdateSize(bounds, position));
+                    position.x += each_width; // TODO: any padding?
+                }
+            }
+        }
+    }
+
+    pub fn handle_key(&mut self, key: Key) -> (bool, Option<WindowAction>) {
+        let mut handled = false;
+
+        if key == Key::Control(Some('v')) {
+            if let Ok(_) = self.split_vertically(None) {
+                handled = true;
+            }
+        }
+
+        if !handled {
+            if let Some(pane) = self.panes.get_mut(self.focused_idx) {
+                pane.handle_key(key)
+            } else {
+                (false, None)
+            }
+        } else {
+            (handled, None)
+        }
+    }
+
+    fn which_pane_is_location(&self, location: Vector2<f32>) -> Option<usize> {
+        // FIXME: actually work this out when we split containers
+        match self.arrangement {
+            Arrangement::VSplit => {
+                // TODO: we assume even splits right now...
+                let each_width = self.bounds.x / self.panes.len() as f32;
+                let which_pane = f32::ceil(each_width / location.x);
+                Some(which_pane as usize)
+            }
+        }
+    }
+
+    fn focus_pane_index(&mut self, pane_idx: usize) {
+        self.focused_idx = pane_idx;
+        for (idx, pane) in self.panes.iter_mut().enumerate() {
+            pane.set_focused(idx == pane_idx);
+        }
+    }
+
+    pub fn mouse_click(&mut self, location: Vector2<f32>) {
+        // FIXME: locate which container this click is in...
+        // we need to translate the coords into something where we can find which container/pane
+        // the mouse was clicked in...
+        // then we need to focus that pane
+        // then do the last step - move cursor to click
+        if let Some(pane_idx) = self.which_pane_is_location(location) {
+            self.focus_pane_index(pane_idx);
+            if let Some(pane) = self.panes.get_mut(self.focused_idx) {
+                pane.update_buffer(BufferAction::MouseClick(location));
+            }
+        }
+    }
+
+    pub fn save_file(&mut self) -> Option<Result<FileSaveStatus, Box<dyn Error>>> {
+        if let Some(pane) = self.panes.get_mut(self.focused_idx) {
+            Some(pane.save_file())
+        } else {
+            None
+        }
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.panes
+            .iter()
+            .fold(false, |dirty, pane| dirty || pane.is_dirty())
+    }
+}
+
+#[test]
+fn test_which_pane_is_location() {
+    let buffer = Buffer::default();
+    let bounds = vec2(10.0, 10.0);
+    let position = vec2(0.0, 0.0);
+    let mut container = Container::single(bounds, position, 12.0, 1.0, buffer);
+    assert_eq!(Some(0), container.which_pane_is_location(vec2(0.0, 0.0)));
+    container.split_vertically(None);
+    assert_eq!(Some(0), container.which_pane_is_location(vec2(0.0, 0.0)));
+    assert_eq!(Some(0), container.which_pane_is_location(vec2(0.0, 9.9)));
+    assert_eq!(Some(1), container.which_pane_is_location(vec2(9.0, 0.0)));
+    assert_eq!(Some(1), container.which_pane_is_location(vec2(5.0, 0.0)));
+    assert_eq!(Some(1), container.which_pane_is_location(vec2(5.0, 9.9)));
+}

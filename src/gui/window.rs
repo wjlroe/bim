@@ -1,8 +1,11 @@
-use crate::buffer::{Buffer, FileSaveStatus};
+use crate::buffer::{Buffer, BufferAction, FileSaveStatus};
 use crate::commands::{self, Cmd, MoveCursor};
-use crate::config::BIM_QUIT_TIMES;
+use crate::config::{RunConfig, BIM_QUIT_TIMES};
 use crate::debug_log::DebugLog;
-use crate::gui::draw_state::DrawState;
+use crate::gui::actions::GuiAction;
+use crate::gui::container::Container;
+use crate::gui::transform_from_width_height;
+// use crate::gui::draw_state::DrawState;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::keycode_to_char;
 use crate::gui::persist_window_state::PersistWindowState;
@@ -32,21 +35,20 @@ enum Action {
     ResizeWindow,
 }
 
-const STATUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
-const CURSOR_BG: [f32; 3] = [250.0 / 256.0, 250.0 / 256.0, 250.0 / 256.0];
-const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
-const LINE_COL_BG: [f32; 3] = [0.0, 0.0, 0.0];
 const POPUP_BG: [f32; 3] = [51.0 / 255.0, 0.0, 102.0 / 255.0];
 const POPUP_OUTLINE: [f32; 3] = [240.0 / 255.0, 240.0 / 255.0, 240.0 / 255.0];
 
 pub struct Window<'a> {
     monitor: MonitorId,
     window: WindowedContext<PossiblyCurrent>,
+    window_dim: Vector2<f32>,
     logical_size: LogicalSize,
-    dpi: f32,
+    mouse_position: Vector2<f32>,
+    font_size: f32,
+    ui_scale: f32,
     resized: bool,
     pub fullscreen: bool,
-    draw_state: DrawState<'a>,
+    container: Container<'a>,
     quit_times: i8,
     running: bool,
     pub in_focus: bool,
@@ -61,25 +63,26 @@ impl<'a> Window<'a> {
     pub fn new(
         monitor: MonitorId,
         window: WindowedContext<PossiblyCurrent>,
+        window_dim: Vector2<f32>,
         logical_size: LogicalSize,
-        dpi: f32,
-        window_width: f32,
-        window_height: f32,
         font_size: f32,
         ui_scale: f32,
         buffer: Buffer<'a>,
         persist_window_state: PersistWindowState,
         debug_log: DebugLog<'a>,
         options: Options,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, Box<dyn Error>> {
+        let mut gui_window = Self {
             monitor,
             window,
+            window_dim,
             logical_size,
-            dpi,
+            mouse_position: vec2(0.0, 0.0),
+            ui_scale,
+            font_size,
             resized: false,
             fullscreen: false,
-            draw_state: DrawState::new(window_width, window_height, font_size, ui_scale, buffer),
+            container: Container::single(window_dim, vec2(0.0, 0.0), font_size, ui_scale, buffer),
             quit_times: BIM_QUIT_TIMES + 1,
             running: true,
             in_focus: true,
@@ -88,7 +91,24 @@ impl<'a> Window<'a> {
             debug_log,
             action_queue: vec![],
             options,
+        };
+        gui_window.open_files()?;
+        Ok(gui_window)
+    }
+
+    fn open_files(&mut self) -> Result<(), Box<dyn Error>> {
+        let mut files = Vec::new();
+        if let RunConfig::RunOpenFiles(ref filenames) = self.options.run_type {
+            if filenames.len() > 1 {
+                for filename in &filenames[1..] {
+                    files.push(String::from(filename));
+                }
+            }
         }
+        for file in files {
+            self.split_vertically_with_filename(&file)?;
+        }
+        Ok(())
     }
 
     fn handle_actions(&mut self, renderer: &mut GlRenderer) {
@@ -96,7 +116,7 @@ impl<'a> Window<'a> {
         while let Some(action) = self.action_queue.pop() {
             match action {
                 Action::ResizeWindow => {
-                    let physical_size = self.logical_size.to_physical(self.dpi.into());
+                    let physical_size = self.logical_size.to_physical(self.ui_scale.into());
                     let _ = self
                         .debug_log
                         .debugln_timestamped(&format!("physical_size: {:?}", physical_size,));
@@ -119,11 +139,10 @@ impl<'a> Window<'a> {
     fn recalc_glyph_sizes(&mut self, renderer: &mut GlRenderer<'a>) {
         if self.has_resized() {
             let _guard = flame::start_guard("recalc_glyph_sized");
-            let window_dim: (f32, f32) = self.inner_dimensions().into();
 
             let test_section = VariedSection {
-                bounds: window_dim,
-                screen_position: (self.left_padding(), self.top_padding()),
+                bounds: self.window_dim.into(),
+                screen_position: (0.0, 0.0),
                 text: vec![SectionText {
                     text: "AB\nC\n",
                     scale: Scale::uniform(self.font_scale()),
@@ -156,6 +175,10 @@ impl<'a> Window<'a> {
         }
     }
 
+    pub fn split_vertically_with_filename(&mut self, filename: &str) -> Result<(), Box<dyn Error>> {
+        self.container.split_vertically(Some(filename))
+    }
+
     pub fn update(
         &mut self,
         renderer: &mut GlRenderer<'a>,
@@ -180,6 +203,8 @@ impl<'a> Window<'a> {
                         input: keyboard_input,
                         ..
                     } => {
+                        // TODO: partial shortcut recognition: <Ctrl-w> + <l> for move to the pane
+                        // on the right...
                         if let Some(key) =
                             keycode_to_char::keyboard_event_to_keycode(keyboard_input)
                         {
@@ -210,7 +235,7 @@ impl<'a> Window<'a> {
                         let _ = self
                             .debug_log
                             .debugln_timestamped(&format!("new DPI: {}", new_dpi));
-                        self.set_dpi(new_dpi as f32);
+                        self.set_ui_scale(new_dpi as f32);
                         self.action_queue.push(Action::ResizeWindow);
                     }
                     WindowEvent::Moved(new_logical_position) => {
@@ -245,134 +270,9 @@ impl<'a> Window<'a> {
             .encoder
             .clear_depth(&renderer.quad_bundle.data.out_depth, 1.0);
 
-        let window_dim: (f32, f32) = self.inner_dimensions().into();
-
         {
-            let _guard = flame::start_guard("render cursor quad");
-            let cursor_transform = self.cursor_transform();
-            quad::draw(
-                &mut renderer.encoder,
-                &mut renderer.quad_bundle,
-                CURSOR_BG,
-                cursor_transform,
-            );
-
-            if let Some(cursor_transform) = self.other_cursor_transform() {
-                quad::draw(
-                    &mut renderer.encoder,
-                    &mut renderer.quad_bundle,
-                    OTHER_CURSOR_BG,
-                    cursor_transform,
-                );
-            }
-        }
-
-        {
-            let _guard = flame::start_guard("render section_texts");
-
-            let section = VariedSection {
-                bounds: window_dim,
-                screen_position: (self.left_padding(), self.top_padding()),
-                text: self.draw_state.section_texts(),
-                z: 1.0,
-                ..VariedSection::default()
-            };
-            renderer.glyph_brush.queue(section);
-
-            let default_transform: Matrix4<f32> =
-                gfx_glyph::default_transform(&renderer.quad_bundle.data.out_color).into();
-            let transform = self.row_offset_as_transform() * default_transform;
-            renderer
-                .glyph_brush
-                .use_queue()
-                .transform(transform)
-                .depth_target(&renderer.quad_bundle.data.out_depth)
-                .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
-        }
-
-        {
-            let _guard = flame::start_guard("render lines");
-            for transform in self.line_transforms() {
-                quad::draw(
-                    &mut renderer.encoder,
-                    &mut renderer.quad_bundle,
-                    LINE_COL_BG,
-                    transform,
-                );
-            }
-        }
-
-        {
-            let _guard = flame::start_guard("render status quad");
-            // Render status background
-            let status_transform = self.status_transform();
-            quad::draw(
-                &mut renderer.encoder,
-                &mut renderer.quad_bundle,
-                STATUS_BG,
-                status_transform,
-            );
-        }
-
-        {
-            let _guard = flame::start_guard("render status text");
-
-            let status_text = self.status_text();
-            let status_section = Section {
-                bounds: window_dim,
-                screen_position: (self.left_padding(), window_dim.1 + self.top_padding()),
-                text: &status_text,
-                color: [1.0, 1.0, 1.0, 1.0],
-                scale: Scale::uniform(self.font_scale()),
-                z: 0.5,
-                ..Section::default()
-            };
-            renderer.glyph_brush.queue(status_section);
-            renderer
-                .glyph_brush
-                .use_queue()
-                .depth_target(&renderer.quad_bundle.data.out_depth)
-                .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
-        }
-
-        if let Some(top_left_text) = self.draw_state.prompt_text() {
-            let _guard = flame::start_guard("render top left prompt text");
-
-            let top_left_section = Section {
-                bounds: window_dim,
-                screen_position: (self.left_padding(), 0.0),
-                text: &top_left_text,
-                color: [0.7, 0.6, 0.5, 1.0],
-                scale: Scale::uniform(self.font_scale()),
-                z: 0.5,
-                ..Section::default()
-            };
-            renderer.glyph_brush.queue(top_left_section);
-            renderer
-                .glyph_brush
-                .use_queue()
-                .depth_target(&renderer.quad_bundle.data.out_depth)
-                .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
-        }
-
-        if let Some(search) = self.draw_state.search.as_ref() {
-            let _guard = flame::start_guard("render top left search prompt");
-
-            let top_left_section = Section {
-                bounds: window_dim,
-                screen_position: (self.left_padding(), 0.0),
-                text: &search.as_string(),
-                color: [0.7, 0.6, 0.5, 1.0],
-                scale: Scale::uniform(self.font_scale()),
-                z: 0.5,
-                ..Section::default()
-            };
-            renderer.glyph_brush.queue(top_left_section);
-            renderer
-                .glyph_brush
-                .use_queue()
-                .depth_target(&renderer.quad_bundle.data.out_depth)
-                .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
+            let _guard = flame::start_guard("render buffer");
+            self.container.render(renderer)?;
         }
 
         if let Some(status_msg) = &self.status_message {
@@ -381,10 +281,10 @@ impl<'a> Window<'a> {
             let layout = Layout::default()
                 .h_align(HorizontalAlign::Center)
                 .v_align(VerticalAlign::Center);
-            let popup_bounds: Vector2<f32> = self.inner_dimensions() - vec2(20.0, 20.0);
+            let popup_bounds: Vector2<f32> = self.window_dim - vec2(20.0, 20.0);
             let popup_section = Section {
                 bounds: popup_bounds.into(),
-                screen_position: (self.window_width() / 2.0, self.window_height() / 2.0),
+                screen_position: (self.window_dim.x / 2.0, self.window_dim.y / 2.0),
                 text: &status_msg.message,
                 color: [224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0, 1.0],
                 scale: Scale::uniform(self.font_scale() * 2.0),
@@ -396,8 +296,8 @@ impl<'a> Window<'a> {
             if let Some(msg_bounds) = renderer.glyph_brush.pixel_bounds(popup_section) {
                 let width = msg_bounds.max.x - msg_bounds.min.x;
                 let height = msg_bounds.max.y - msg_bounds.min.y;
-                let text_size_transform =
-                    self.transform_from_width_height(width as f32, height as f32);
+                let shape = vec2(width as f32, height as f32);
+                let text_size_transform = transform_from_width_height(shape, self.window_dim);
 
                 let popup_bg_transform = Matrix4::from_scale(1.1) * text_size_transform;
                 quad::draw(
@@ -487,100 +387,48 @@ impl<'a> Window<'a> {
         }
     }
 
-    pub fn inner_dimensions(&self) -> Vector2<f32> {
-        (
-            self.draw_state.inner_width(),
-            self.draw_state.inner_height(),
-        )
-            .into()
-    }
-
-    pub fn window_height(&self) -> f32 {
-        self.draw_state.window_height()
-    }
-
-    pub fn window_width(&self) -> f32 {
-        self.draw_state.window_width()
-    }
-
-    pub fn font_scale(&self) -> f32 {
-        self.draw_state.font_scale()
-    }
-
-    pub fn left_padding(&self) -> f32 {
-        self.draw_state.left_padding()
-    }
-
-    pub fn top_padding(&self) -> f32 {
-        self.draw_state.top_padding()
-    }
-
-    pub fn row_offset_as_transform(&self) -> Matrix4<f32> {
-        self.draw_state.row_offset_as_transform()
-    }
-
-    pub fn cursor_transform(&self) -> Matrix4<f32> {
-        self.draw_state.cursor_transform()
-    }
-
-    pub fn other_cursor_transform(&self) -> Option<Matrix4<f32>> {
-        self.draw_state.other_cursor_transform()
-    }
-
-    pub fn line_transforms(&self) -> Vec<Matrix4<f32>> {
-        self.draw_state.line_transforms()
-    }
-
-    pub fn status_transform(&self) -> Matrix4<f32> {
-        self.draw_state.status_transform()
-    }
-
-    pub fn transform_from_width_height(&self, width: f32, height: f32) -> Matrix4<f32> {
-        self.draw_state.transform_from_width_height(width, height)
-    }
-
-    pub fn status_text(&self) -> String {
-        format!(
-            "{} | {} | {}",
-            self.draw_state.status_line.filename,
-            self.draw_state.status_line.filetype,
-            self.draw_state.status_line.cursor
-        )
+    fn font_scale(&self) -> f32 {
+        self.ui_scale * self.font_size
     }
 
     pub fn update_mouse_position(&mut self, mouse: (f64, f64)) {
-        self.draw_state.mouse_position = mouse;
+        self.mouse_position = vec2(mouse.0 as f32, mouse.1 as f32);
     }
 
     pub fn mouse_click(&mut self) {
-        let real_position: (f64, f64) = LogicalPosition::from(self.draw_state.mouse_position)
-            .to_physical(self.draw_state.ui_scale().into())
-            .into();
-        self.draw_state.move_cursor_to_mouse_position(real_position);
+        let mouse_pos = (self.mouse_position.x as f64, self.mouse_position.y as f64);
+        let real_position = LogicalPosition::from(mouse_pos).to_physical(self.ui_scale.into());
+        let real_position_vec = vec2(real_position.x as f32, real_position.y as f32);
+        self.container.mouse_click(real_position_vec);
     }
 
     pub fn mouse_scroll(&mut self, delta_x: f32, delta_y: f32) {
-        self.draw_state.scroll_window_vertically(-delta_y);
-        self.draw_state.scroll_window_horizontally(-delta_x);
-        self.draw_state.update_cursor();
+        // FIXME: this is going to have to be relayed to the pane _under_ the mouse cursor position
+        self.container
+            .update_current_buffer(BufferAction::MouseScroll(vec2(-delta_x, -delta_y)));
     }
 
     pub fn inc_font_size(&mut self) {
-        self.draw_state.inc_font_size();
+        self.font_size += 1.0;
         self.resized = true;
+        self.container
+            .update_gui(GuiAction::SetFontSize(self.font_size));
     }
 
     pub fn dec_font_size(&mut self) {
-        self.draw_state.dec_font_size();
+        self.font_size -= 1.0;
         self.resized = true;
+        self.container
+            .update_gui(GuiAction::SetFontSize(self.font_size));
     }
 
     fn print_info(&mut self) {
-        self.draw_state.print_info();
+        self.container
+            .update_current_buffer(BufferAction::PrintDebugInfo);
     }
 
     pub fn handle_key(&mut self, key: Key) {
-        let (handled, window_action) = self.draw_state.handle_key(key);
+        let (handled, window_action) = self.container.handle_key(key);
 
         if let Some(window_action) = window_action {
             self.do_window_action(window_action);
@@ -594,12 +442,6 @@ impl<'a> Window<'a> {
     fn do_window_action(&mut self, window_action: WindowAction) {
         match window_action {
             WindowAction::SaveFileAs(filename) => self.save_file_as(filename),
-        }
-    }
-
-    fn check_prompt(&mut self) {
-        if let Some(window_action) = self.draw_state.check_prompt() {
-            self.do_window_action(window_action);
         }
     }
 
@@ -642,13 +484,19 @@ impl<'a> Window<'a> {
 
     fn handle_buffer_cmd(&mut self, cmd: Cmd) {
         match cmd {
-            Cmd::Move(movement) => self.move_cursor(movement),
+            Cmd::Move(movement) => self
+                .container
+                .update_current_buffer(BufferAction::MoveCursor(movement)),
             Cmd::DeleteCharBackward => self.delete_char_backward(),
             Cmd::DeleteCharForward => self.delete_char_forward(),
             Cmd::Linebreak => self.insert_newline_and_return(),
             Cmd::InsertChar(typed_char) => self.insert_char(typed_char),
-            Cmd::Search => self.draw_state.start_search(),
-            Cmd::CloneCursor => self.clone_cursor(),
+            Cmd::Search => self
+                .container
+                .update_current_buffer(BufferAction::StartSearch),
+            Cmd::CloneCursor => self
+                .container
+                .update_current_buffer(BufferAction::CloneCursor),
             Cmd::Quit => self.try_quit(),
             Cmd::PrintInfo => self.print_info(),
             Cmd::Escape => {}
@@ -657,24 +505,27 @@ impl<'a> Window<'a> {
     }
 
     fn save_file_as(&mut self, filename: String) {
-        self.draw_state.buffer.filename = Some(filename);
+        self.container
+            .update_current_buffer(BufferAction::SetFilename(filename));
         self.save_file();
     }
 
     fn save_file(&mut self) {
-        match self.draw_state.save_file() {
-            Ok(FileSaveStatus::Saved(bytes_saved)) => {
-                self.set_status_msg(format!("{} bytes written to disk", bytes_saved))
-            }
-            Ok(_) => self.check_prompt(), // TODO: do we need to do this here? already covered by handle_key
-            Err(err) => {
-                self.set_status_msg(format!("Can't save! Error: {}", err));
+        if let Some(save_status) = self.container.save_file() {
+            match save_status {
+                Ok(FileSaveStatus::Saved(bytes_saved)) => {
+                    self.set_status_msg(format!("{} bytes written to disk", bytes_saved))
+                }
+                Ok(_) => {}
+                Err(err) => {
+                    self.set_status_msg(format!("Can't save! Error: {}", err));
+                }
             }
         }
     }
 
     fn try_quit(&mut self) {
-        if self.options.show_quit_warning() && self.draw_state.buffer.is_dirty() {
+        if self.options.show_quit_warning() && self.container.is_dirty() {
             self.quit_times -= 1;
             self.set_status_msg(format!(
                 "{} {} {} {}",
@@ -692,32 +543,27 @@ impl<'a> Window<'a> {
         self.status_message = Some(Status::new_with_timeout(msg, Duration::from_secs(5)));
     }
 
-    fn move_cursor(&mut self, movement: commands::MoveCursor) {
-        self.draw_state
-            .buffer
-            .move_cursor(movement, self.draw_state.screen_rows() as usize);
-        self.draw_state.update_cursor();
-    }
-
-    fn clone_cursor(&mut self) {
-        self.draw_state.clone_cursor();
-    }
-
     fn delete_char_backward(&mut self) {
-        self.draw_state.delete_char();
+        self.container
+            .update_current_buffer(BufferAction::DeleteChar);
     }
 
     fn delete_char_forward(&mut self) {
-        self.move_cursor(commands::MoveCursor::right(1));
-        self.draw_state.delete_char();
+        // FIXME: move into DrawState
+        self.container
+            .update_current_buffer(BufferAction::MoveCursor(commands::MoveCursor::right(1)));
+        self.container
+            .update_current_buffer(BufferAction::DeleteChar);
     }
 
     fn insert_newline_and_return(&mut self) {
-        self.draw_state.insert_newline_and_return();
+        self.container
+            .update_current_buffer(BufferAction::InsertNewlineAndReturn);
     }
 
     fn insert_char(&mut self, typed_char: char) {
-        self.draw_state.insert_char(typed_char);
+        self.container
+            .update_current_buffer(BufferAction::InsertChar(typed_char));
     }
 
     pub fn resize(&mut self, logical_size: LogicalSize) {
@@ -725,22 +571,26 @@ impl<'a> Window<'a> {
     }
 
     pub fn set_window_dimensions(&mut self, dimensions: (u16, u16)) {
-        self.draw_state.set_window_dimensions(dimensions);
+        self.window_dim = vec2(dimensions.0.into(), dimensions.1.into());
         self.resized = true;
+        self.container
+            .update_gui(GuiAction::UpdateSize(self.window_dim, vec2(0.0, 0.0)));
     }
 
-    pub fn set_dpi(&mut self, dpi: f32) {
+    pub fn set_ui_scale(&mut self, dpi: f32) {
         println!("DPI changed: {}", dpi);
         // FIXME: why do we need dpi AND ui_scale?
-        self.dpi = dpi;
-        self.draw_state.set_ui_scale(dpi);
+        self.ui_scale = dpi;
+        self.container.update_gui(GuiAction::SetUiScale(dpi));
     }
 
     pub fn set_line_height(&mut self, line_height: f32) {
-        self.draw_state.set_line_height(line_height);
+        self.container
+            .update_gui(GuiAction::SetLineHeight(line_height));
     }
 
     pub fn set_character_width(&mut self, character_width: f32) {
-        self.draw_state.set_character_width(character_width);
+        self.container
+            .update_gui(GuiAction::SetCharacterWidth(character_width));
     }
 }

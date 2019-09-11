@@ -19,8 +19,9 @@ fn run_terminal(options: Options) {
     editor.enable_raw_mode();
     let mut terminal = editor.get_window_size();
     terminal.init();
-    if let RunOpenFile(ref filename) = options.run_type {
-        terminal.open(filename);
+    if let RunOpenFiles(filenames) = &options.run_type {
+        // FIXME: open multiple files
+        terminal.open(&filenames[0]);
     };
 
     if options.run_type == Debug {
@@ -41,19 +42,25 @@ fn run_gui(options: Options) -> Result<(), Box<dyn Error>> {
 fn main() -> Result<(), Box<dyn Error>> {
     let mut interface = Interface::Gui;
     let mut options = Options::default();
+    let mut files = Vec::new();
 
     for arg in env::args().skip(1) {
         match arg.as_str() {
             "--debug" => options.run_type = RunConfig::Debug,
             "--no-window-system" | "-nw" => interface = Interface::Terminal,
             "--no-quit-warning" => options.no_quit_warning = true,
+            "-O" => options.vsplit = true,
             _ => {
                 if !arg.starts_with("-") {
                     // i.e. not a flag
-                    options.run_type = RunConfig::RunOpenFile(String::from(arg))
+                    files.push(String::from(arg));
                 }
             }
         }
+    }
+
+    if files.len() > 0 {
+        options.run_type = RunConfig::RunOpenFiles(files);
     }
 
     match interface {
