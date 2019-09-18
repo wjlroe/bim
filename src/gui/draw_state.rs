@@ -38,7 +38,6 @@ pub struct DrawState<'a> {
     pub ui_scale: f32,
     left_padding: f32,
     other_cursor: Option<Cursor>,
-    other_cursor_transform: Option<Matrix4<f32>>,
     pub buffer: Buffer<'a>,
     pub highlighted_sections: Vec<HighlightedSection>,
     pub status_line: StatusLine,
@@ -60,7 +59,6 @@ impl<'a> Default for DrawState<'a> {
             ui_scale: 0.0,
             left_padding: 0.0,
             other_cursor: None,
-            other_cursor_transform: None,
             buffer: Buffer::default(),
             highlighted_sections: vec![],
             status_line: StatusLine::default(),
@@ -147,10 +145,6 @@ impl<'a> DrawState<'a> {
 
     pub fn left_padding(&self) -> f32 {
         self.left_padding
-    }
-
-    pub fn other_cursor_transform(&self) -> Option<Matrix4<f32>> {
-        self.other_cursor_transform
     }
 
     pub fn row_offset(&self) -> f32 {
@@ -251,7 +245,7 @@ impl<'a> DrawState<'a> {
     {
         let rcursor_x = self
             .buffer
-            .text_cursor_to_render(self.buffer.cursor.text_col(), self.buffer.cursor.text_row());
+            .text_cursor_to_render(cursor.text_col(), cursor.text_row());
         let cursor_width = self.character_width();
         let cursor_height = self.line_height();
 
@@ -689,13 +683,9 @@ impl<'a> DrawState<'a> {
         let cursor_rect = self.onscreen_cursor(&self.buffer.cursor);
         renderer.draw_quad(cursor_bg, cursor_rect, 0.2);
 
-        if let Some(cursor_transform) = self.other_cursor_transform() {
-            quad::draw(
-                &mut renderer.encoder,
-                &mut renderer.quad_bundle,
-                OTHER_CURSOR_BG,
-                cursor_transform,
-            );
+        if let Some(other_cursor) = self.other_cursor {
+            let other_cursor_rect = self.onscreen_cursor(&other_cursor);
+            renderer.draw_quad(OTHER_CURSOR_BG, other_cursor_rect, 0.2);
         }
 
         Ok(())
