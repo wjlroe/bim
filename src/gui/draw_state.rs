@@ -14,7 +14,7 @@ use crate::prompt::PromptAction;
 use crate::search::Search;
 use crate::status_line::StatusLine;
 use crate::utils::char_position_to_byte_position;
-use cgmath::{vec2, Matrix4, SquareMatrix, Vector2, Vector3};
+use cgmath::{vec2, Matrix4, Vector2, Vector3};
 use flame;
 use gfx_glyph::{Scale, Section, SectionText, VariedSection};
 use std::error::Error;
@@ -37,10 +37,8 @@ pub struct DrawState<'a> {
     pub font_size: f32,
     pub ui_scale: f32,
     left_padding: f32,
-    cursor_transform: Matrix4<f32>,
     other_cursor: Option<Cursor>,
     other_cursor_transform: Option<Matrix4<f32>>,
-    status_transform: Matrix4<f32>,
     pub buffer: Buffer<'a>,
     pub highlighted_sections: Vec<HighlightedSection>,
     pub status_line: StatusLine,
@@ -61,10 +59,8 @@ impl<'a> Default for DrawState<'a> {
             font_size: 0.0,
             ui_scale: 0.0,
             left_padding: 0.0,
-            cursor_transform: Matrix4::identity(),
             other_cursor: None,
             other_cursor_transform: None,
-            status_transform: Matrix4::identity(),
             buffer: Buffer::default(),
             highlighted_sections: vec![],
             status_line: StatusLine::default(),
@@ -100,8 +96,6 @@ impl<'a> DrawState<'a> {
 
     pub fn update_font_metrics(&mut self) {
         self.update_screen_rows();
-        self.update_status_transform();
-        self.update_cursor_transform();
         self.scroll();
     }
 
@@ -109,7 +103,6 @@ impl<'a> DrawState<'a> {
         self.update_screen_rows();
         self.scroll();
         self.update_status_line();
-        self.update_cursor_transform();
     }
 
     pub fn line_height(&self) -> f32 {
@@ -154,14 +147,6 @@ impl<'a> DrawState<'a> {
 
     pub fn left_padding(&self) -> f32 {
         self.left_padding
-    }
-
-    pub fn status_transform(&self) -> Matrix4<f32> {
-        self.status_transform
-    }
-
-    pub fn cursor_transform(&self) -> Matrix4<f32> {
-        self.cursor_transform
     }
 
     pub fn other_cursor_transform(&self) -> Option<Matrix4<f32>> {
@@ -252,23 +237,6 @@ impl<'a> DrawState<'a> {
         }
     }
 
-    fn update_status_transform(&mut self) {
-        let status_height = self.line_height() as f32;
-        let status_scale = Matrix4::from_nonuniform_scale(1.0, status_height / self.bounds.y, 1.0);
-        let y_move = -((self.bounds.y - status_height) / status_height);
-        let status_move = Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
-        self.status_transform = status_scale * status_move;
-    }
-
-    fn update_cursor_transform(&mut self) {
-        self.cursor_transform = self.transform_for_cursor(&self.buffer.cursor);
-        if let Some(other_cursor) = self.other_cursor {
-            self.other_cursor_transform = Some(self.transform_for_cursor(&other_cursor));
-        } else {
-            self.other_cursor_transform = None;
-        }
-    }
-
     fn cursor_from_mouse_position(&self, mouse: Vector2<f32>) -> Vector2<i32> {
         let row_on_screen =
             ((mouse.y - self.top_padding()) / self.line_height() + self.row_offset).floor() as i32;
@@ -297,26 +265,6 @@ impl<'a> DrawState<'a> {
         )
     }
 
-    fn transform_for_cursor<C>(&self, cursor: &C) -> Matrix4<f32>
-    where
-        C: CursorT,
-    {
-        let cursor_rect = self.onscreen_cursor(cursor);
-        // let cursor_width = self.character_width();
-        // let cursor_height = self.line_height();
-
-        let cursor_scale = Matrix4::from_nonuniform_scale(
-            cursor_rect.bounds.x / self.bounds.x,
-            cursor_rect.bounds.y / self.bounds.y,
-            1.0,
-        );
-        let cursor_pos = cursor_rect.center();
-        let y_move = -((cursor_pos.y / self.bounds.y) * 2.0 - 1.0);
-        let x_move = (cursor_pos.x / self.bounds.x) * 2.0 - 1.0;
-        let cursor_move = Matrix4::from_translation(Vector3::new(x_move, y_move, 0.2));
-        cursor_move * cursor_scale
-    }
-
     pub fn line_transforms(&self) -> Vec<Matrix4<f32>> {
         let mut line_transforms = vec![];
         for line in LINE_COLS_AT.iter() {
@@ -336,12 +284,10 @@ impl<'a> DrawState<'a> {
     pub fn print_info(&self) {
         println!("status_height: {}", self.line_height());
         println!("inner: ({}, {})", self.inner_width(), self.inner_height());
-        println!("status_transform: {:?}", self.status_transform);
         println!(
             "cursor on screen: {:?}",
             self.onscreen_cursor(&self.buffer.cursor)
         );
-        println!("cursor_transform: {:?}", self.cursor_transform);
         println!("screen_rows: {}", self.screen_rows);
         println!("bounds: {:?}", self.bounds);
         println!("position: {:?}", self.position);
