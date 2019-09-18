@@ -1,5 +1,10 @@
-use crate::buffer::{Buffer, FileSaveStatus};
+use crate::buffer::{Buffer, BufferAction, FileSaveStatus};
+use crate::commands::MoveCursor;
 use crate::cursor::{Cursor, CursorT};
+use crate::gui::actions::GuiAction;
+use crate::gui::gl_renderer::GlRenderer;
+use crate::gui::quad;
+use crate::gui::rect::Rect;
 use crate::gui::window::WindowAction;
 use crate::highlight::HighlightedSection;
 use crate::highlight::{highlight_to_color, Highlight};
@@ -9,26 +14,30 @@ use crate::prompt::PromptAction;
 use crate::search::Search;
 use crate::status_line::StatusLine;
 use crate::utils::char_position_to_byte_position;
-use cgmath::{Matrix4, SquareMatrix, Vector3};
+use cgmath::{vec2, Matrix4, Vector2, Vector3};
 use flame;
-use gfx_glyph::{Scale, SectionText};
+use gfx_glyph::{Scale, Section, SectionText, VariedSection};
 use std::error::Error;
 
 const LINE_COLS_AT: [u32; 2] = [80, 120];
+const LINE_COL_BG: [f32; 3] = [0.0, 0.0, 0.0];
+const STATUS_FOCUSED_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
+const STATUS_UNFOCUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
+const STATUS_FOCUSED_FG: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
+const STATUS_UNFOCUS_FG: [f32; 4] = [0.8, 0.8, 0.8, 1.0];
+const CURSOR_FOCUSED_BG: [f32; 3] = [250.0 / 256.0, 250.0 / 256.0, 250.0 / 256.0];
+const CURSOR_UNFOCUS_BG: [f32; 3] = [150.0 / 256.0, 150.0 / 256.0, 150.0 / 256.0];
+const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
 
 pub struct DrawState<'a> {
-    window_width: f32,
-    window_height: f32,
+    bounds: Vector2<f32>,
+    position: Vector2<f32>,
     line_height: f32,
     character_width: f32,
-    font_size: f32,
-    ui_scale: f32,
+    pub font_size: f32,
+    pub ui_scale: f32,
     left_padding: f32,
-    pub mouse_position: (f64, f64),
-    cursor_transform: Matrix4<f32>,
     other_cursor: Option<Cursor>,
-    other_cursor_transform: Option<Matrix4<f32>>,
-    status_transform: Matrix4<f32>,
     pub buffer: Buffer<'a>,
     pub highlighted_sections: Vec<HighlightedSection>,
     pub status_line: StatusLine,
@@ -42,18 +51,14 @@ pub struct DrawState<'a> {
 impl<'a> Default for DrawState<'a> {
     fn default() -> Self {
         Self {
-            window_width: 0.0,
-            window_height: 0.0,
+            bounds: vec2(0.0, 0.0),
+            position: vec2(0.0, 0.0),
             line_height: 0.0,
             character_width: 0.0,
             font_size: 0.0,
             ui_scale: 0.0,
             left_padding: 0.0,
-            mouse_position: (0.0, 0.0),
-            cursor_transform: Matrix4::identity(),
             other_cursor: None,
-            other_cursor_transform: None,
-            status_transform: Matrix4::identity(),
             buffer: Buffer::default(),
             highlighted_sections: vec![],
             status_line: StatusLine::default(),
@@ -67,16 +72,8 @@ impl<'a> Default for DrawState<'a> {
 }
 
 impl<'a> DrawState<'a> {
-    pub fn new(
-        window_width: f32,
-        window_height: f32,
-        font_size: f32,
-        ui_scale: f32,
-        buffer: Buffer<'a>,
-    ) -> Self {
+    pub fn new(font_size: f32, ui_scale: f32, buffer: Buffer<'a>) -> Self {
         let mut state = DrawState {
-            window_width,
-            window_height,
             font_size,
             ui_scale,
             left_padding: 12.0,
@@ -88,15 +85,15 @@ impl<'a> DrawState<'a> {
         state
     }
 
-    pub fn update_window(&mut self) {
+    fn update_size(&mut self, bounds: Vector2<f32>, position: Vector2<f32>) {
+        self.bounds = bounds;
+        self.position = position;
         self.update_screen_rows();
         self.scroll();
     }
 
     pub fn update_font_metrics(&mut self) {
         self.update_screen_rows();
-        self.update_status_transform();
-        self.update_cursor_transform();
         self.scroll();
     }
 
@@ -104,27 +101,18 @@ impl<'a> DrawState<'a> {
         self.update_screen_rows();
         self.scroll();
         self.update_status_line();
-        self.update_cursor_transform();
     }
 
     pub fn line_height(&self) -> f32 {
         self.line_height
     }
 
-    pub fn window_width(&self) -> f32 {
-        self.window_width
-    }
-
-    pub fn window_height(&self) -> f32 {
-        self.window_height
-    }
-
     pub fn inner_width(&self) -> f32 {
-        self.window_width - self.left_padding
+        self.bounds.x - self.left_padding
     }
 
     pub fn inner_height(&self) -> f32 {
-        self.window_height - self.bottom_padding() - self.top_padding()
+        self.bounds.y - self.bottom_padding() - self.top_padding()
     }
 
     pub fn screen_rows(&self) -> i32 {
@@ -159,18 +147,6 @@ impl<'a> DrawState<'a> {
         self.left_padding
     }
 
-    pub fn status_transform(&self) -> Matrix4<f32> {
-        self.status_transform
-    }
-
-    pub fn cursor_transform(&self) -> Matrix4<f32> {
-        self.cursor_transform
-    }
-
-    pub fn other_cursor_transform(&self) -> Option<Matrix4<f32>> {
-        self.other_cursor_transform
-    }
-
     pub fn row_offset(&self) -> f32 {
         self.row_offset
     }
@@ -191,7 +167,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn row_offset_as_transform(&self) -> Matrix4<f32> {
-        let y_move = self.screen_position_vertical_offset() / (self.window_height / 2.0);
+        let y_move = self.screen_position_vertical_offset() / (self.bounds.y / 2.0);
         Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0))
     }
 
@@ -255,91 +231,44 @@ impl<'a> DrawState<'a> {
         }
     }
 
-    fn update_status_transform(&mut self) {
-        let status_height = self.line_height() as f32;
-        let status_scale =
-            Matrix4::from_nonuniform_scale(1.0, status_height / self.window_height, 1.0);
-        let y_move = -((self.window_height - status_height) / status_height);
-        let status_move = Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0));
-        self.status_transform = status_scale * status_move;
+    fn cursor_from_mouse_position(&self, mouse: Vector2<f32>) -> Vector2<i32> {
+        let row_on_screen =
+            ((mouse.y - self.top_padding()) / self.line_height() + self.row_offset).floor() as i32;
+        let col_on_screen =
+            ((mouse.x - self.left_padding()) / self.character_width()).floor() as i32;
+        vec2(col_on_screen, row_on_screen)
     }
 
-    fn update_cursor_transform(&mut self) {
-        self.cursor_transform = self.transform_for_cursor(&self.buffer.cursor);
-        if let Some(other_cursor) = self.other_cursor {
-            self.other_cursor_transform = Some(self.transform_for_cursor(&other_cursor));
-        } else {
-            self.other_cursor_transform = None;
-        }
-    }
-
-    fn cursor_from_mouse_position(&self, mouse: (f64, f64)) -> (i32, i32) {
-        let row_on_screen = ((mouse.1 - f64::from(self.top_padding()))
-            / f64::from(self.line_height())
-            + f64::from(self.row_offset))
-        .floor() as i32;
-        let col_on_screen = ((mouse.0 - f64::from(self.left_padding()))
-            / f64::from(self.character_width()))
-        .floor() as i32;
-        (col_on_screen, row_on_screen)
-    }
-
-    pub fn onscreen_cursor<C>(&self, cursor: &C) -> (f32, f32)
+    pub fn onscreen_cursor<C>(&self, cursor: &C) -> Rect
     where
         C: CursorT,
     {
         let rcursor_x = self
             .buffer
-            .text_cursor_to_render(self.buffer.cursor.text_col(), self.buffer.cursor.text_row());
+            .text_cursor_to_render(cursor.text_col(), cursor.text_row());
         let cursor_width = self.character_width();
         let cursor_height = self.line_height();
 
         let cursor_y = cursor.text_row() as f32;
         let cursor_x = rcursor_x as f32;
-        let x_on_screen = (cursor_width * cursor_x) + cursor_width / 2.0 + self.left_padding;
-        let y_on_screen = (cursor_height * (cursor_y - self.row_offset))
-            + cursor_height / 2.0
-            + self.top_padding();
-        (x_on_screen, y_on_screen)
-    }
-
-    fn transform_for_cursor<C>(&self, cursor: &C) -> Matrix4<f32>
-    where
-        C: CursorT,
-    {
-        let cursor_width = self.character_width();
-        let cursor_height = self.line_height();
-
-        let cursor_scale = Matrix4::from_nonuniform_scale(
-            cursor_width / self.window_width,
-            cursor_height / self.window_height,
-            1.0,
-        );
-        let (x_on_screen, y_on_screen) = self.onscreen_cursor(cursor);
-        let y_move = -((y_on_screen / self.window_height) * 2.0 - 1.0);
-        let x_move = (x_on_screen / self.window_width) * 2.0 - 1.0;
-        let cursor_move = Matrix4::from_translation(Vector3::new(x_move, y_move, 0.2));
-        cursor_move * cursor_scale
+        let x_on_screen = (cursor_width * cursor_x) + self.left_padding;
+        let y_on_screen = (cursor_height * (cursor_y - self.row_offset)) + self.top_padding();
+        Rect::new(
+            self.position + vec2(x_on_screen, y_on_screen),
+            vec2(cursor_width, cursor_height),
+        )
     }
 
     pub fn line_transforms(&self) -> Vec<Matrix4<f32>> {
         let mut line_transforms = vec![];
         for line in LINE_COLS_AT.iter() {
-            let scale = Matrix4::from_nonuniform_scale(1.0 / self.window_width(), 1.0, 1.0);
+            let scale = Matrix4::from_nonuniform_scale(1.0 / self.bounds.x, 1.0, 1.0);
             let x_on_screen = self.left_padding() + (*line as f32 * self.character_width());
-            let x_move = (x_on_screen / self.window_width()) * 2.0 - 1.0;
+            let x_move = (x_on_screen / self.bounds.x) * 2.0 - 1.0;
             let translate = Matrix4::from_translation(Vector3::new(x_move, 0.0, 0.2));
             line_transforms.push(translate * scale);
         }
         line_transforms
-    }
-
-    pub fn transform_from_width_height(&self, width: f32, height: f32) -> Matrix4<f32> {
-        Matrix4::from_nonuniform_scale(
-            width / self.window_width(),
-            height / self.window_height(),
-            1.0,
-        )
     }
 
     pub fn update_screen_rows(&mut self) {
@@ -349,37 +278,36 @@ impl<'a> DrawState<'a> {
     pub fn print_info(&self) {
         println!("status_height: {}", self.line_height());
         println!("inner: ({}, {})", self.inner_width(), self.inner_height());
-        println!("status_transform: {:?}", self.status_transform);
         println!(
             "cursor on screen: {:?}",
             self.onscreen_cursor(&self.buffer.cursor)
         );
-        println!("cursor_transform: {:?}", self.cursor_transform);
         println!("screen_rows: {}", self.screen_rows);
+        println!("bounds: {:?}", self.bounds);
+        println!("position: {:?}", self.position);
     }
 
-    pub fn inc_font_size(&mut self) {
-        self.font_size += 1.0;
+    fn set_font_size(&mut self, font_size: f32) {
+        self.font_size = font_size;
         self.update_font_metrics();
     }
 
-    pub fn dec_font_size(&mut self) {
-        self.font_size -= 1.0;
-        self.update_font_metrics();
+    fn mouse_scroll(&mut self, delta: Vector2<f32>) {
+        self.scroll_window_vertically(delta.y);
+        self.scroll_window_horizontally(delta.x);
+        self.update_cursor();
     }
 
-    pub fn set_window_dimensions(&mut self, (width, height): (u16, u16)) {
-        self.window_height = height.into();
-        self.window_width = width.into();
-        self.update_window();
-        // TODO: what happens when window resized so cursor not visible any more?
+    fn mouse_click(&mut self, location: Vector2<f32>) {
+        println!("mouse click: {:?}", location);
+        self.move_cursor_to_mouse_position(location);
     }
 
-    pub fn move_cursor_to_mouse_position(&mut self, mouse: (f64, f64)) {
-        let (cursor_x, cursor_y) = self.cursor_from_mouse_position(mouse);
-        let clicked_line = i32::min((self.buffer.num_lines() as i32) - 1, cursor_y);
+    pub fn move_cursor_to_mouse_position(&mut self, mouse: Vector2<f32>) {
+        let cursor = self.cursor_from_mouse_position(mouse);
+        let clicked_line = i32::min((self.buffer.num_lines() as i32) - 1, cursor.y);
         let clicked_line_length = self.buffer.line_len(clicked_line).unwrap_or(0) as i32;
-        let clicked_line_x = i32::min(clicked_line_length, cursor_x);
+        let clicked_line_x = i32::min(clicked_line_length, cursor.x);
         let move_y = clicked_line - self.buffer.cursor.text_row();
         let move_x = clicked_line_x - self.buffer.cursor.text_col();
         self.buffer.cursor.change(|cursor| {
@@ -408,6 +336,41 @@ impl<'a> DrawState<'a> {
         let row = self.buffer.cursor.text_row();
         let row_offset = self.row_offset.floor() as i32;
         row >= row_offset && row < row_offset + self.screen_rows
+    }
+
+    pub fn update_buffer(&mut self, action: BufferAction) {
+        use BufferAction::*;
+
+        match action {
+            InsertNewlineAndReturn => self.insert_newline_and_return(),
+            InsertChar(typed_char) => self.insert_char(typed_char),
+            DeleteChar => self.delete_char(),
+            CloneCursor => self.clone_cursor(),
+            MoveCursor(movement) => self.move_cursor(movement),
+            MouseScroll(delta) => self.mouse_scroll(delta),
+            MouseClick(location) => self.mouse_click(location),
+            SetFilename(filename) => self.buffer.set_filename(filename),
+            StartSearch => self.start_search(),
+            PrintDebugInfo => self.print_info(),
+        }
+    }
+
+    pub fn update_gui(&mut self, action: GuiAction) {
+        use GuiAction::*;
+
+        match action {
+            UpdateSize(bounds, position) => self.update_size(bounds, position),
+            SetFontSize(font_size) => self.set_font_size(font_size),
+            SetUiScale(dpi) => self.set_ui_scale(dpi),
+            SetLineHeight(line_height) => self.set_line_height(line_height),
+            SetCharacterWidth(character_width) => self.set_character_width(character_width),
+        }
+    }
+
+    fn move_cursor(&mut self, movement: MoveCursor) {
+        self.buffer
+            .move_cursor(movement, self.screen_rows() as usize);
+        self.update_cursor();
     }
 
     fn move_cursor_onscreen(&mut self) {
@@ -578,6 +541,220 @@ impl<'a> DrawState<'a> {
         section_texts
     }
 
+    fn render_search(
+        &self,
+        renderer: &mut GlRenderer,
+        bounds: Vector2<f32>,
+        position: Vector2<f32>,
+    ) -> Result<(), Box<dyn Error>> {
+        if let Some(search) = self.search.as_ref() {
+            let _guard = flame::start_guard("render top left search prompt");
+
+            let top_left_section = Section {
+                bounds: bounds.into(),
+                screen_position: position.into(),
+                text: &search.as_string(),
+                color: [0.7, 0.6, 0.5, 1.0],
+                scale: Scale::uniform(self.font_scale()),
+                z: 0.5,
+                ..Section::default()
+            };
+            renderer.glyph_brush.queue(top_left_section);
+            renderer
+                .glyph_brush
+                .use_queue()
+                .depth_target(&renderer.quad_bundle.data.out_depth)
+                .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
+        }
+
+        Ok(())
+    }
+
+    fn render_prompt(
+        &self,
+        renderer: &mut GlRenderer,
+        bounds: Vector2<f32>,
+        position: Vector2<f32>,
+    ) -> Result<(), Box<dyn Error>> {
+        if let Some(top_left_text) = self.prompt_text() {
+            let _guard = flame::start_guard("render top left prompt text");
+
+            let text_position: Vector2<f32> = position + vec2(0.0, self.top_padding());
+            let top_left_section = Section {
+                bounds: bounds.into(),
+                screen_position: text_position.into(),
+                text: &top_left_text,
+                color: [0.7, 0.6, 0.5, 1.0],
+                scale: Scale::uniform(self.font_scale()),
+                z: 0.5,
+                ..Section::default()
+            };
+
+            renderer.glyph_brush.queue(top_left_section);
+
+            renderer
+                .glyph_brush
+                .use_queue()
+                .depth_target(&renderer.quad_bundle.data.out_depth)
+                .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
+        }
+
+        Ok(())
+    }
+
+    fn status_text(&self) -> String {
+        format!(
+            "{} | {} | {}",
+            self.status_line.filename, self.status_line.filetype, self.status_line.cursor
+        )
+    }
+
+    fn render_status_text(
+        &self,
+        renderer: &mut GlRenderer,
+        bounds: Vector2<f32>,
+        _position: Vector2<f32>,
+        focused: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        let status_bg = if focused {
+            STATUS_FOCUSED_BG
+        } else {
+            STATUS_UNFOCUS_BG
+        };
+        let status_fg = if focused {
+            STATUS_FOCUSED_FG
+        } else {
+            STATUS_UNFOCUS_FG
+        };
+
+        let status_rect = Rect::new(
+            vec2(
+                self.position.x,
+                self.position.y + self.bounds.y - self.line_height(),
+            ),
+            vec2(self.bounds.x, self.line_height()),
+        );
+        {
+            let _guard = flame::start_guard("render status quad");
+            // Render status background
+            renderer.draw_quad(status_bg, status_rect, 0.2);
+        }
+
+        {
+            let _guard = flame::start_guard("render status text");
+            let status_text = self.status_text();
+            let status_section = Section {
+                bounds: bounds.into(),
+                screen_position: status_rect.top_left.into(),
+                text: &status_text,
+                color: status_fg,
+                scale: Scale::uniform(self.font_scale()),
+                z: 0.5,
+                ..Section::default()
+            };
+
+            renderer.glyph_brush.queue(status_section);
+
+            renderer
+                .glyph_brush
+                .use_queue()
+                .depth_target(&renderer.quad_bundle.data.out_depth)
+                .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
+        }
+
+        Ok(())
+    }
+
+    fn render_cursors(
+        &self,
+        renderer: &mut GlRenderer,
+        _bounds: Vector2<f32>,
+        _position: Vector2<f32>,
+        focused: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        let _guard = flame::start_guard("render cursors");
+
+        let cursor_bg = if focused {
+            CURSOR_FOCUSED_BG
+        } else {
+            CURSOR_UNFOCUS_BG
+        };
+
+        let cursor_rect = self.onscreen_cursor(&self.buffer.cursor);
+        renderer.draw_quad(cursor_bg, cursor_rect, 0.2);
+
+        if let Some(other_cursor) = self.other_cursor {
+            let other_cursor_rect = self.onscreen_cursor(&other_cursor);
+            renderer.draw_quad(OTHER_CURSOR_BG, other_cursor_rect, 0.2);
+        }
+
+        Ok(())
+    }
+
+    fn render_text(
+        &self,
+        renderer: &mut GlRenderer,
+        bounds: Vector2<f32>,
+        position: Vector2<f32>,
+    ) -> Result<(), Box<dyn Error>> {
+        let _guard = flame::start_guard("render buffer text");
+
+        let text_pos = vec2(self.left_padding(), self.top_padding()) + position;
+
+        let section = VariedSection {
+            bounds: bounds.into(),
+            screen_position: text_pos.into(),
+            text: self.section_texts(),
+            z: 1.0,
+            ..VariedSection::default()
+        };
+        renderer.glyph_brush.queue(section);
+
+        let default_transform: Matrix4<f32> =
+            gfx_glyph::default_transform(&renderer.quad_bundle.data.out_color).into();
+        let transform = self.row_offset_as_transform() * default_transform;
+        renderer
+            .glyph_brush
+            .use_queue()
+            .transform(transform)
+            .depth_target(&renderer.quad_bundle.data.out_depth)
+            .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
+
+        Ok(())
+    }
+
+    fn render_lines(
+        &self,
+        renderer: &mut GlRenderer,
+        _bounds: Vector2<f32>,
+        _position: Vector2<f32>,
+    ) -> Result<(), Box<dyn Error>> {
+        let _guard = flame::start_guard("render lines");
+        for transform in self.line_transforms() {
+            quad::draw(
+                &mut renderer.encoder,
+                &mut renderer.quad_bundle,
+                LINE_COL_BG,
+                transform,
+            );
+        }
+
+        Ok(())
+    }
+
+    pub fn render(&self, renderer: &mut GlRenderer, focused: bool) -> Result<(), Box<dyn Error>> {
+        let padded_position = self.position + vec2(self.left_padding(), 0.0);
+
+        self.render_text(renderer, self.bounds, self.position)?;
+        self.render_cursors(renderer, self.bounds, padded_position, focused)?;
+        self.render_lines(renderer, self.bounds, padded_position)?;
+        self.render_prompt(renderer, self.bounds, padded_position)?;
+        self.render_search(renderer, self.bounds, padded_position)?;
+        self.render_status_text(renderer, self.bounds, self.position, focused)?;
+
+        Ok(())
+    }
+
     pub fn start_prompt(&mut self, prompt: Input<'a>) {
         self.prompt = Some(prompt);
         self.buffer.cursor.save_cursor();
@@ -615,12 +792,14 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn stop_prompt(&mut self) {
+        // FIXME: this has nothing to do with drawing/rendering, MOVE
         self.prompt = None;
         self.buffer.cursor.restore_saved();
         self.update_cursor();
     }
 
     pub fn check_prompt(&mut self) -> Option<WindowAction> {
+        // FIXME: this has nothing to do with drawing/rendering, MOVE
         let mut window_action = None;
         let mut stop_prompt = false;
 
@@ -647,6 +826,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn check_search(&mut self) {
+        // FIXME: this has nothing to do with drawing/rendering, MOVE
         if let Some(search) = self.search.as_ref() {
             if search.run_search() {
                 self.run_search();
@@ -662,6 +842,7 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn save_file(&mut self) -> Result<FileSaveStatus, Box<dyn Error>> {
+        // FIXME: this has nothing to do with drawing/rendering, MOVE
         let file_save_status = self.buffer.save_file()?;
         if file_save_status == FileSaveStatus::NoFilename {
             self.start_prompt(Input::new_save_file_input("Save file as", true));
@@ -679,7 +860,7 @@ fn test_update_highlighted_sections() {
     buffer.append_row("#include <ctype.h>\r\n");
     buffer.append_row("#define KILO_VERSION \"0.0.1\"\r\n");
     buffer.append_row("enum SomeEnum {};\r\n");
-    let mut draw_state = DrawState::new(100.0, 100.0, 18.0, 1.0, buffer);
+    let mut draw_state = DrawState::new(18.0, 1.0, buffer);
     draw_state.update_highlighted_sections();
     let expected_highlights = vec![
         HighlightedSection {
@@ -729,7 +910,7 @@ fn test_update_highlighted_sections_no_syntax() {
     let mut buffer = Buffer::default();
     buffer.set_filename("testfile.txt".to_string());
     buffer.append_row("This is a test file\r\n");
-    let mut draw_state = DrawState::new(100.0, 100.0, 18.0, 1.0, buffer);
+    let mut draw_state = DrawState::new(18.0, 1.0, buffer);
     draw_state.update_highlighted_sections();
     let expected_highlights = vec![HighlightedSection {
         highlight: Highlight::Normal,
