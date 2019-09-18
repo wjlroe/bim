@@ -173,7 +173,7 @@ fn test_which_pane_is_location() {
     let position = vec2(0.0, 0.0);
     let mut container = Container::single(bounds, position, 12.0, 1.0, buffer);
     assert_eq!(Some(0), container.which_pane_is_location(vec2(0.0, 0.0)));
-    container.split_vertically(None);
+    let _ = container.split_vertically(None);
     assert_eq!(Some(0), container.which_pane_is_location(vec2(0.0, 0.0)));
     assert_eq!(Some(0), container.which_pane_is_location(vec2(0.0, 9.9)));
     assert_eq!(Some(1), container.which_pane_is_location(vec2(9.0, 0.0)));
