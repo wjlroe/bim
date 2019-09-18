@@ -4,6 +4,7 @@ use crate::cursor::{Cursor, CursorT};
 use crate::gui::actions::GuiAction;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::quad;
+use crate::gui::rect::Rect;
 use crate::gui::window::WindowAction;
 use crate::highlight::HighlightedSection;
 use crate::highlight::{highlight_to_color, Highlight};
@@ -93,7 +94,6 @@ impl<'a> DrawState<'a> {
     fn update_size(&mut self, bounds: Vector2<f32>, position: Vector2<f32>) {
         self.bounds = bounds;
         self.position = position;
-        println!("new pane bounds: {:?}, position: {:?}", bounds, position);
         self.update_screen_rows();
         self.scroll();
     }
@@ -277,7 +277,7 @@ impl<'a> DrawState<'a> {
         vec2(col_on_screen, row_on_screen)
     }
 
-    pub fn onscreen_cursor<C>(&self, cursor: &C) -> (Vector2<f32>, Vector2<f32>)
+    pub fn onscreen_cursor<C>(&self, cursor: &C) -> Rect
     where
         C: CursorT,
     {
@@ -289,11 +289,9 @@ impl<'a> DrawState<'a> {
 
         let cursor_y = cursor.text_row() as f32;
         let cursor_x = rcursor_x as f32;
-        let x_on_screen = (cursor_width * cursor_x) + cursor_width / 2.0 + self.left_padding;
-        let y_on_screen = (cursor_height * (cursor_y - self.row_offset))
-            + cursor_height / 2.0
-            + self.top_padding();
-        (
+        let x_on_screen = (cursor_width * cursor_x) + self.left_padding;
+        let y_on_screen = (cursor_height * (cursor_y - self.row_offset)) + self.top_padding();
+        Rect::new(
             self.position + vec2(x_on_screen, y_on_screen),
             vec2(cursor_width, cursor_height),
         )
@@ -303,15 +301,16 @@ impl<'a> DrawState<'a> {
     where
         C: CursorT,
     {
-        let (cursor_pos, cursor_size) = self.onscreen_cursor(cursor);
+        let cursor_rect = self.onscreen_cursor(cursor);
         // let cursor_width = self.character_width();
         // let cursor_height = self.line_height();
 
         let cursor_scale = Matrix4::from_nonuniform_scale(
-            cursor_size.x / self.bounds.x,
-            cursor_size.y / self.bounds.y,
+            cursor_rect.bounds.x / self.bounds.x,
+            cursor_rect.bounds.y / self.bounds.y,
             1.0,
         );
+        let cursor_pos = cursor_rect.center();
         let y_move = -((cursor_pos.y / self.bounds.y) * 2.0 - 1.0);
         let x_move = (cursor_pos.x / self.bounds.x) * 2.0 - 1.0;
         let cursor_move = Matrix4::from_translation(Vector3::new(x_move, y_move, 0.2));
@@ -344,6 +343,8 @@ impl<'a> DrawState<'a> {
         );
         println!("cursor_transform: {:?}", self.cursor_transform);
         println!("screen_rows: {}", self.screen_rows);
+        println!("bounds: {:?}", self.bounds);
+        println!("position: {:?}", self.position);
     }
 
     fn set_font_size(&mut self, font_size: f32) {
@@ -672,7 +673,7 @@ impl<'a> DrawState<'a> {
         &self,
         renderer: &mut GlRenderer,
         bounds: Vector2<f32>,
-        position: Vector2<f32>,
+        _position: Vector2<f32>,
         focused: bool,
     ) -> Result<(), Box<dyn Error>> {
         let status_bg = if focused {
@@ -686,16 +687,17 @@ impl<'a> DrawState<'a> {
             STATUS_UNFOCUS_FG
         };
 
+        let status_rect = Rect::new(
+            vec2(
+                self.position.x,
+                self.position.y + self.bounds.y - self.line_height(),
+            ),
+            vec2(self.bounds.x, self.line_height()),
+        );
         {
             let _guard = flame::start_guard("render status quad");
             // Render status background
-            let status_transform = self.status_transform();
-            quad::draw(
-                &mut renderer.encoder,
-                &mut renderer.quad_bundle,
-                status_bg,
-                status_transform,
-            );
+            renderer.draw_quad(status_bg, status_rect, 0.2);
         }
 
         {
@@ -703,7 +705,7 @@ impl<'a> DrawState<'a> {
             let status_text = self.status_text();
             let status_section = Section {
                 bounds: bounds.into(),
-                screen_position: (self.left_padding(), bounds.y - self.bottom_padding()),
+                screen_position: status_rect.top_left.into(),
                 text: &status_text,
                 color: status_fg,
                 scale: Scale::uniform(self.font_scale()),
@@ -738,8 +740,8 @@ impl<'a> DrawState<'a> {
             CURSOR_UNFOCUS_BG
         };
 
-        let (cursor_position, cursor_size) = self.onscreen_cursor(&self.buffer.cursor);
-        renderer.draw_quad(cursor_bg, cursor_position, cursor_size);
+        let cursor_rect = self.onscreen_cursor(&self.buffer.cursor);
+        renderer.draw_quad(cursor_bg, cursor_rect, 0.2);
 
         if let Some(cursor_transform) = self.other_cursor_transform() {
             quad::draw(
@@ -788,8 +790,8 @@ impl<'a> DrawState<'a> {
     fn render_lines(
         &self,
         renderer: &mut GlRenderer,
-        bounds: Vector2<f32>,
-        position: Vector2<f32>,
+        _bounds: Vector2<f32>,
+        _position: Vector2<f32>,
     ) -> Result<(), Box<dyn Error>> {
         let _guard = flame::start_guard("render lines");
         for transform in self.line_transforms() {

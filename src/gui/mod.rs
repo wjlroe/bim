@@ -9,6 +9,8 @@ mod keycode_to_char;
 mod pane;
 mod persist_window_state;
 mod quad;
+mod rect;
+mod transforms;
 mod window;
 
 pub type ColorFormat = gfx::format::Rgba8;

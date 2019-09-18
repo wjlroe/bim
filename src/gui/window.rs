@@ -423,6 +423,8 @@ impl<'a> Window<'a> {
     }
 
     fn print_info(&mut self) {
+        println!("window_dim: {:?}", self.window_dim);
+        println!("mouse_position: {:?}", self.mouse_position);
         self.container
             .update_current_buffer(BufferAction::PrintDebugInfo);
     }
