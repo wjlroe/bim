@@ -4,6 +4,7 @@ use crate::config::{RunConfig, BIM_QUIT_TIMES};
 use crate::debug_log::DebugLog;
 use crate::gui::actions::GuiAction;
 use crate::gui::container::Container;
+use crate::gui::rect::RectBuilder;
 use crate::gui::transform_from_width_height;
 // use crate::gui::draw_state::DrawState;
 use crate::gui::gl_renderer::GlRenderer;
@@ -282,9 +283,10 @@ impl<'a> Window<'a> {
                 .h_align(HorizontalAlign::Center)
                 .v_align(VerticalAlign::Center);
             let popup_bounds: Vector2<f32> = self.window_dim - vec2(20.0, 20.0);
+            let popup_pos = vec2(self.window_dim.x / 2.0, self.window_dim.y / 2.0);
             let popup_section = Section {
                 bounds: popup_bounds.into(),
-                screen_position: (self.window_dim.x / 2.0, self.window_dim.y / 2.0),
+                screen_position: popup_pos.into(),
                 text: &status_msg.message,
                 color: [224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0, 1.0],
                 scale: Scale::uniform(self.font_scale() * 2.0),
@@ -296,6 +298,10 @@ impl<'a> Window<'a> {
             if let Some(msg_bounds) = renderer.glyph_brush.pixel_bounds(popup_section) {
                 let width = msg_bounds.max.x - msg_bounds.min.x;
                 let height = msg_bounds.max.y - msg_bounds.min.y;
+                let popup_rect = RectBuilder::new()
+                    .center(popup_pos)
+                    .bounds(vec2(width as f32, height as f32))
+                    .build();
                 let shape = vec2(width as f32, height as f32);
                 let text_size_transform = transform_from_width_height(shape, self.window_dim);
 

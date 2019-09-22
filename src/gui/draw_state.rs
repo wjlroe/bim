@@ -4,7 +4,7 @@ use crate::cursor::{Cursor, CursorT};
 use crate::gui::actions::GuiAction;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::quad;
-use crate::gui::rect::Rect;
+use crate::gui::rect::{Rect, RectBuilder};
 use crate::gui::window::WindowAction;
 use crate::highlight::HighlightedSection;
 use crate::highlight::{highlight_to_color, Highlight};
@@ -253,10 +253,10 @@ impl<'a> DrawState<'a> {
         let cursor_x = rcursor_x as f32;
         let x_on_screen = (cursor_width * cursor_x) + self.left_padding;
         let y_on_screen = (cursor_height * (cursor_y - self.row_offset)) + self.top_padding();
-        Rect::new(
-            self.position + vec2(x_on_screen, y_on_screen),
-            vec2(cursor_width, cursor_height),
-        )
+        RectBuilder::new()
+            .bounds(vec2(cursor_width, cursor_height))
+            .top_left(self.position + vec2(x_on_screen, y_on_screen))
+            .build()
     }
 
     pub fn line_transforms(&self) -> Vec<Matrix4<f32>> {
@@ -627,13 +627,13 @@ impl<'a> DrawState<'a> {
             STATUS_UNFOCUS_FG
         };
 
-        let status_rect = Rect::new(
-            vec2(
+        let status_rect = RectBuilder::new()
+            .top_left(vec2(
                 self.position.x,
                 self.position.y + self.bounds.y - self.line_height(),
-            ),
-            vec2(self.bounds.x, self.line_height()),
-        );
+            ))
+            .bounds(vec2(self.bounds.x, self.line_height()))
+            .build();
         {
             let _guard = flame::start_guard("render status quad");
             // Render status background
