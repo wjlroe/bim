@@ -2,10 +2,13 @@ use crate::buffer::{Buffer, BufferAction, FileSaveStatus};
 use crate::gui::actions::GuiAction;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::pane::Pane;
+use crate::gui::rect::RectBuilder;
 use crate::gui::window::WindowAction;
 use crate::keycodes::Key;
 use cgmath::{vec2, Vector2};
 use std::error::Error;
+
+const PANE_BORDER_BG: [f32; 3] = [0.0, 250.0 / 256.0, 0.0];
 
 enum Arrangement {
     VSplit,
@@ -43,6 +46,19 @@ impl<'a> Container<'a> {
     }
 
     pub fn render(&self, renderer: &mut GlRenderer) -> Result<(), Box<dyn Error>> {
+        match self.arrangement {
+            Arrangement::VSplit => {
+                if let Some(pane) = self.panes.get(self.focused_idx) {
+                    let x_on_screen = pane.draw_state.bounds.x;
+                    let rect = RectBuilder::new()
+                        .bounds(vec2(1.0, self.bounds.y))
+                        .top_left(vec2(x_on_screen, self.position.y))
+                        .build();
+                    renderer.draw_quad(PANE_BORDER_BG, rect, 0.3);
+                }
+            }
+        }
+
         for pane in self.panes.iter() {
             pane.render(renderer)?;
         }

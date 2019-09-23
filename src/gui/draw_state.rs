@@ -29,7 +29,7 @@ const CURSOR_UNFOCUS_BG: [f32; 3] = [150.0 / 256.0, 150.0 / 256.0, 150.0 / 256.0
 const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
 
 pub struct DrawState<'a> {
-    bounds: Vector2<f32>,
+    pub bounds: Vector2<f32>,
     position: Vector2<f32>,
     line_height: f32,
     character_width: f32,
