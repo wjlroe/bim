@@ -33,7 +33,7 @@
         }
       ],
       "osx": {
-        "type": "lldb-mi",
+        "type": "lldb",
         "target": "${workspaceRoot}/target/debug/bim"
       },
       "windows": {
@@ -61,7 +61,7 @@
         }
       ],
       "osx": {
-        "type": "lldb-mi",
+        "type": "lldb",
         "target": "${workspaceRoot}/target/release/bim"
       },
       "windows": {

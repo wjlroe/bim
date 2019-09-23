@@ -10,7 +10,7 @@ impl Transforms {
         Self { window_dim }
     }
 
-    pub fn transform_for_quad(&self, rect: Rect, z: f32) -> Matrix4<f32> {
+    pub fn transform_for_quad(&self, rect: Rect) -> Matrix4<f32> {
         let quad_scale = Matrix4::from_nonuniform_scale(
             rect.bounds.x / self.window_dim.x,
             rect.bounds.y / self.window_dim.y,
@@ -19,7 +19,7 @@ impl Transforms {
         let position = rect.center;
         let x_translate = (position.x / self.window_dim.x) * 2.0 - 1.0;
         let y_translate = -((position.y / self.window_dim.y) * 2.0 - 1.0);
-        let quad_translate = Matrix4::from_translation(vec3(x_translate, y_translate, z));
+        let quad_translate = Matrix4::from_translation(vec3(x_translate, y_translate, 0.0));
         quad_translate * quad_scale
     }
 }
@@ -34,7 +34,7 @@ fn test_quad_filling_bounds_should_be_identity_matrix() {
         .top_left(vec2(0.0, 0.0))
         .bounds(vec2(10.0, 10.0))
         .build();
-    let matrix = transforms.transform_for_quad(rect, 0.0);
+    let matrix = transforms.transform_for_quad(rect);
     let center_point = vec4(0.0, 0.0, 0.0, 0.0);
     assert_eq!(
         center_point,
