@@ -124,7 +124,7 @@ impl<'a> Container<'a> {
             Arrangement::VSplit => {
                 // TODO: we assume even splits right now...
                 let each_width = self.bounds.x / self.panes.len() as f32;
-                let which_pane = f32::ceil(each_width / location.x);
+                let which_pane = f32::floor(location.x / each_width);
                 Some(which_pane as usize)
             }
         }
