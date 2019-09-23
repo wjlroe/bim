@@ -282,7 +282,7 @@ impl<'a> Window<'a> {
             let layout = Layout::default()
                 .h_align(HorizontalAlign::Center)
                 .v_align(VerticalAlign::Center);
-            let popup_bounds: Vector2<f32> = self.window_dim - vec2(20.0, 20.0);
+            let popup_bounds: Vector2<f32> = self.window_dim - vec2(40.0, 40.0);
             let popup_pos = vec2(self.window_dim.x / 2.0, self.window_dim.y / 2.0);
             let popup_section = Section {
                 bounds: popup_bounds.into(),
@@ -298,28 +298,20 @@ impl<'a> Window<'a> {
             if let Some(msg_bounds) = renderer.glyph_brush.pixel_bounds(popup_section) {
                 let width = msg_bounds.max.x - msg_bounds.min.x;
                 let height = msg_bounds.max.y - msg_bounds.min.y;
+                // Add some padding to the bg quad
+                let text_bounds = vec2(width as f32, height as f32) + vec2(4.0, 4.0);
+
+                let popup_outline = RectBuilder::new()
+                    .center(popup_pos)
+                    .bounds(text_bounds + vec2(10.0, 10.0))
+                    .build();
+
+                renderer.draw_quad(POPUP_OUTLINE, popup_outline, 0.2); // Z???
                 let popup_rect = RectBuilder::new()
                     .center(popup_pos)
-                    .bounds(vec2(width as f32, height as f32))
+                    .bounds(text_bounds)
                     .build();
-                let shape = vec2(width as f32, height as f32);
-                let text_size_transform = transform_from_width_height(shape, self.window_dim);
-
-                let popup_bg_transform = Matrix4::from_scale(1.1) * text_size_transform;
-                quad::draw(
-                    &mut renderer.encoder,
-                    &mut renderer.quad_bundle,
-                    POPUP_BG,
-                    popup_bg_transform,
-                );
-
-                let bg_transform = Matrix4::from_scale(1.1) * popup_bg_transform;
-                quad::draw(
-                    &mut renderer.encoder,
-                    &mut renderer.quad_bundle,
-                    POPUP_OUTLINE,
-                    bg_transform,
-                );
+                renderer.draw_quad(POPUP_BG, popup_rect, 0.2); // Z??
             }
 
             renderer.glyph_brush.queue(popup_section);
