@@ -5,16 +5,14 @@ use crate::debug_log::DebugLog;
 use crate::gui::actions::GuiAction;
 use crate::gui::container::Container;
 use crate::gui::rect::RectBuilder;
-use crate::gui::transform_from_width_height;
 // use crate::gui::draw_state::DrawState;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::keycode_to_char;
 use crate::gui::persist_window_state::PersistWindowState;
-use crate::gui::quad;
 use crate::keycodes::Key;
 use crate::options::Options;
 use crate::status::Status;
-use cgmath::{vec2, Matrix4, Vector2};
+use cgmath::{vec2, Vector2};
 use flame;
 use gfx::Device;
 use gfx_glyph::{

@@ -1,9 +1,8 @@
 use crate::buffer::Buffer;
 use crate::debug_log::DebugLog;
 use crate::editor::BIM_VERSION;
-use crate::gui::gl_renderer::GlRenderer;
+use crate::gui::gl_renderer::{create_bundle, GlRenderer};
 use crate::gui::persist_window_state::PersistWindowState;
-use crate::gui::quad;
 use crate::gui::window::Window;
 use crate::gui::{ColorFormat, DepthFormat};
 use crate::options::Options;
@@ -70,7 +69,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
         window_width, window_height,
     ))?;
 
-    let quad_bundle = quad::create_bundle(&mut factory, main_color, main_depth);
+    let quad_bundle = create_bundle(&mut factory, main_color, main_depth);
     let fonts: Vec<&[u8]> = vec![include_bytes!("iosevka-regular.ttf")];
 
     let glyph_brush = GlyphBrushBuilder::using_fonts_bytes(fonts)
