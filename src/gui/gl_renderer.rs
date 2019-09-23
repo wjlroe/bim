@@ -23,6 +23,7 @@ gfx_defines! {
   constant Locals {
     transform: [[f32; 4]; 4] = "u_Transform",
     color: [f32; 3] = "u_Color",
+    z: f32 = "u_Z",
   }
 
   pipeline pipe {
@@ -49,7 +50,7 @@ pub fn create_bundle<R: Resources, F: FactoryExt<R>>(
         factory.create_vertex_buffer_with_slice(&QUAD, &QUAD_INDICES as &[u16]);
     let data = pipe::Data {
         vbuf: quad_vbuf,
-        locals: factory.create_constant_buffer(2),
+        locals: factory.create_constant_buffer(3),
         out_color: main_color,
         out_depth: main_depth,
     };
@@ -61,6 +62,7 @@ pub fn draw<R, C>(
     quad_bundle: &mut Bundle<R, pipe::Data<R>>,
     color: [f32; 3],
     transform: Matrix4<f32>,
+    z: f32,
 ) where
     R: Resources,
     C: CommandBuffer<R>,
@@ -68,6 +70,7 @@ pub fn draw<R, C>(
     let locals = Locals {
         color,
         transform: transform.into(),
+        z,
     };
     encoder.update_constant_buffer(&quad_bundle.data.locals, &locals);
     quad_bundle.encode(encoder);
@@ -107,7 +110,13 @@ impl<'a> GlRenderer<'a> {
     }
 
     pub fn draw_quad(&mut self, color: [f32; 3], rect: Rect, z: f32) {
-        let transform = self.transforms.transform_for_quad(rect, z);
-        draw(&mut self.encoder, &mut self.quad_bundle, color, transform);
+        let transform = self.transforms.transform_for_quad(rect);
+        draw(
+            &mut self.encoder,
+            &mut self.quad_bundle,
+            color,
+            transform,
+            z,
+        );
     }
 }
