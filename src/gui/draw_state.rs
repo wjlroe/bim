@@ -624,7 +624,7 @@ impl<'a> DrawState<'a> {
         {
             let _guard = flame::start_guard("render status quad");
             // Render status background
-            renderer.draw_quad(status_bg, status_rect, 0.2);
+            renderer.draw_quad(status_bg, status_rect, 0.5);
         }
 
         {

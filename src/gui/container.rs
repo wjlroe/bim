@@ -54,7 +54,7 @@ impl<'a> Container<'a> {
                         .bounds(vec2(1.0, self.bounds.y))
                         .top_left(vec2(x_on_screen, self.position.y))
                         .build();
-                    renderer.draw_quad(PANE_BORDER_BG, rect, 0.3);
+                    renderer.draw_quad(PANE_BORDER_BG, rect, 0.5);
                 }
             }
         }
