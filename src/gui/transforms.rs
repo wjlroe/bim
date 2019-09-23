@@ -16,7 +16,7 @@ impl Transforms {
             rect.bounds.y / self.window_dim.y,
             1.0,
         );
-        let position = rect.center();
+        let position = rect.center;
         let x_translate = (position.x / self.window_dim.x) * 2.0 - 1.0;
         let y_translate = -((position.y / self.window_dim.y) * 2.0 - 1.0);
         let quad_translate = Matrix4::from_translation(vec3(x_translate, y_translate, z));
@@ -26,10 +26,14 @@ impl Transforms {
 
 #[test]
 fn test_quad_filling_bounds_should_be_identity_matrix() {
+    use crate::gui::rect::RectBuilder;
     use cgmath::{vec2, vec4};
 
     let transforms = Transforms::new(vec2(10.0, 10.0));
-    let rect = Rect::new(vec2(0.0, 0.0), vec2(10.0, 10.0));
+    let rect = RectBuilder::new()
+        .top_left(vec2(0.0, 0.0))
+        .bounds(vec2(10.0, 10.0))
+        .build();
     let matrix = transforms.transform_for_quad(rect, 0.0);
     let center_point = vec4(0.0, 0.0, 0.0, 0.0);
     assert_eq!(
