@@ -3,7 +3,6 @@ use crate::commands::MoveCursor;
 use crate::cursor::{Cursor, CursorT};
 use crate::gui::actions::GuiAction;
 use crate::gui::gl_renderer::GlRenderer;
-use crate::gui::quad;
 use crate::gui::rect::{Rect, RectBuilder};
 use crate::gui::window::WindowAction;
 use crate::highlight::HighlightedSection;
@@ -257,18 +256,6 @@ impl<'a> DrawState<'a> {
             .bounds(vec2(cursor_width, cursor_height))
             .top_left(self.position + vec2(x_on_screen, y_on_screen))
             .build()
-    }
-
-    pub fn line_transforms(&self) -> Vec<Matrix4<f32>> {
-        let mut line_transforms = vec![];
-        for line in LINE_COLS_AT.iter() {
-            let scale = Matrix4::from_nonuniform_scale(1.0 / self.bounds.x, 1.0, 1.0);
-            let x_on_screen = self.left_padding() + (*line as f32 * self.character_width());
-            let x_move = (x_on_screen / self.bounds.x) * 2.0 - 1.0;
-            let translate = Matrix4::from_translation(Vector3::new(x_move, 0.0, 0.2));
-            line_transforms.push(translate * scale);
-        }
-        line_transforms
     }
 
     pub fn update_screen_rows(&mut self) {
@@ -730,13 +717,14 @@ impl<'a> DrawState<'a> {
         _position: Vector2<f32>,
     ) -> Result<(), Box<dyn Error>> {
         let _guard = flame::start_guard("render lines");
-        for transform in self.line_transforms() {
-            quad::draw(
-                &mut renderer.encoder,
-                &mut renderer.quad_bundle,
-                LINE_COL_BG,
-                transform,
-            );
+
+        for line in LINE_COLS_AT.iter() {
+            let x_on_screen = self.left_padding() + (*line as f32 * self.character_width());
+            let rect = RectBuilder::new()
+                .bounds(vec2(1.0, self.bounds.y))
+                .top_left(vec2(x_on_screen, 0.0))
+                .build();
+            renderer.draw_quad(LINE_COL_BG, rect, 0.2);
         }
 
         Ok(())
