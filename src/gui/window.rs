@@ -239,15 +239,24 @@ impl<'a> Window<'a> {
                         }
                     }
                     WindowEvent::Resized(new_logical_size) => {
-                        self.resize(new_logical_size);
-                        self.action_queue.push(Action::ResizeWindow);
+                        if self.logical_size != new_logical_size {
+                            let _ = self.debug_log.debugln_timestamped(&format!(
+                                "window resized to: {:?}",
+                                new_logical_size
+                            ));
+                            self.resize(new_logical_size);
+                            self.action_queue.push(Action::ResizeWindow);
+                        }
                     }
                     WindowEvent::HiDpiFactorChanged(new_dpi) => {
-                        let _ = self
-                            .debug_log
-                            .debugln_timestamped(&format!("new DPI: {}", new_dpi));
-                        self.set_ui_scale(new_dpi as f32);
-                        self.action_queue.push(Action::ResizeWindow);
+                        let new_ui_scale = new_dpi as f32;
+                        if self.ui_scale != new_ui_scale {
+                            let _ = self
+                                .debug_log
+                                .debugln_timestamped(&format!("new DPI: {}", new_ui_scale));
+                            self.set_ui_scale(new_ui_scale);
+                            self.action_queue.push(Action::ResizeWindow);
+                        }
                     }
                     WindowEvent::Moved(new_logical_position) => {
                         if let Some(monitor_name) =
