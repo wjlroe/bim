@@ -95,22 +95,7 @@ pub fn keyboard_event_to_keycode(event: KeyboardInput) -> Option<Key> {
             Some(VirtualKeyCode::LShift) => None,
             Some(VirtualKeyCode::RShift) => None,
             Some(keycode) => {
-                if !event.modifiers.ctrl && !event.modifiers.alt && !event.modifiers.logo {
-                    if let Some(mut typed_char) = KEYCODE_TO_CHAR.get(&keycode).cloned() {
-                        if event.modifiers.shift {
-                            typed_char = typed_char
-                                .to_uppercase()
-                                .to_string()
-                                .chars()
-                                .nth(0)
-                                .unwrap();
-                        }
-                        Some(Key::Other(typed_char))
-                    } else {
-                        println!("Unrecognised virtual keycode: {:?}", keycode);
-                        None
-                    }
-                } else {
+                if event.modifiers.ctrl || event.modifiers.alt || event.modifiers.logo {
                     if keycode == VirtualKeyCode::Minus && event.modifiers.ctrl {
                         Some(Key::Control(Some('-')))
                     } else if keycode == VirtualKeyCode::Equals
@@ -134,6 +119,8 @@ pub fn keyboard_event_to_keycode(event: KeyboardInput) -> Option<Key> {
                         println!("Don't know what to do with received: {:?}", event);
                         None
                     }
+                } else {
+                    None
                 }
             }
             _ => {
