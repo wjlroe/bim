@@ -3,6 +3,7 @@ use crate::commands::MoveCursor;
 use crate::cursor::{Cursor, CursorT};
 use crate::gui::actions::GuiAction;
 use crate::gui::gl_renderer::GlRenderer;
+use crate::gui::mouse::MouseMove;
 use crate::gui::rect::{Rect, RectBuilder};
 use crate::gui::window::WindowAction;
 use crate::highlight::HighlightedSection;
@@ -279,9 +280,17 @@ impl<'a> DrawState<'a> {
         self.update_font_metrics();
     }
 
-    fn mouse_scroll(&mut self, delta: Vector2<f32>) {
-        self.scroll_window_vertically(delta.y);
-        self.scroll_window_horizontally(delta.x);
+    fn mouse_scroll(&mut self, delta: MouseMove) {
+        match delta {
+            MouseMove::Lines(lines) => {
+                self.scroll_window_vertically(lines.y);
+                self.scroll_window_horizontally(lines.x);
+            }
+            MouseMove::Pixels(pixels) => {
+                self.scroll_window_vertically(f32::ceil(pixels.y / self.line_height));
+                self.scroll_window_horizontally(pixels.x / self.character_width);
+            }
+        }
         self.update_cursor();
     }
 

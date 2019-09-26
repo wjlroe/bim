@@ -4,6 +4,7 @@ use crate::config::{RunConfig, BIM_QUIT_TIMES};
 use crate::debug_log::DebugLog;
 use crate::gui::actions::GuiAction;
 use crate::gui::container::Container;
+use crate::gui::mouse::MouseMove;
 use crate::gui::rect::RectBuilder;
 // use crate::gui::draw_state::DrawState;
 use crate::gui::gl_renderer::GlRenderer;
@@ -196,7 +197,17 @@ impl<'a> Window<'a> {
                     WindowEvent::MouseWheel {
                         delta: MouseScrollDelta::LineDelta(delta_x, delta_y),
                         ..
-                    } => self.mouse_scroll(delta_x, delta_y),
+                    } => self.mouse_scroll(MouseMove::Lines(vec2(-delta_x, -delta_y))),
+                    WindowEvent::MouseWheel {
+                        delta: MouseScrollDelta::PixelDelta(logical_position),
+                        ..
+                    } => {
+                        let physical_position = logical_position.to_physical(self.ui_scale as f64);
+                        self.mouse_scroll(MouseMove::Pixels(vec2(
+                            -physical_position.x as f32,
+                            -physical_position.y as f32,
+                        )));
+                    }
                     WindowEvent::CloseRequested | WindowEvent::Destroyed => self.running = false,
                     WindowEvent::KeyboardInput {
                         input: keyboard_input,
@@ -391,17 +402,19 @@ impl<'a> Window<'a> {
         self.mouse_position = vec2(mouse.0 as f32, mouse.1 as f32);
     }
 
-    pub fn mouse_click(&mut self) {
+    fn physical_mouse_position(&self) -> Vector2<f32> {
         let mouse_pos = (self.mouse_position.x as f64, self.mouse_position.y as f64);
         let real_position = LogicalPosition::from(mouse_pos).to_physical(self.ui_scale.into());
-        let real_position_vec = vec2(real_position.x as f32, real_position.y as f32);
-        self.container.mouse_click(real_position_vec);
+        vec2(real_position.x as f32, real_position.y as f32)
     }
 
-    pub fn mouse_scroll(&mut self, delta_x: f32, delta_y: f32) {
-        // FIXME: this is going to have to be relayed to the pane _under_ the mouse cursor position
+    pub fn mouse_click(&mut self) {
+        self.container.mouse_click(self.physical_mouse_position());
+    }
+
+    pub fn mouse_scroll(&mut self, mouse_move: MouseMove) {
         self.container
-            .update_current_buffer(BufferAction::MouseScroll(vec2(-delta_x, -delta_y)));
+            .mouse_scroll(self.physical_mouse_position(), mouse_move);
     }
 
     pub fn inc_font_size(&mut self) {

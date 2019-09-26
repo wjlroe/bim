@@ -4,6 +4,7 @@ pub mod draw_state;
 pub mod gfx_ui;
 mod gl_renderer;
 mod keycode_to_char;
+pub mod mouse;
 mod pane;
 mod persist_window_state;
 mod rect;
