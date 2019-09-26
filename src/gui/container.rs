@@ -154,11 +154,6 @@ impl<'a> Container<'a> {
     }
 
     pub fn mouse_click(&mut self, location: Vector2<f32>) {
-        // FIXME: locate which container this click is in...
-        // we need to translate the coords into something where we can find which container/pane
-        // the mouse was clicked in...
-        // then we need to focus that pane
-        // then do the last step - move cursor to click
         if let Some(pane_idx) = self.which_pane_is_location(location) {
             self.focus_pane_index(pane_idx);
             if let Some(pane) = self.panes.get_mut(self.focused_idx) {
