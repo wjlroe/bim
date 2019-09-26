@@ -6,7 +6,6 @@ use crate::gui::actions::GuiAction;
 use crate::gui::container::Container;
 use crate::gui::mouse::MouseMove;
 use crate::gui::rect::RectBuilder;
-// use crate::gui::draw_state::DrawState;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::keycode_to_char;
 use crate::gui::persist_window_state::PersistWindowState;
