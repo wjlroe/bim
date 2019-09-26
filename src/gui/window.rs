@@ -120,7 +120,7 @@ impl<'a> Window<'a> {
                     let physical_size = self.logical_size.to_physical(self.ui_scale.into());
                     let _ = self
                         .debug_log
-                        .debugln_timestamped(&format!("physical_size: {:?}", physical_size,));
+                        .debugln_timestamped(&format!("new physical_size: {:?}", physical_size,));
                     self.window.resize(physical_size);
                     gfx_window_glutin::update_views(
                         &self.window,
