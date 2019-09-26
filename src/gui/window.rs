@@ -4,12 +4,11 @@ use crate::config::{RunConfig, BIM_QUIT_TIMES};
 use crate::debug_log::DebugLog;
 use crate::gui::actions::GuiAction;
 use crate::gui::container::Container;
-use crate::gui::mouse::MouseMove;
-use crate::gui::rect::RectBuilder;
-// use crate::gui::draw_state::DrawState;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::keycode_to_char;
+use crate::gui::mouse::MouseMove;
 use crate::gui::persist_window_state::PersistWindowState;
+use crate::gui::rect::RectBuilder;
 use crate::keycodes::Key;
 use crate::options::Options;
 use crate::status::Status;
@@ -27,10 +26,12 @@ use glutin::{
 use std::error::Error;
 use std::time::Duration;
 
+#[derive(PartialEq, Debug)]
 pub enum WindowAction {
     SaveFileAs(String),
 }
 
+#[derive(PartialEq, Debug)]
 enum Action {
     ResizeWindow,
 }
@@ -61,6 +62,7 @@ pub struct Window<'a> {
 
 impl<'a> Window<'a> {
     pub fn new(
+        renderer: &mut GlRenderer<'a>,
         monitor: MonitorId,
         window: WindowedContext<PossiblyCurrent>,
         window_dim: Vector2<f32>,
@@ -80,7 +82,7 @@ impl<'a> Window<'a> {
             mouse_position: vec2(0.0, 0.0),
             ui_scale,
             font_size,
-            resized: false,
+            resized: true,
             fullscreen: false,
             container: Container::single(window_dim, vec2(0.0, 0.0), font_size, ui_scale, buffer),
             quit_times: BIM_QUIT_TIMES + 1,
@@ -93,6 +95,7 @@ impl<'a> Window<'a> {
             options,
         };
         gui_window.open_files()?;
+        gui_window.recalc_glyph_sizes(renderer);
         Ok(gui_window)
     }
 
@@ -112,14 +115,14 @@ impl<'a> Window<'a> {
     }
 
     fn handle_actions(&mut self, renderer: &mut GlRenderer) {
-        // TODO: Vec::pop() - can we handle only the latest ResizeWindow action and discard the rest?
+        self.action_queue.dedup();
         while let Some(action) = self.action_queue.pop() {
             match action {
                 Action::ResizeWindow => {
                     let physical_size = self.logical_size.to_physical(self.ui_scale.into());
                     let _ = self
                         .debug_log
-                        .debugln_timestamped(&format!("physical_size: {:?}", physical_size,));
+                        .debugln_timestamped(&format!("new physical_size: {:?}", physical_size,));
                     self.window.resize(physical_size);
                     gfx_window_glutin::update_views(
                         &self.window,
@@ -238,15 +241,24 @@ impl<'a> Window<'a> {
                         }
                     }
                     WindowEvent::Resized(new_logical_size) => {
-                        self.resize(new_logical_size);
-                        self.action_queue.push(Action::ResizeWindow);
+                        if self.logical_size != new_logical_size {
+                            let _ = self.debug_log.debugln_timestamped(&format!(
+                                "window resized to: {:?}",
+                                new_logical_size
+                            ));
+                            self.resize(new_logical_size);
+                            self.action_queue.push(Action::ResizeWindow);
+                        }
                     }
                     WindowEvent::HiDpiFactorChanged(new_dpi) => {
-                        let _ = self
-                            .debug_log
-                            .debugln_timestamped(&format!("new DPI: {}", new_dpi));
-                        self.set_ui_scale(new_dpi as f32);
-                        self.action_queue.push(Action::ResizeWindow);
+                        let new_ui_scale = new_dpi as f32;
+                        if self.ui_scale != new_ui_scale {
+                            let _ = self
+                                .debug_log
+                                .debugln_timestamped(&format!("new DPI: {}", new_ui_scale));
+                            self.set_ui_scale(new_ui_scale);
+                            self.action_queue.push(Action::ResizeWindow);
+                        }
                     }
                     WindowEvent::Moved(new_logical_position) => {
                         if let Some(monitor_name) =
