@@ -4,6 +4,7 @@ use crate::config::{RunConfig, BIM_QUIT_TIMES};
 use crate::debug_log::DebugLog;
 use crate::gui::actions::GuiAction;
 use crate::gui::container::Container;
+use crate::gui::mouse::MouseMove;
 use crate::gui::rect::RectBuilder;
 // use crate::gui::draw_state::DrawState;
 use crate::gui::gl_renderer::GlRenderer;
@@ -196,7 +197,17 @@ impl<'a> Window<'a> {
                     WindowEvent::MouseWheel {
                         delta: MouseScrollDelta::LineDelta(delta_x, delta_y),
                         ..
-                    } => self.mouse_scroll(delta_x, delta_y),
+                    } => self.mouse_scroll(MouseMove::Lines(vec2(-delta_x, -delta_y))),
+                    WindowEvent::MouseWheel {
+                        delta: MouseScrollDelta::PixelDelta(logical_position),
+                        ..
+                    } => {
+                        let physical_position = logical_position.to_physical(self.ui_scale as f64);
+                        self.mouse_scroll(MouseMove::Pixels(vec2(
+                            -physical_position.x as f32,
+                            -physical_position.y as f32,
+                        )));
+                    }
                     WindowEvent::CloseRequested | WindowEvent::Destroyed => self.running = false,
                     WindowEvent::KeyboardInput {
                         input: keyboard_input,
@@ -398,10 +409,10 @@ impl<'a> Window<'a> {
         self.container.mouse_click(real_position_vec);
     }
 
-    pub fn mouse_scroll(&mut self, delta_x: f32, delta_y: f32) {
+    pub fn mouse_scroll(&mut self, mouse_move: MouseMove) {
         // FIXME: this is going to have to be relayed to the pane _under_ the mouse cursor position
         self.container
-            .update_current_buffer(BufferAction::MouseScroll(vec2(-delta_x, -delta_y)));
+            .update_current_buffer(BufferAction::MouseScroll(mouse_move));
     }
 
     pub fn inc_font_size(&mut self) {

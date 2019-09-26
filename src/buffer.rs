@@ -1,5 +1,6 @@
 use crate::commands::{MoveCursor, SearchDirection};
 use crate::cursor::{CursorT, CursorWithHistory};
+use crate::gui::mouse::MouseMove;
 use crate::row::{Row, DEFAULT_NEWLINE, DEFAULT_NEWLINE_STR, DOS_NEWLINE, UNIX_NEWLINE};
 use crate::syntax::{Syntax, SYNTAXES};
 use cgmath::Vector2;
@@ -14,7 +15,7 @@ pub enum BufferAction {
     DeleteChar,
     CloneCursor,
     MoveCursor(MoveCursor),
-    MouseScroll(Vector2<f32>),
+    MouseScroll(MouseMove),
     MouseClick(Vector2<f32>),
     SetFilename(String),
     StartSearch,
