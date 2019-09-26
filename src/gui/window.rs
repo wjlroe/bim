@@ -62,6 +62,7 @@ pub struct Window<'a> {
 
 impl<'a> Window<'a> {
     pub fn new(
+        renderer: &mut GlRenderer<'a>,
         monitor: MonitorId,
         window: WindowedContext<PossiblyCurrent>,
         window_dim: Vector2<f32>,
@@ -81,7 +82,7 @@ impl<'a> Window<'a> {
             mouse_position: vec2(0.0, 0.0),
             ui_scale,
             font_size,
-            resized: false,
+            resized: true,
             fullscreen: false,
             container: Container::single(window_dim, vec2(0.0, 0.0), font_size, ui_scale, buffer),
             quit_times: BIM_QUIT_TIMES + 1,
@@ -94,6 +95,7 @@ impl<'a> Window<'a> {
             options,
         };
         gui_window.open_files()?;
+        gui_window.recalc_glyph_sizes(renderer);
         Ok(gui_window)
     }
 

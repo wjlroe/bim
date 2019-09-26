@@ -87,6 +87,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
     }
 
     let mut window = Window::new(
+        &mut renderer,
         monitor,
         gfx_window,
         window_dim,
