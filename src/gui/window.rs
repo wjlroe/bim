@@ -26,10 +26,12 @@ use glutin::{
 use std::error::Error;
 use std::time::Duration;
 
+#[derive(PartialEq, Debug)]
 pub enum WindowAction {
     SaveFileAs(String),
 }
 
+#[derive(PartialEq, Debug)]
 enum Action {
     ResizeWindow,
 }
@@ -111,7 +113,7 @@ impl<'a> Window<'a> {
     }
 
     fn handle_actions(&mut self, renderer: &mut GlRenderer) {
-        // TODO: Vec::pop() - can we handle only the latest ResizeWindow action and discard the rest?
+        self.action_queue.dedup();
         while let Some(action) = self.action_queue.pop() {
             match action {
                 Action::ResizeWindow => {
