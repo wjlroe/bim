@@ -1,6 +1,7 @@
 use crate::buffer::{Buffer, BufferAction, FileSaveStatus};
 use crate::gui::actions::GuiAction;
 use crate::gui::gl_renderer::GlRenderer;
+use crate::gui::mouse::MouseMove;
 use crate::gui::pane::Pane;
 use crate::gui::rect::RectBuilder;
 use crate::gui::window::WindowAction;
@@ -150,6 +151,14 @@ impl<'a> Container<'a> {
         self.focused_idx = pane_idx;
         for (idx, pane) in self.panes.iter_mut().enumerate() {
             pane.set_focused(idx == pane_idx);
+        }
+    }
+
+    pub fn mouse_scroll(&mut self, mouse_location: Vector2<f32>, delta: MouseMove) {
+        if let Some(pane_idx) = self.which_pane_is_location(mouse_location) {
+            if let Some(pane) = self.panes.get_mut(pane_idx) {
+                pane.update_buffer(BufferAction::MouseScroll(delta));
+            }
         }
     }
 
