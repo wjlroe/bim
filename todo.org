@@ -32,6 +32,6 @@
 * DONE gfx (gfx_device_gl) is broken on resize. It calls glViewport with the
   CLOSED: [2019-02-04 Mon 22:50]
   original window dimensions rather than new ones. Try to update gfx libraries.
+* DONE Fix aspect ratio in outline rects
 * TODO What is DrawState? Should it be the GUI abstraction on top of a Buffer?
   Then there's a window, a split, a tab, etc.
-* TODO Fix aspect ratio in outline rects
