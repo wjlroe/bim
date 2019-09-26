@@ -136,7 +136,6 @@ impl<'a> Container<'a> {
     }
 
     fn which_pane_is_location(&self, location: Vector2<f32>) -> Option<usize> {
-        // FIXME: actually work this out when we split containers
         match self.arrangement {
             Arrangement::VSplit => {
                 // TODO: we assume even splits right now...
