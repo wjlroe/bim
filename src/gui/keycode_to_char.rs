@@ -92,6 +92,8 @@ pub fn keyboard_event_to_keycode(event: KeyboardInput) -> Option<Key> {
             Some(VirtualKeyCode::RControl) => None,
             Some(VirtualKeyCode::LAlt) => None,
             Some(VirtualKeyCode::RAlt) => None,
+            Some(VirtualKeyCode::LShift) => None,
+            Some(VirtualKeyCode::RShift) => None,
             Some(keycode) => {
                 if !event.modifiers.ctrl && !event.modifiers.alt && !event.modifiers.logo {
                     if let Some(mut typed_char) = KEYCODE_TO_CHAR.get(&keycode).cloned() {
