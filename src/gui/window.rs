@@ -1,8 +1,8 @@
-use crate::buffer::{Buffer, BufferAction, FileSaveStatus};
+use crate::action::{Action, BufferAction, GuiAction, WindowAction};
+use crate::buffer::{Buffer, FileSaveStatus};
 use crate::commands::{self, Cmd, MoveCursor};
 use crate::config::{RunConfig, BIM_QUIT_TIMES};
 use crate::debug_log::DebugLog;
-use crate::gui::actions::GuiAction;
 use crate::gui::container::Container;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::keycode_to_char;
@@ -10,6 +10,7 @@ use crate::gui::mouse::MouseMove;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::rect::RectBuilder;
 use crate::keycodes::Key;
+use crate::keymap::{Keymap, MapOrAction};
 use crate::options::Options;
 use crate::status::Status;
 use cgmath::{vec2, Vector2};
@@ -27,12 +28,7 @@ use std::error::Error;
 use std::time::Duration;
 
 #[derive(PartialEq, Debug)]
-pub enum WindowAction {
-    SaveFileAs(String),
-}
-
-#[derive(PartialEq, Debug)]
-enum Action {
+enum InternalAction {
     ResizeWindow,
 }
 
@@ -56,8 +52,9 @@ pub struct Window<'a> {
     pub status_message: Option<Status>,
     persist_window_state: PersistWindowState,
     debug_log: DebugLog<'a>,
-    action_queue: Vec<Action>,
+    action_queue: Vec<InternalAction>,
     options: Options,
+    current_map: Keymap,
 }
 
 impl<'a> Window<'a> {
@@ -92,7 +89,8 @@ impl<'a> Window<'a> {
             persist_window_state,
             debug_log,
             action_queue: vec![],
-            options,
+            options: options.clone(),
+            current_map: options.keymap.clone(),
         };
         gui_window.open_files()?;
         gui_window.recalc_glyph_sizes(renderer);
@@ -118,7 +116,7 @@ impl<'a> Window<'a> {
         self.action_queue.dedup();
         while let Some(action) = self.action_queue.pop() {
             match action {
-                Action::ResizeWindow => {
+                InternalAction::ResizeWindow => {
                     let physical_size = self.logical_size.to_physical(self.ui_scale.into());
                     let _ = self
                         .debug_log
@@ -250,7 +248,7 @@ impl<'a> Window<'a> {
                                 new_logical_size
                             ));
                             self.resize(new_logical_size);
-                            self.action_queue.push(Action::ResizeWindow);
+                            self.action_queue.push(InternalAction::ResizeWindow);
                         }
                     }
                     WindowEvent::HiDpiFactorChanged(new_dpi) => {
@@ -260,7 +258,7 @@ impl<'a> Window<'a> {
                                 .debug_log
                                 .debugln_timestamped(&format!("new DPI: {}", new_ui_scale));
                             self.set_ui_scale(new_ui_scale);
-                            self.action_queue.push(Action::ResizeWindow);
+                            self.action_queue.push(InternalAction::ResizeWindow);
                         }
                     }
                     WindowEvent::Moved(new_logical_position) => {
@@ -453,7 +451,37 @@ impl<'a> Window<'a> {
             .update_current_buffer(BufferAction::PrintDebugInfo);
     }
 
+    fn run_action(&mut self, action: Action) {
+        match action {
+            Action::OnWindow(window_action) => self.do_window_action(window_action),
+            _ => {}
+        }
+    }
+
     pub fn handle_key(&mut self, key: Key) {
+        let mut handled = false;
+
+        if let Some(map_or_action) = self.current_map.lookup(&key) {
+            handled = true;
+
+            match map_or_action {
+                MapOrAction::Map(keymap) => {
+                    self.current_map = keymap;
+                }
+                MapOrAction::Action(action) => {
+                    self.run_action(action);
+                    self.current_map = self.options.keymap.clone();
+                }
+            }
+        }
+
+        if !handled {
+            // Reset keymap
+            if key == Key::Escape {
+                self.current_map = self.options.keymap.clone();
+            }
+        }
+
         let (handled, window_action) = self.container.handle_key(key);
 
         if let Some(window_action) = window_action {

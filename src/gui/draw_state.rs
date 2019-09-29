@@ -1,11 +1,10 @@
-use crate::buffer::{Buffer, BufferAction, FileSaveStatus};
+use crate::action::{BufferAction, GuiAction, WindowAction};
+use crate::buffer::{Buffer, FileSaveStatus};
 use crate::commands::MoveCursor;
 use crate::cursor::{Cursor, CursorT};
-use crate::gui::actions::GuiAction;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::mouse::MouseMove;
 use crate::gui::rect::{Rect, RectBuilder};
-use crate::gui::window::WindowAction;
 use crate::highlight::HighlightedSection;
 use crate::highlight::{highlight_to_color, Highlight};
 use crate::input::Input;

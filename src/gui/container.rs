@@ -1,10 +1,9 @@
-use crate::buffer::{Buffer, BufferAction, FileSaveStatus};
-use crate::gui::actions::GuiAction;
+use crate::action::{BufferAction, GuiAction, WindowAction};
+use crate::buffer::{Buffer, FileSaveStatus};
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::mouse::MouseMove;
 use crate::gui::pane::Pane;
 use crate::gui::rect::RectBuilder;
-use crate::gui::window::WindowAction;
 use crate::keycodes::Key;
 use cgmath::{vec2, Vector2};
 use std::error::Error;

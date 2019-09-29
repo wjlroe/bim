@@ -1,8 +1,7 @@
-use crate::buffer::{Buffer, BufferAction, FileSaveStatus};
-use crate::gui::actions::GuiAction;
+use crate::action::{BufferAction, GuiAction, WindowAction};
+use crate::buffer::{Buffer, FileSaveStatus};
 use crate::gui::draw_state::DrawState;
 use crate::gui::gl_renderer::GlRenderer;
-use crate::gui::window::WindowAction;
 use crate::keycodes::Key;
 use std::error::Error;
 
