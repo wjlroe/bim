@@ -210,7 +210,7 @@ impl<'a> Window<'a> {
                         )));
                     }
                     WindowEvent::CloseRequested | WindowEvent::Destroyed => self.running = false,
-                    WindowEvent::ReceivedCharacter(typed_char) => {
+                    WindowEvent::ReceivedCharacter(typed_char) if typed_char.is_alphanumeric() => {
                         self.handle_key(Key::Other(typed_char));
                     }
                     WindowEvent::KeyboardInput {
