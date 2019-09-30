@@ -97,8 +97,8 @@ pub fn keyboard_event_to_keycode(event: KeyboardInput) -> Option<Key> {
             Some(keycode) => {
                 if event.modifiers.ctrl || event.modifiers.alt || event.modifiers.logo {
                     if event.modifiers.ctrl && !event.modifiers.alt && !event.modifiers.logo {
-                        if let Some(virtual_char) = KEYCODE_TO_CHAR.get(&keycode) {
-                            Some(Key::Control(virtual_char))
+                        if let Some(virtual_char) = KEYCODE_TO_CHAR.get(&keycode).cloned() {
+                            Some(Key::Control(Some(virtual_char)))
                         } else {
                             println!("Can't make keycode: {:?} into a Control code!", keycode);
                             None

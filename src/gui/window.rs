@@ -479,10 +479,7 @@ impl<'a> Window<'a> {
         }
 
         if !handled {
-            // Reset keymap
-            if key == Key::Escape {
-                self.current_map = self.options.keymap.clone();
-            }
+            self.current_map = self.options.keymap.clone(); // FIXME: only if needed
         }
 
         let (handled, window_action) = self.container.handle_key(key);
