@@ -1,6 +1,6 @@
 use crate::action::{BufferAction, GuiAction, WindowAction};
 use crate::buffer::{Buffer, FileSaveStatus};
-use crate::commands::MoveCursor;
+use crate::commands::{Direction, MoveCursor};
 use crate::cursor::{Cursor, CursorT};
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::mouse::MouseMove;
@@ -339,7 +339,7 @@ impl<'a> DrawState<'a> {
         match action {
             InsertNewlineAndReturn => self.insert_newline_and_return(),
             InsertChar(typed_char) => self.insert_char(typed_char),
-            DeleteChar => self.delete_char(),
+            DeleteChar(direction) => self.delete_char(direction),
             CloneCursor => self.clone_cursor(),
             MoveCursor(movement) => self.move_cursor(movement),
             MouseScroll(delta) => self.mouse_scroll(delta),
@@ -401,7 +401,10 @@ impl<'a> DrawState<'a> {
         self.update_cursor();
     }
 
-    pub fn delete_char(&mut self) {
+    pub fn delete_char(&mut self, direction: Direction) {
+        if direction == Direction::Right {
+            self.update_buffer(BufferAction::MoveCursor(MoveCursor::right(1)));
+        }
         self.buffer.delete_char_at_cursor();
         self.mark_buffer_changed();
         self.update_cursor();

@@ -1,6 +1,6 @@
 use crate::action::{Action, BufferAction, GuiAction, WindowAction};
 use crate::buffer::{Buffer, FileSaveStatus};
-use crate::commands::{self, Cmd, MoveCursor};
+use crate::commands::Cmd;
 use crate::config::{RunConfig, BIM_QUIT_TIMES};
 use crate::debug_log::DebugLog;
 use crate::gui::container::Container;
@@ -454,6 +454,7 @@ impl<'a> Window<'a> {
     fn run_action(&mut self, action: Action) {
         match action {
             Action::OnWindow(window_action) => self.do_window_action(window_action),
+            Action::OnBuffer(buffer_action) => self.handle_buffer_action(buffer_action),
             _ => {}
         }
     }
@@ -466,11 +467,13 @@ impl<'a> Window<'a> {
 
             match map_or_action {
                 MapOrAction::Map(keymap) => {
+                    println!("Key: {:?} puts us into map: {:?}", key, keymap);
                     self.current_map = keymap;
                 }
                 MapOrAction::Action(action) => {
+                    println!("Action: {:?}", action);
                     self.run_action(action);
-                    self.current_map = self.options.keymap.clone();
+                    self.current_map = self.options.keymap.clone(); // FIXME: don't do this unless it's required
                 }
             }
         }
@@ -496,22 +499,23 @@ impl<'a> Window<'a> {
     fn do_window_action(&mut self, window_action: WindowAction) {
         match window_action {
             WindowAction::SaveFileAs(filename) => self.save_file_as(filename),
+            WindowAction::FocusPane(direction) => self.container.focus_pane(direction),
         }
     }
 
     fn handle_buffer_key(&mut self, key: Key) {
         let buffer_cmd = match key {
-            Key::ArrowLeft => Some(Cmd::Move(MoveCursor::left(1))),
-            Key::ArrowRight => Some(Cmd::Move(MoveCursor::right(1))),
-            Key::ArrowUp => Some(Cmd::Move(MoveCursor::up(1))),
-            Key::ArrowDown => Some(Cmd::Move(MoveCursor::down(1))),
-            Key::PageDown => Some(Cmd::Move(MoveCursor::page_down(1))),
-            Key::PageUp => Some(Cmd::Move(MoveCursor::page_up(1))),
-            Key::Home => Some(Cmd::Move(MoveCursor::home())),
-            Key::End => Some(Cmd::Move(MoveCursor::end())),
-            Key::Delete => Some(Cmd::DeleteCharForward),
-            Key::Backspace => Some(Cmd::DeleteCharBackward),
-            Key::Return => Some(Cmd::Linebreak),
+            Key::ArrowLeft => None,
+            Key::ArrowRight => None,
+            Key::ArrowUp => None,
+            Key::ArrowDown => None,
+            Key::PageDown => None,
+            Key::PageUp => None,
+            Key::Home => None,
+            Key::End => None,
+            Key::Delete => None,
+            Key::Backspace => None,
+            Key::Return => None,
             Key::Other(typed_char) => Some(Cmd::InsertChar(typed_char)),
             Key::Function(fn_key) => {
                 println!("Unrecognised key: F{}", fn_key);
@@ -541,8 +545,8 @@ impl<'a> Window<'a> {
             Cmd::Move(movement) => self
                 .container
                 .update_current_buffer(BufferAction::MoveCursor(movement)),
-            Cmd::DeleteCharBackward => self.delete_char_backward(),
-            Cmd::DeleteCharForward => self.delete_char_forward(),
+            Cmd::DeleteCharBackward => {}
+            Cmd::DeleteCharForward => {}
             Cmd::Linebreak => self.insert_newline_and_return(),
             Cmd::InsertChar(typed_char) => self.insert_char(typed_char),
             Cmd::Search => self
@@ -556,6 +560,10 @@ impl<'a> Window<'a> {
             Cmd::Escape => {}
             Cmd::Save => self.save_file(),
         }
+    }
+
+    fn handle_buffer_action(&mut self, action: BufferAction) {
+        self.container.update_current_buffer(action);
     }
 
     fn save_file_as(&mut self, filename: String) {
@@ -595,19 +603,6 @@ impl<'a> Window<'a> {
 
     fn set_status_msg(&mut self, msg: String) {
         self.status_message = Some(Status::new_with_timeout(msg, Duration::from_secs(5)));
-    }
-
-    fn delete_char_backward(&mut self) {
-        self.container
-            .update_current_buffer(BufferAction::DeleteChar);
-    }
-
-    fn delete_char_forward(&mut self) {
-        // FIXME: move into DrawState
-        self.container
-            .update_current_buffer(BufferAction::MoveCursor(commands::MoveCursor::right(1)));
-        self.container
-            .update_current_buffer(BufferAction::DeleteChar);
     }
 
     fn insert_newline_and_return(&mut self) {

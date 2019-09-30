@@ -1,17 +1,18 @@
-use crate::commands::MoveCursor;
+use crate::commands::{Direction, MoveCursor};
 use crate::gui::mouse::MouseMove;
 use cgmath::Vector2;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum WindowAction {
-    SaveFileAs(String),
+    SaveFileAs(String), // FIXME: this isn't a _window_ action surely?
+    FocusPane(Direction),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum BufferAction {
     InsertNewlineAndReturn,
     InsertChar(char),
-    DeleteChar,
+    DeleteChar(Direction),
     CloneCursor,
     MoveCursor(MoveCursor),
     MouseScroll(MouseMove),
@@ -27,7 +28,7 @@ pub enum GuiAction {
     SetUiScale(f32),
     SetLineHeight(f32),
     SetCharacterWidth(f32),
-    UpdateSize(Vector2<f32>, Vector2<f32>),
+    UpdateSize(Vector2<f32>, Vector2<f32>), // FIXME: should be a window action, not entire app
 }
 
 #[derive(Clone, Debug, PartialEq)]

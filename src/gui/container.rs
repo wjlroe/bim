@@ -1,5 +1,6 @@
 use crate::action::{BufferAction, GuiAction, WindowAction};
 use crate::buffer::{Buffer, FileSaveStatus};
+use crate::commands::Direction;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::mouse::MouseMove;
 use crate::gui::pane::Pane;
@@ -165,6 +166,24 @@ impl<'a> Container<'a> {
             self.focus_pane_index(pane_idx);
             if let Some(pane) = self.panes.get_mut(self.focused_idx) {
                 pane.update_buffer(BufferAction::MouseClick(location));
+            }
+        }
+    }
+
+    pub fn focus_pane(&mut self, direction: Direction) {
+        // TODO: stuff
+        match self.arrangement {
+            Arrangement::VSplit => {
+                if self.panes.len() > 1 {
+                    let movement = match direction {
+                        Direction::Right => 1,
+                        Direction::Left => -1,
+                        _ => 0, // TODO: We have no idea how to do Up/Down
+                    };
+                    let new_pane_idx =
+                        (self.focused_idx as i32 + movement) % self.panes.len() as i32;
+                    self.focus_pane_index(new_pane_idx as usize);
+                }
             }
         }
     }

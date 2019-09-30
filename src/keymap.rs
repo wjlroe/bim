@@ -48,8 +48,52 @@ lazy_static! {
                 MoveCursor::down(1),
             ))),
         );
+        bindings.insert(
+            Key::PageDown,
+            MapOrAction::Action(Action::OnBuffer(BufferAction::MoveCursor(
+                MoveCursor::page_down(1),
+            ))),
+        );
+        bindings.insert(
+            Key::PageUp,
+            MapOrAction::Action(Action::OnBuffer(BufferAction::MoveCursor(
+                MoveCursor::page_up(1),
+            ))),
+        );
+        bindings.insert(
+            Key::Home,
+            MapOrAction::Action(Action::OnBuffer(BufferAction::MoveCursor(
+                MoveCursor::home(),
+            ))),
+        );
+        bindings.insert(
+            Key::End,
+            MapOrAction::Action(Action::OnBuffer(
+                BufferAction::MoveCursor(MoveCursor::end()),
+            )),
+        );
+        bindings.insert(
+            Key::Delete,
+            MapOrAction::Action(Action::OnBuffer(BufferAction::DeleteChar(Direction::Right))),
+        );
+        bindings.insert(
+            Key::Backspace,
+            MapOrAction::Action(Action::OnBuffer(BufferAction::DeleteChar(Direction::Left))),
+        );
+        bindings.insert(
+            Key::Return,
+            MapOrAction::Action(Action::OnBuffer(BufferAction::InsertNewlineAndReturn)),
+        );
 
-        let window_bindings = HashMap::new();
+        let mut window_bindings = HashMap::new();
+        window_bindings.insert(
+            Key::ArrowRight,
+            MapOrAction::Action(Action::OnWindow(WindowAction::FocusPane(Direction::Right))),
+        );
+        window_bindings.insert(
+            Key::ArrowLeft,
+            MapOrAction::Action(Action::OnWindow(WindowAction::FocusPane(Direction::Left))),
+        );
         let window_keymap = Keymap {
             bindings: window_bindings,
         };
