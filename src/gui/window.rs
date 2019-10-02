@@ -9,7 +9,7 @@ use crate::gui::keycode_to_char;
 use crate::gui::mouse::MouseMove;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::rect::RectBuilder;
-use crate::keycodes::Key;
+use crate::keycodes::{is_printable, Key};
 use crate::keymap::{Keymap, MapOrAction};
 use crate::options::Options;
 use crate::status::Status;
@@ -210,15 +210,14 @@ impl<'a> Window<'a> {
                         )));
                     }
                     WindowEvent::CloseRequested | WindowEvent::Destroyed => self.running = false,
-                    WindowEvent::ReceivedCharacter(typed_char) if typed_char.is_alphanumeric() => {
+                    WindowEvent::ReceivedCharacter(typed_char) if is_printable(typed_char) => {
+                        println!("ReceivedChar: {}", typed_char.escape_unicode());
                         self.handle_key(Key::Other(typed_char));
                     }
                     WindowEvent::KeyboardInput {
                         input: keyboard_input,
                         ..
                     } => {
-                        // TODO: partial shortcut recognition: <Ctrl-w> + <l> for move to the pane
-                        // on the right...
                         if let Some(key) =
                             keycode_to_char::keyboard_event_to_keycode(keyboard_input)
                         {
@@ -513,7 +512,8 @@ impl<'a> Window<'a> {
             Key::Delete => None,
             Key::Backspace => None,
             Key::Return => None,
-            Key::Other(typed_char) => Some(Cmd::InsertChar(typed_char)),
+            Key::TypedChar => None, // shouldn't get here
+            Key::Other(_) => None,  // Some(Cmd::InsertChar(typed_char)),
             Key::Function(fn_key) => {
                 println!("Unrecognised key: F{}", fn_key);
                 None

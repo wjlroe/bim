@@ -347,6 +347,9 @@ impl<'a> DrawState<'a> {
             SetFilename(filename) => self.buffer.set_filename(filename),
             StartSearch => self.start_search(),
             PrintDebugInfo => self.print_info(),
+            InsertTypedChar => {
+                panic!("Insert typed char received in DrawState.update_buffer, this should not happen!");
+            }
         }
     }
 

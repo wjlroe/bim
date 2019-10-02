@@ -17,7 +17,27 @@ pub struct Keymap {
 
 impl Keymap {
     pub fn lookup(&self, key: &Key) -> Option<MapOrAction> {
-        self.bindings.get(key).cloned()
+        self.bindings.get(key).cloned().or_else(|| {
+            if let Key::Other(typed_char) = key {
+                self.bindings
+                    .get(&Key::TypedChar)
+                    .cloned()
+                    .map(|map_or_action| {
+                        if let MapOrAction::Action(Action::OnBuffer(
+                            BufferAction::InsertTypedChar,
+                        )) = map_or_action
+                        {
+                            MapOrAction::Action(Action::OnBuffer(BufferAction::InsertChar(
+                                *typed_char,
+                            )))
+                        } else {
+                            map_or_action
+                        }
+                    })
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -83,6 +103,10 @@ lazy_static! {
         bindings.insert(
             Key::Return,
             MapOrAction::Action(Action::OnBuffer(BufferAction::InsertNewlineAndReturn)),
+        );
+        bindings.insert(
+            Key::TypedChar,
+            MapOrAction::Action(Action::OnBuffer(BufferAction::InsertTypedChar)),
         );
 
         let mut window_bindings = HashMap::new();

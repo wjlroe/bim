@@ -339,6 +339,7 @@ impl<'a> Terminal<'a> {
                     None
                 }
             }
+            Key::TypedChar => None, // this means non-specific typed character
             Key::Other(c) => {
                 let _ = self.debug_log.debugln_timestamped(&format!(
                     "other key: {character}, {key_num:x}, {key_num} as u32",

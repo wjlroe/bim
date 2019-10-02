@@ -12,6 +12,7 @@ pub enum WindowAction {
 pub enum BufferAction {
     InsertNewlineAndReturn,
     InsertChar(char),
+    InsertTypedChar,
     DeleteChar(Direction),
     CloneCursor,
     MoveCursor(MoveCursor),
