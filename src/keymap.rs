@@ -124,6 +124,10 @@ lazy_static! {
             Key::Control(Some('=')),
             MapOrAction::Action(Action::OnGui(GuiAction::IncFontSize)),
         );
+        bindings.insert(
+            Key::Function(11),
+            MapOrAction::Action(Action::OnWindow(WindowAction::ToggleFullscreen)),
+        );
 
         let mut window_bindings = HashMap::new();
         window_bindings.insert(

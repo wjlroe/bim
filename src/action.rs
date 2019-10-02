@@ -6,6 +6,7 @@ use cgmath::Vector2;
 pub enum WindowAction {
     SaveFileAs(String), // FIXME: this isn't a _window_ action surely?
     FocusPane(Direction),
+    ToggleFullscreen,
 }
 
 #[derive(Clone, Debug, PartialEq)]

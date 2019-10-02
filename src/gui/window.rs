@@ -222,16 +222,6 @@ impl<'a> Window<'a> {
                             keycode_to_char::keyboard_event_to_keycode(keyboard_input)
                         {
                             self.handle_key(key);
-                            match key {
-                                Key::Function(11) => {
-                                    // FIXME: does this mean we will fullscreen on the monitor we
-                                    // started on rather than one we move to? We don't reassign the
-                                    // monitor variable
-                                    let monitor = self.monitor.clone();
-                                    self.toggle_fullscreen(monitor)
-                                }
-                                _ => {}
-                            }
                         }
                     }
                     WindowEvent::Resized(new_logical_size) => {
@@ -508,6 +498,13 @@ impl<'a> Window<'a> {
         match window_action {
             WindowAction::SaveFileAs(filename) => self.save_file_as(filename),
             WindowAction::FocusPane(direction) => self.container.focus_pane(direction),
+            WindowAction::ToggleFullscreen => {
+                // FIXME: does this mean we will fullscreen on the monitor we
+                // started on rather than one we move to? We don't reassign the
+                // monitor variable
+                let monitor = self.monitor.clone();
+                self.toggle_fullscreen(monitor);
+            }
         }
     }
 
@@ -524,12 +521,9 @@ impl<'a> Window<'a> {
             Key::Delete => None,
             Key::Backspace => None,
             Key::Return => None,
-            Key::TypedChar => None, // shouldn't get here
-            Key::Other(_) => None,  // Some(Cmd::InsertChar(typed_char)),
-            Key::Function(fn_key) => {
-                println!("Unrecognised key: F{}", fn_key);
-                None
-            }
+            Key::TypedChar => None,
+            Key::Other(_) => None,
+            Key::Function(_) => None,
             Key::Control(Some('-')) => None,
             Key::Control(Some('+')) => None,
             Key::Control(Some(' ')) => Some(Cmd::CloneCursor),
