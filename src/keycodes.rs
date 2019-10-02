@@ -22,6 +22,7 @@ pub fn ctrl_key(key: char, keycode: u32) -> bool {
     (key as u32 & 0x1f) == keycode
 }
 
+// TODO: Replace this with something sensible
 pub fn is_printable(key: char) -> bool {
     if key.is_control() {
         return false;
