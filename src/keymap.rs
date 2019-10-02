@@ -120,6 +120,10 @@ lazy_static! {
             Key::Control(Some('+')),
             MapOrAction::Action(Action::OnGui(GuiAction::IncFontSize)),
         );
+        bindings.insert(
+            Key::Control(Some('=')),
+            MapOrAction::Action(Action::OnGui(GuiAction::IncFontSize)),
+        );
 
         let mut window_bindings = HashMap::new();
         window_bindings.insert(

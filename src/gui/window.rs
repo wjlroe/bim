@@ -223,7 +223,6 @@ impl<'a> Window<'a> {
                         {
                             self.handle_key(key);
                             match key {
-                                // Key::Control(Some('+')) => self.inc_font_size(),
                                 Key::Function(11) => {
                                     // FIXME: does this mean we will fullscreen on the monitor we
                                     // started on rather than one we move to? We don't reassign the
