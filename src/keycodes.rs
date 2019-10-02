@@ -23,6 +23,10 @@ pub fn ctrl_key(key: char, keycode: u32) -> bool {
 }
 
 pub fn is_printable(key: char) -> bool {
+    if key.is_control() {
+        return false;
+    }
+
     // Arrow keys
     if key >= '\u{f700}' && key <= '\u{f703}' {
         return false;
