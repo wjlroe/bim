@@ -25,6 +25,8 @@ pub enum BufferAction {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GuiAction {
+    DecFontSize,
+    IncFontSize,
     SetFontSize(f32),
     SetUiScale(f32),
     SetLineHeight(f32),

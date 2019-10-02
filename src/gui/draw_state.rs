@@ -363,6 +363,8 @@ impl<'a> DrawState<'a> {
             SetLineHeight(line_height) => self.set_line_height(line_height),
             SetCharacterWidth(character_width) => self.set_character_width(character_width),
             DumpFlameGraph => {}
+            DecFontSize => {}
+            IncFontSize => {}
         }
     }
 

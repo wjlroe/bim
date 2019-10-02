@@ -112,6 +112,14 @@ lazy_static! {
             Key::Control(Some('p')),
             MapOrAction::Action(Action::OnGui(GuiAction::DumpFlameGraph)),
         );
+        bindings.insert(
+            Key::Control(Some('-')),
+            MapOrAction::Action(Action::OnGui(GuiAction::DecFontSize)),
+        );
+        bindings.insert(
+            Key::Control(Some('+')),
+            MapOrAction::Action(Action::OnGui(GuiAction::IncFontSize)),
+        );
 
         let mut window_bindings = HashMap::new();
         window_bindings.insert(
