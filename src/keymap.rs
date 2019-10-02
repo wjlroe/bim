@@ -108,6 +108,10 @@ lazy_static! {
             Key::TypedChar,
             MapOrAction::Action(Action::OnBuffer(BufferAction::InsertTypedChar)),
         );
+        bindings.insert(
+            Key::Control(Some('p')),
+            MapOrAction::Action(Action::OnGui(GuiAction::DumpFlameGraph)),
+        );
 
         let mut window_bindings = HashMap::new();
         window_bindings.insert(

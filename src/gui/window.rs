@@ -223,10 +223,6 @@ impl<'a> Window<'a> {
                         {
                             self.handle_key(key);
                             match key {
-                                Key::Control(Some('p')) => flame::dump_html(
-                                    &mut std::fs::File::create("flame-graph.html").unwrap(),
-                                )
-                                .unwrap_or(()),
                                 Key::Control(Some('-')) => self.dec_font_size(),
                                 Key::Control(Some('+')) => self.inc_font_size(),
                                 Key::Function(11) => {
@@ -450,11 +446,23 @@ impl<'a> Window<'a> {
             .update_current_buffer(BufferAction::PrintDebugInfo);
     }
 
+    fn do_gui_action(&mut self, action: GuiAction) {
+        use GuiAction::*;
+
+        match action {
+            DumpFlameGraph => {
+                flame::dump_html(&mut std::fs::File::create("flame-graph.html").unwrap())
+                    .unwrap_or(())
+            }
+            _ => {}
+        }
+    }
+
     fn run_action(&mut self, action: Action) {
         match action {
             Action::OnWindow(window_action) => self.do_window_action(window_action),
             Action::OnBuffer(buffer_action) => self.handle_buffer_action(buffer_action),
-            _ => {}
+            Action::OnGui(gui_action) => self.do_gui_action(gui_action),
         }
     }
 
@@ -525,10 +533,7 @@ impl<'a> Window<'a> {
             Key::Control(Some('f')) => Some(Cmd::Search),
             Key::Control(Some('q')) => Some(Cmd::Quit),
             Key::Control(Some('s')) => Some(Cmd::Save),
-            Key::Control(Some(ctrl_char)) => {
-                println!("Unrecognised keypress: Ctrl-{}", ctrl_char);
-                None
-            }
+            Key::Control(Some(_)) => None,
             Key::Control(None) => None,
             Key::Escape => None,
         };
