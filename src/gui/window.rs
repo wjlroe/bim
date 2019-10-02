@@ -245,6 +245,7 @@ impl<'a> Window<'a> {
                         }
                     }
                     WindowEvent::Moved(new_logical_position) => {
+                        self.monitor = self.window.window().get_current_monitor();
                         if let Some(monitor_name) =
                             self.window.window().get_current_monitor().get_name()
                         {
