@@ -171,7 +171,6 @@ impl<'a> Container<'a> {
     }
 
     pub fn focus_pane(&mut self, direction: Direction) {
-        // TODO: stuff
         match self.arrangement {
             Arrangement::VSplit => {
                 if self.panes.len() > 1 {
