@@ -1,4 +1,4 @@
-use crate::action::{BufferAction, GuiAction, WindowAction};
+use crate::action::{BufferAction, GuiAction, PaneAction, WindowAction};
 use crate::buffer::{Buffer, FileSaveStatus};
 use crate::commands::Direction;
 use crate::gui::gl_renderer::GlRenderer;
@@ -67,6 +67,12 @@ impl<'a> Container<'a> {
         Ok(())
     }
 
+    pub fn do_pane_action(&mut self, action: PaneAction) {
+        if let Some(pane) = self.panes.get_mut(self.focused_idx) {
+            pane.do_action(action);
+        }
+    }
+
     pub fn update_gui(&mut self, action: GuiAction) {
         if let GuiAction::UpdateSize(bounds, position) = action {
             self.bounds = bounds;
@@ -108,7 +114,7 @@ impl<'a> Container<'a> {
                 let bounds = vec2(each_width, self.bounds.y);
                 let mut position = vec2(self.position.x, self.position.y);
                 for pane in self.panes.iter_mut() {
-                    pane.update_gui(GuiAction::UpdateSize(bounds, position));
+                    pane.do_action(PaneAction::UpdateSize(bounds, position));
                     position.x += each_width; // TODO: any padding?
                 }
             }

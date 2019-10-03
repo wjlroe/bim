@@ -1,4 +1,4 @@
-use crate::action::{Action, BufferAction, GuiAction, WindowAction};
+use crate::action::{Action, BufferAction, GuiAction, PaneAction, WindowAction};
 use crate::buffer::{Buffer, FileSaveStatus};
 use crate::commands::Cmd;
 use crate::config::{RunConfig, BIM_QUIT_TIMES};
@@ -435,6 +435,7 @@ impl<'a> Window<'a> {
             .update_current_buffer(BufferAction::PrintDebugInfo);
     }
 
+    // FIXME: shouldn't be a window handling these - should be a GUI/GuiEditor abstraction
     fn do_gui_action(&mut self, action: GuiAction) {
         use GuiAction::*;
 
@@ -454,11 +455,16 @@ impl<'a> Window<'a> {
         }
     }
 
+    fn do_pane_action(&mut self, action: PaneAction) {
+        self.container.do_pane_action(action);
+    }
+
     fn run_action(&mut self, action: Action) {
         match action {
-            Action::OnWindow(window_action) => self.do_window_action(window_action),
-            Action::OnBuffer(buffer_action) => self.handle_buffer_action(buffer_action),
             Action::OnGui(gui_action) => self.do_gui_action(gui_action),
+            Action::OnWindow(window_action) => self.do_window_action(window_action),
+            Action::OnPane(pane_action) => self.do_pane_action(pane_action),
+            Action::OnBuffer(buffer_action) => self.handle_buffer_action(buffer_action),
         }
     }
 

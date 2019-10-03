@@ -23,6 +23,11 @@ pub enum WindowAction {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum PaneAction {
+    UpdateSize(Vector2<f32>, Vector2<f32>),
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum BufferAction {
     InsertNewlineAndReturn,
     InsertChar(char),
@@ -41,5 +46,6 @@ pub enum BufferAction {
 pub enum Action {
     OnGui(GuiAction),
     OnWindow(WindowAction),
+    OnPane(PaneAction),
     OnBuffer(BufferAction),
 }

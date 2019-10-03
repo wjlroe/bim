@@ -1,4 +1,4 @@
-use crate::action::{BufferAction, GuiAction, WindowAction};
+use crate::action::{BufferAction, GuiAction, PaneAction, WindowAction};
 use crate::buffer::{Buffer, FileSaveStatus};
 use crate::gui::draw_state::DrawState;
 use crate::gui::gl_renderer::GlRenderer;
@@ -28,6 +28,10 @@ impl<'a> Pane<'a> {
 
     pub fn update_gui(&mut self, action: GuiAction) {
         self.draw_state.update_gui(action);
+    }
+
+    pub fn do_action(&mut self, action: PaneAction) {
+        self.draw_state.do_pane_action(action);
     }
 
     pub fn handle_key(&mut self, key: Key) -> (bool, Option<WindowAction>) {

@@ -1,4 +1,4 @@
-use crate::action::{BufferAction, GuiAction, WindowAction};
+use crate::action::{BufferAction, GuiAction, PaneAction, WindowAction};
 use crate::buffer::{Buffer, FileSaveStatus};
 use crate::commands::{Direction, MoveCursor};
 use crate::cursor::{Cursor, CursorT};
@@ -366,6 +366,14 @@ impl<'a> DrawState<'a> {
             DecFontSize => {}
             IncFontSize => {}
             Quit => {}
+        }
+    }
+
+    pub fn do_pane_action(&mut self, action: PaneAction) {
+        use PaneAction::*;
+
+        match action {
+            UpdateSize(bounds, position) => self.update_size(bounds, position),
         }
     }
 
