@@ -2,6 +2,19 @@ use crate::commands::{Direction, MoveCursor};
 use crate::gui::mouse::MouseMove;
 use cgmath::Vector2;
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum GuiAction {
+    DecFontSize,
+    IncFontSize,
+    SetFontSize(f32),
+    SetUiScale(f32),
+    SetLineHeight(f32),
+    SetCharacterWidth(f32),
+    UpdateSize(Vector2<f32>, Vector2<f32>), // FIXME: should be a window action, not entire app
+    DumpFlameGraph,
+    Quit,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum WindowAction {
     SaveFileAs(String), // FIXME: this isn't a _window_ action surely?
@@ -24,22 +37,9 @@ pub enum BufferAction {
     PrintDebugInfo,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum GuiAction {
-    DecFontSize,
-    IncFontSize,
-    SetFontSize(f32),
-    SetUiScale(f32),
-    SetLineHeight(f32),
-    SetCharacterWidth(f32),
-    UpdateSize(Vector2<f32>, Vector2<f32>), // FIXME: should be a window action, not entire app
-    DumpFlameGraph,
-    Quit,
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum Action {
-    OnBuffer(BufferAction),
-    OnWindow(WindowAction),
     OnGui(GuiAction),
+    OnWindow(WindowAction),
+    OnBuffer(BufferAction),
 }
