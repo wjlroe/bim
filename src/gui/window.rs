@@ -536,7 +536,7 @@ impl<'a> Window<'a> {
             Key::Function(_) => None,
             Key::Control(Some('-')) => None,
             Key::Control(Some('+')) => None,
-            Key::Control(Some(' ')) => Some(Cmd::CloneCursor),
+            Key::Control(Some(' ')) => None,
             Key::Control(Some('m')) => None,
             Key::Control(Some('f')) => Some(Cmd::Search),
             Key::Control(Some('q')) => None,
@@ -560,9 +560,7 @@ impl<'a> Window<'a> {
             Cmd::Search => self
                 .container
                 .update_current_buffer(BufferAction::StartSearch),
-            Cmd::CloneCursor => self
-                .container
-                .update_current_buffer(BufferAction::CloneCursor),
+            Cmd::CloneCursor => {}
             Cmd::Quit => {}
             Cmd::PrintInfo => {}
             Cmd::Escape => {}

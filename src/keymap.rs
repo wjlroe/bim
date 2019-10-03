@@ -136,6 +136,10 @@ lazy_static! {
             Key::Control(Some('m')),
             MapOrAction::Action(Action::OnGui(GuiAction::PrintInfo)),
         );
+        bindings.insert(
+            Key::Control(Some(' ')),
+            MapOrAction::Action(Action::OnBuffer(BufferAction::CloneCursor)),
+        );
 
         let mut window_bindings = HashMap::new();
         window_bindings.insert(
