@@ -482,6 +482,7 @@ impl<'a> Window<'a> {
         }
 
         if !handled {
+            println!("Key: {:?} wasn't handled by the keymap!!!", key);
             self.current_map = self.options.keymap.clone(); // FIXME: only if needed
         }
 
