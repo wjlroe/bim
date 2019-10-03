@@ -34,6 +34,7 @@ pub enum GuiAction {
     SetCharacterWidth(f32),
     UpdateSize(Vector2<f32>, Vector2<f32>), // FIXME: should be a window action, not entire app
     DumpFlameGraph,
+    Quit,
 }
 
 #[derive(Clone, Debug, PartialEq)]

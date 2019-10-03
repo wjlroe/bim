@@ -445,6 +445,7 @@ impl<'a> Window<'a> {
             }
             DecFontSize => self.dec_font_size(),
             IncFontSize => self.inc_font_size(),
+            Quit => self.try_quit(),
             UpdateSize(_, _) => {}
             SetFontSize(_) => {}
             SetUiScale(_) => {}
@@ -530,7 +531,7 @@ impl<'a> Window<'a> {
             Key::Control(Some(' ')) => Some(Cmd::CloneCursor),
             Key::Control(Some('m')) => Some(Cmd::PrintInfo),
             Key::Control(Some('f')) => Some(Cmd::Search),
-            Key::Control(Some('q')) => Some(Cmd::Quit),
+            Key::Control(Some('q')) => None,
             Key::Control(Some('s')) => Some(Cmd::Save),
             Key::Control(Some(_)) => None,
             Key::Control(None) => None,

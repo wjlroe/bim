@@ -125,6 +125,10 @@ lazy_static! {
             MapOrAction::Action(Action::OnGui(GuiAction::IncFontSize)),
         );
         bindings.insert(
+            Key::Control(Some('q')),
+            MapOrAction::Action(Action::OnGui(GuiAction::Quit)),
+        );
+        bindings.insert(
             Key::Function(11),
             MapOrAction::Action(Action::OnWindow(WindowAction::ToggleFullscreen)),
         );

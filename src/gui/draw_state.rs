@@ -365,6 +365,7 @@ impl<'a> DrawState<'a> {
             DumpFlameGraph => {}
             DecFontSize => {}
             IncFontSize => {}
+            Quit => {}
         }
     }
 
