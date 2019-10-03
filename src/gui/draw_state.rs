@@ -366,6 +366,7 @@ impl<'a> DrawState<'a> {
             DecFontSize => {}
             IncFontSize => {}
             Quit => {}
+            PrintInfo => {}
         }
     }
 

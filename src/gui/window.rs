@@ -452,6 +452,7 @@ impl<'a> Window<'a> {
             SetUiScale(_) => {}
             SetLineHeight(_) => {}
             SetCharacterWidth(_) => {}
+            PrintInfo => self.print_info(),
         }
     }
 
@@ -536,7 +537,7 @@ impl<'a> Window<'a> {
             Key::Control(Some('-')) => None,
             Key::Control(Some('+')) => None,
             Key::Control(Some(' ')) => Some(Cmd::CloneCursor),
-            Key::Control(Some('m')) => Some(Cmd::PrintInfo),
+            Key::Control(Some('m')) => None,
             Key::Control(Some('f')) => Some(Cmd::Search),
             Key::Control(Some('q')) => None,
             Key::Control(Some('s')) => Some(Cmd::Save),
@@ -551,21 +552,19 @@ impl<'a> Window<'a> {
 
     fn handle_buffer_cmd(&mut self, cmd: Cmd) {
         match cmd {
-            Cmd::Move(movement) => self
-                .container
-                .update_current_buffer(BufferAction::MoveCursor(movement)),
+            Cmd::Move(_) => {}
             Cmd::DeleteCharBackward => {}
             Cmd::DeleteCharForward => {}
-            Cmd::Linebreak => self.insert_newline_and_return(),
-            Cmd::InsertChar(typed_char) => self.insert_char(typed_char),
+            Cmd::Linebreak => {}
+            Cmd::InsertChar(_) => {}
             Cmd::Search => self
                 .container
                 .update_current_buffer(BufferAction::StartSearch),
             Cmd::CloneCursor => self
                 .container
                 .update_current_buffer(BufferAction::CloneCursor),
-            Cmd::Quit => self.try_quit(),
-            Cmd::PrintInfo => self.print_info(),
+            Cmd::Quit => {}
+            Cmd::PrintInfo => {}
             Cmd::Escape => {}
             Cmd::Save => self.save_file(),
         }
@@ -612,16 +611,6 @@ impl<'a> Window<'a> {
 
     fn set_status_msg(&mut self, msg: String) {
         self.status_message = Some(Status::new_with_timeout(msg, Duration::from_secs(5)));
-    }
-
-    fn insert_newline_and_return(&mut self) {
-        self.container
-            .update_current_buffer(BufferAction::InsertNewlineAndReturn);
-    }
-
-    fn insert_char(&mut self, typed_char: char) {
-        self.container
-            .update_current_buffer(BufferAction::InsertChar(typed_char));
     }
 
     pub fn resize(&mut self, logical_size: LogicalSize) {

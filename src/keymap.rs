@@ -132,6 +132,10 @@ lazy_static! {
             Key::Function(11),
             MapOrAction::Action(Action::OnWindow(WindowAction::ToggleFullscreen)),
         );
+        bindings.insert(
+            Key::Control(Some('m')),
+            MapOrAction::Action(Action::OnGui(GuiAction::PrintInfo)),
+        );
 
         let mut window_bindings = HashMap::new();
         window_bindings.insert(
