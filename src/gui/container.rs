@@ -5,7 +5,6 @@ use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::mouse::MouseMove;
 use crate::gui::pane::Pane;
 use crate::gui::rect::RectBuilder;
-use crate::keycodes::Key;
 use cgmath::{vec2, Vector2};
 use std::error::Error;
 
@@ -119,18 +118,6 @@ impl<'a> Container<'a> {
                 }
             }
         }
-    }
-
-    pub fn handle_key(&mut self, key: Key) -> bool {
-        let mut handled = false;
-
-        if key == Key::Control(Some('v')) {
-            if let Ok(_) = self.split_vertically(None) {
-                handled = true;
-            }
-        }
-
-        handled
     }
 
     pub fn check(&mut self) -> Vec<WindowAction> {

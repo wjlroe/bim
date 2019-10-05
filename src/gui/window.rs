@@ -493,8 +493,6 @@ impl<'a> Window<'a> {
             self.current_map = self.options.keymap.clone(); // FIXME: only if needed
         }
 
-        handled = self.container.handle_key(key);
-
         if !handled {
             self.handle_buffer_key(key);
         }
@@ -519,6 +517,9 @@ impl<'a> Window<'a> {
                 // monitor variable
                 let monitor = self.monitor.clone();
                 self.toggle_fullscreen(monitor);
+            }
+            WindowAction::SplitVertically => {
+                let _ = self.container.split_vertically(None);
             }
         }
     }

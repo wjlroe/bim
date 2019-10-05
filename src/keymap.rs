@@ -144,6 +144,10 @@ lazy_static! {
             Key::Control(Some('f')),
             MapOrAction::Action(Action::OnBuffer(BufferAction::StartSearch)),
         );
+        bindings.insert(
+            Key::Control(Some('v')),
+            MapOrAction::Action(Action::OnWindow(WindowAction::SplitVertically)),
+        );
 
         let mut window_bindings = HashMap::new();
         window_bindings.insert(

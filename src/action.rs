@@ -21,6 +21,7 @@ pub enum WindowAction {
     SaveFileAs(String), // FIXME: this isn't a _window_ action surely?
     FocusPane(Direction),
     ToggleFullscreen,
+    SplitVertically,
 }
 
 #[derive(Clone, Debug, PartialEq)]
