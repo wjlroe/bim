@@ -8,7 +8,6 @@ use crate::gui::rect::{Rect, RectBuilder};
 use crate::highlight::HighlightedSection;
 use crate::highlight::{highlight_to_color, Highlight};
 use crate::input::Input;
-use crate::keycodes::Key;
 use crate::prompt::PromptAction;
 use crate::search::Search;
 use crate::status_line::StatusLine;
@@ -427,12 +426,29 @@ impl<'a> DrawState<'a> {
     }
 
     pub fn insert_newline_and_return(&mut self) {
+        if let Some(prompt) = self.prompt.as_mut() {
+            prompt.done();
+            return;
+        }
+        if let Some(search) = self.search.as_mut() {
+            search.stop(false);
+            return;
+        }
         self.buffer.insert_newline_and_return();
         self.mark_buffer_changed();
         self.update_cursor();
     }
 
     pub fn insert_char(&mut self, typed_char: char) {
+        if let Some(prompt) = self.prompt.as_mut() {
+            prompt.type_char(typed_char);
+            return;
+        }
+        if let Some(search) = self.search.as_mut() {
+            search.push_char(typed_char);
+            return;
+        }
+
         self.buffer.insert_char_at_cursor(typed_char);
         self.mark_buffer_changed();
         self.update_cursor();
@@ -780,28 +796,6 @@ impl<'a> DrawState<'a> {
         self.prompt.is_some() || self.search.is_some()
     }
 
-    pub fn handle_key(&mut self, key: Key) -> (bool, Option<WindowAction>) {
-        let mut window_action = None;
-        let mut prompt_handled = false;
-        let mut search_handled = false;
-
-        if let Some(prompt) = self.prompt.as_mut() {
-            prompt_handled = prompt.handle_key(key);
-            window_action = self.check_prompt();
-        }
-
-        if !prompt_handled {
-            if let Some(search) = self.search.as_mut() {
-                search_handled = search.handle_key(key);
-                if search_handled {
-                    self.check_search();
-                }
-            }
-        }
-
-        (prompt_handled || search_handled, window_action)
-    }
-
     pub fn prompt_text(&self) -> Option<&str> {
         self.prompt.as_ref().map(|prompt| prompt.display_text())
     }
@@ -854,6 +848,17 @@ impl<'a> DrawState<'a> {
                 self.stop_search();
             }
         }
+    }
+
+    pub fn check(&mut self) -> Vec<WindowAction> {
+        let mut actions = vec![];
+
+        if let Some(window_action) = self.check_prompt() {
+            actions.push(window_action);
+        }
+        self.check_search();
+
+        actions
     }
 
     pub fn save_file(&mut self) -> Result<FileSaveStatus, Box<dyn Error>> {

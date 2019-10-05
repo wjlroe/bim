@@ -121,7 +121,7 @@ impl<'a> Container<'a> {
         }
     }
 
-    pub fn handle_key(&mut self, key: Key) -> (bool, Option<WindowAction>) {
+    pub fn handle_key(&mut self, key: Key) -> bool {
         let mut handled = false;
 
         if key == Key::Control(Some('v')) {
@@ -130,15 +130,17 @@ impl<'a> Container<'a> {
             }
         }
 
-        if !handled {
-            if let Some(pane) = self.panes.get_mut(self.focused_idx) {
-                pane.handle_key(key)
-            } else {
-                (false, None)
-            }
-        } else {
-            (handled, None)
+        handled
+    }
+
+    pub fn check(&mut self) -> Vec<WindowAction> {
+        let mut actions = vec![];
+
+        for pane in self.panes.iter_mut() {
+            actions.append(&mut pane.check());
         }
+
+        actions
     }
 
     fn which_pane_is_location(&self, location: Vector2<f32>) -> Option<usize> {

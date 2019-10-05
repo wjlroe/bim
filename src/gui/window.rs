@@ -493,14 +493,19 @@ impl<'a> Window<'a> {
             self.current_map = self.options.keymap.clone(); // FIXME: only if needed
         }
 
-        let (handled, window_action) = self.container.handle_key(key);
-
-        if let Some(window_action) = window_action {
-            self.do_window_action(window_action);
-        }
+        handled = self.container.handle_key(key);
 
         if !handled {
             self.handle_buffer_key(key);
+        }
+
+        self.check();
+    }
+
+    pub fn check(&mut self) {
+        let actions = self.container.check();
+        for action in actions {
+            self.do_window_action(action);
         }
     }
 
@@ -538,7 +543,7 @@ impl<'a> Window<'a> {
             Key::Control(Some('+')) => None,
             Key::Control(Some(' ')) => None,
             Key::Control(Some('m')) => None,
-            Key::Control(Some('f')) => Some(Cmd::Search),
+            Key::Control(Some('f')) => None,
             Key::Control(Some('q')) => None,
             Key::Control(Some('s')) => Some(Cmd::Save),
             Key::Control(Some(_)) => None,
@@ -557,9 +562,7 @@ impl<'a> Window<'a> {
             Cmd::DeleteCharForward => {}
             Cmd::Linebreak => {}
             Cmd::InsertChar(_) => {}
-            Cmd::Search => self
-                .container
-                .update_current_buffer(BufferAction::StartSearch),
+            Cmd::Search => {}
             Cmd::CloneCursor => {}
             Cmd::Quit => {}
             Cmd::PrintInfo => {}
