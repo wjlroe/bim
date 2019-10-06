@@ -18,6 +18,7 @@ pub enum GuiAction {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum WindowAction {
+    SaveFile,           // FIXME: move to buffer actions
     SaveFileAs(String), // FIXME: this isn't a _window_ action surely?
     FocusPane(Direction),
     ToggleFullscreen,

@@ -148,6 +148,10 @@ lazy_static! {
             Key::Control(Some('v')),
             MapOrAction::Action(Action::OnWindow(WindowAction::SplitVertically)),
         );
+        bindings.insert(
+            Key::Control(Some('s')),
+            MapOrAction::Action(Action::OnWindow(WindowAction::SaveFile)),
+        );
 
         let mut window_bindings = HashMap::new();
         window_bindings.insert(

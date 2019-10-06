@@ -509,6 +509,7 @@ impl<'a> Window<'a> {
 
     fn do_window_action(&mut self, window_action: WindowAction) {
         match window_action {
+            WindowAction::SaveFile => self.save_file(),
             WindowAction::SaveFileAs(filename) => self.save_file_as(filename),
             WindowAction::FocusPane(direction) => self.container.focus_pane(direction),
             WindowAction::ToggleFullscreen => {
@@ -546,7 +547,7 @@ impl<'a> Window<'a> {
             Key::Control(Some('m')) => None,
             Key::Control(Some('f')) => None,
             Key::Control(Some('q')) => None,
-            Key::Control(Some('s')) => Some(Cmd::Save),
+            Key::Control(Some('s')) => None,
             Key::Control(Some(_)) => None,
             Key::Control(None) => None,
             Key::Escape => None,
