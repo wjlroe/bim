@@ -756,18 +756,21 @@ impl<'a> DrawState<'a> {
     fn render_lines(
         &self,
         renderer: &mut GlRenderer,
-        _bounds: Vector2<f32>,
-        _position: Vector2<f32>,
+        bounds: Vector2<f32>,
+        position: Vector2<f32>,
     ) -> Result<(), Box<dyn Error>> {
         let _guard = flame::start_guard("render lines");
 
         for line in LINE_COLS_AT.iter() {
-            let x_on_screen = self.left_padding() + (*line as f32 * self.character_width());
-            let rect = RectBuilder::new()
-                .bounds(vec2(1.0, self.bounds.y))
-                .top_left(vec2(x_on_screen, 0.0))
-                .build();
-            renderer.draw_quad(LINE_COL_BG, rect, 0.2);
+            let x_in_bounds = *line as f32 * self.character_width();
+            if x_in_bounds < bounds.x {
+                let x_on_screen = position.x + x_in_bounds;
+                let rect = RectBuilder::new()
+                    .bounds(vec2(1.0, bounds.y))
+                    .top_left(vec2(x_on_screen, 0.0))
+                    .build();
+                renderer.draw_quad(LINE_COL_BG, rect, 0.2);
+            }
         }
 
         Ok(())
@@ -775,12 +778,13 @@ impl<'a> DrawState<'a> {
 
     pub fn render(&self, renderer: &mut GlRenderer, focused: bool) -> Result<(), Box<dyn Error>> {
         let padded_position = self.position + vec2(self.left_padding(), 0.0);
+        let new_bounds = self.bounds - vec2(self.left_padding(), 0.0);
 
         self.render_text(renderer, self.bounds, self.position)?;
-        self.render_cursors(renderer, self.bounds, padded_position, focused)?;
-        self.render_lines(renderer, self.bounds, padded_position)?;
-        self.render_prompt(renderer, self.bounds, padded_position)?;
-        self.render_search(renderer, self.bounds, padded_position)?;
+        self.render_cursors(renderer, new_bounds, padded_position, focused)?;
+        self.render_lines(renderer, new_bounds, padded_position)?;
+        self.render_prompt(renderer, new_bounds, padded_position)?;
+        self.render_search(renderer, new_bounds, padded_position)?;
         self.render_status_text(renderer, self.bounds, self.position, focused)?;
 
         Ok(())
