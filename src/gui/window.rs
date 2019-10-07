@@ -508,9 +508,6 @@ impl<'a> Window<'a> {
             WindowAction::SaveFileAs(filename) => self.save_file_as(filename),
             WindowAction::FocusPane(direction) => self.container.focus_pane(direction),
             WindowAction::ToggleFullscreen => {
-                // FIXME: does this mean we will fullscreen on the monitor we
-                // started on rather than one we move to? We don't reassign the
-                // monitor variable
                 let monitor = self.monitor.clone();
                 self.toggle_fullscreen(monitor);
             }
