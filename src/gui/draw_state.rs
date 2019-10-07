@@ -1,15 +1,13 @@
-use crate::buffer::{Buffer, BufferAction, FileSaveStatus};
-use crate::commands::MoveCursor;
+use crate::action::{BufferAction, GuiAction, PaneAction, WindowAction};
+use crate::buffer::{Buffer, FileSaveStatus};
+use crate::commands::{Direction, MoveCursor};
 use crate::cursor::{Cursor, CursorT};
-use crate::gui::actions::GuiAction;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::mouse::MouseMove;
 use crate::gui::rect::{Rect, RectBuilder};
-use crate::gui::window::WindowAction;
 use crate::highlight::HighlightedSection;
 use crate::highlight::{highlight_to_color, Highlight};
 use crate::input::Input;
-use crate::keycodes::Key;
 use crate::prompt::PromptAction;
 use crate::search::Search;
 use crate::status_line::StatusLine;
@@ -340,7 +338,7 @@ impl<'a> DrawState<'a> {
         match action {
             InsertNewlineAndReturn => self.insert_newline_and_return(),
             InsertChar(typed_char) => self.insert_char(typed_char),
-            DeleteChar => self.delete_char(),
+            DeleteChar(direction) => self.delete_char(direction),
             CloneCursor => self.clone_cursor(),
             MoveCursor(movement) => self.move_cursor(movement),
             MouseScroll(delta) => self.mouse_scroll(delta),
@@ -348,6 +346,9 @@ impl<'a> DrawState<'a> {
             SetFilename(filename) => self.buffer.set_filename(filename),
             StartSearch => self.start_search(),
             PrintDebugInfo => self.print_info(),
+            InsertTypedChar => {
+                panic!("Insert typed char received in DrawState.update_buffer, this should not happen!");
+            }
         }
     }
 
@@ -360,6 +361,19 @@ impl<'a> DrawState<'a> {
             SetUiScale(dpi) => self.set_ui_scale(dpi),
             SetLineHeight(line_height) => self.set_line_height(line_height),
             SetCharacterWidth(character_width) => self.set_character_width(character_width),
+            DumpFlameGraph => {}
+            DecFontSize => {}
+            IncFontSize => {}
+            Quit => {}
+            PrintInfo => {}
+        }
+    }
+
+    pub fn do_pane_action(&mut self, action: PaneAction) {
+        use PaneAction::*;
+
+        match action {
+            UpdateSize(bounds, position) => self.update_size(bounds, position),
         }
     }
 
@@ -402,19 +416,39 @@ impl<'a> DrawState<'a> {
         self.update_cursor();
     }
 
-    pub fn delete_char(&mut self) {
+    pub fn delete_char(&mut self, direction: Direction) {
+        if direction == Direction::Right {
+            self.update_buffer(BufferAction::MoveCursor(MoveCursor::right(1)));
+        }
         self.buffer.delete_char_at_cursor();
         self.mark_buffer_changed();
         self.update_cursor();
     }
 
     pub fn insert_newline_and_return(&mut self) {
+        if let Some(prompt) = self.prompt.as_mut() {
+            prompt.done();
+            return;
+        }
+        if let Some(search) = self.search.as_mut() {
+            search.stop(false);
+            return;
+        }
         self.buffer.insert_newline_and_return();
         self.mark_buffer_changed();
         self.update_cursor();
     }
 
     pub fn insert_char(&mut self, typed_char: char) {
+        if let Some(prompt) = self.prompt.as_mut() {
+            prompt.type_char(typed_char);
+            return;
+        }
+        if let Some(search) = self.search.as_mut() {
+            search.push_char(typed_char);
+            return;
+        }
+
         self.buffer.insert_char_at_cursor(typed_char);
         self.mark_buffer_changed();
         self.update_cursor();
@@ -762,28 +796,6 @@ impl<'a> DrawState<'a> {
         self.prompt.is_some() || self.search.is_some()
     }
 
-    pub fn handle_key(&mut self, key: Key) -> (bool, Option<WindowAction>) {
-        let mut window_action = None;
-        let mut prompt_handled = false;
-        let mut search_handled = false;
-
-        if let Some(prompt) = self.prompt.as_mut() {
-            prompt_handled = prompt.handle_key(key);
-            window_action = self.check_prompt();
-        }
-
-        if !prompt_handled {
-            if let Some(search) = self.search.as_mut() {
-                search_handled = search.handle_key(key);
-                if search_handled {
-                    self.check_search();
-                }
-            }
-        }
-
-        (prompt_handled || search_handled, window_action)
-    }
-
     pub fn prompt_text(&self) -> Option<&str> {
         self.prompt.as_ref().map(|prompt| prompt.display_text())
     }
@@ -836,6 +848,17 @@ impl<'a> DrawState<'a> {
                 self.stop_search();
             }
         }
+    }
+
+    pub fn check(&mut self) -> Vec<WindowAction> {
+        let mut actions = vec![];
+
+        if let Some(window_action) = self.check_prompt() {
+            actions.push(window_action);
+        }
+        self.check_search();
+
+        actions
     }
 
     pub fn save_file(&mut self) -> Result<FileSaveStatus, Box<dyn Error>> {

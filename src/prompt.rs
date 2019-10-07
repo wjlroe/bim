@@ -51,6 +51,14 @@ impl<'a> Prompt<'a> {
         &self.row.as_str()[self.prompt_length..].trim_matches(char::is_control)
     }
 
+    pub fn type_char(&mut self, typed_char: char) {
+        self.row.append_char(typed_char);
+    }
+
+    pub fn done(&mut self) {
+        self.finished = true;
+    }
+
     pub fn handle_key(&mut self, key: Key) -> bool {
         let mut handled = false;
 

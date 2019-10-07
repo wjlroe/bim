@@ -1,11 +1,10 @@
-use crate::buffer::{Buffer, BufferAction, FileSaveStatus};
-use crate::gui::actions::GuiAction;
+use crate::action::{BufferAction, GuiAction, PaneAction, WindowAction};
+use crate::buffer::{Buffer, FileSaveStatus};
+use crate::commands::Direction;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::mouse::MouseMove;
 use crate::gui::pane::Pane;
 use crate::gui::rect::RectBuilder;
-use crate::gui::window::WindowAction;
-use crate::keycodes::Key;
 use cgmath::{vec2, Vector2};
 use std::error::Error;
 
@@ -67,6 +66,12 @@ impl<'a> Container<'a> {
         Ok(())
     }
 
+    pub fn do_pane_action(&mut self, action: PaneAction) {
+        if let Some(pane) = self.panes.get_mut(self.focused_idx) {
+            pane.do_action(action);
+        }
+    }
+
     pub fn update_gui(&mut self, action: GuiAction) {
         if let GuiAction::UpdateSize(bounds, position) = action {
             self.bounds = bounds;
@@ -108,31 +113,21 @@ impl<'a> Container<'a> {
                 let bounds = vec2(each_width, self.bounds.y);
                 let mut position = vec2(self.position.x, self.position.y);
                 for pane in self.panes.iter_mut() {
-                    pane.update_gui(GuiAction::UpdateSize(bounds, position));
+                    pane.do_action(PaneAction::UpdateSize(bounds, position));
                     position.x += each_width; // TODO: any padding?
                 }
             }
         }
     }
 
-    pub fn handle_key(&mut self, key: Key) -> (bool, Option<WindowAction>) {
-        let mut handled = false;
+    pub fn check(&mut self) -> Vec<WindowAction> {
+        let mut actions = vec![];
 
-        if key == Key::Control(Some('v')) {
-            if let Ok(_) = self.split_vertically(None) {
-                handled = true;
-            }
+        for pane in self.panes.iter_mut() {
+            actions.append(&mut pane.check());
         }
 
-        if !handled {
-            if let Some(pane) = self.panes.get_mut(self.focused_idx) {
-                pane.handle_key(key)
-            } else {
-                (false, None)
-            }
-        } else {
-            (handled, None)
-        }
+        actions
     }
 
     fn which_pane_is_location(&self, location: Vector2<f32>) -> Option<usize> {
@@ -166,6 +161,23 @@ impl<'a> Container<'a> {
             self.focus_pane_index(pane_idx);
             if let Some(pane) = self.panes.get_mut(self.focused_idx) {
                 pane.update_buffer(BufferAction::MouseClick(location));
+            }
+        }
+    }
+
+    pub fn focus_pane(&mut self, direction: Direction) {
+        match self.arrangement {
+            Arrangement::VSplit => {
+                if self.panes.len() > 1 {
+                    let movement = match direction {
+                        Direction::Right => 1,
+                        Direction::Left => -1,
+                        _ => 0, // TODO: We have no idea how to do Up/Down
+                    };
+                    let new_pane_idx =
+                        (self.focused_idx as i32 + movement) % self.panes.len() as i32;
+                    self.focus_pane_index(new_pane_idx as usize);
+                }
             }
         }
     }

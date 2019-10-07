@@ -12,6 +12,7 @@ pub use crate::unix::EditorImpl;
 #[cfg(windows)]
 pub use crate::win::EditorImpl;
 
+mod action;
 pub mod buffer;
 mod commands;
 pub mod config;
@@ -20,6 +21,7 @@ pub mod debug_log;
 pub mod highlight;
 mod input;
 mod keycodes;
+mod keymap;
 pub mod options;
 mod prompt;
 mod row;

@@ -1,9 +1,7 @@
-use crate::buffer::{Buffer, BufferAction, FileSaveStatus};
-use crate::gui::actions::GuiAction;
+use crate::action::{BufferAction, GuiAction, PaneAction, WindowAction};
+use crate::buffer::{Buffer, FileSaveStatus};
 use crate::gui::draw_state::DrawState;
 use crate::gui::gl_renderer::GlRenderer;
-use crate::gui::window::WindowAction;
-use crate::keycodes::Key;
 use std::error::Error;
 
 pub struct Pane<'a> {
@@ -31,8 +29,12 @@ impl<'a> Pane<'a> {
         self.draw_state.update_gui(action);
     }
 
-    pub fn handle_key(&mut self, key: Key) -> (bool, Option<WindowAction>) {
-        self.draw_state.handle_key(key)
+    pub fn do_action(&mut self, action: PaneAction) {
+        self.draw_state.do_pane_action(action);
+    }
+
+    pub fn check(&mut self) -> Vec<WindowAction> {
+        self.draw_state.check()
     }
 
     pub fn save_file(&mut self) -> Result<FileSaveStatus, Box<dyn Error>> {

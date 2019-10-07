@@ -1,4 +1,4 @@
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Key {
     ArrowLeft,
     ArrowRight,
@@ -15,10 +15,40 @@ pub enum Key {
     Control(Option<char>),
     Function(u8),
     Other(char),
+    TypedChar, // any typed char, not specific
 }
 
 pub fn ctrl_key(key: char, keycode: u32) -> bool {
     (key as u32 & 0x1f) == keycode
+}
+
+// TODO: Replace this with something sensible
+pub fn is_printable(key: char) -> bool {
+    if key.is_control() {
+        return false;
+    }
+
+    // Arrow keys
+    if key >= '\u{f700}' && key <= '\u{f703}' {
+        return false;
+    }
+
+    // Backspace
+    if key == '\x7f' {
+        return false;
+    }
+
+    // Delete
+    if key == '\u{f728}' {
+        return false;
+    }
+
+    // Return
+    if key == '\u{d}' {
+        return false;
+    }
+
+    true
 }
 
 #[test]

@@ -23,6 +23,14 @@ impl<'a> Input<'a> {
         self.prompt.handle_key(key)
     }
 
+    pub fn type_char(&mut self, typed_char: char) {
+        self.prompt.type_char(typed_char);
+    }
+
+    pub fn done(&mut self) {
+        self.prompt.done();
+    }
+
     pub fn is_done(&self) -> bool {
         self.prompt.is_done()
     }

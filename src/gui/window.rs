@@ -1,15 +1,15 @@
-use crate::buffer::{Buffer, BufferAction, FileSaveStatus};
-use crate::commands::{self, Cmd, MoveCursor};
+use crate::action::{Action, BufferAction, GuiAction, PaneAction, WindowAction};
+use crate::buffer::{Buffer, FileSaveStatus};
 use crate::config::{RunConfig, BIM_QUIT_TIMES};
 use crate::debug_log::DebugLog;
-use crate::gui::actions::GuiAction;
 use crate::gui::container::Container;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::keycode_to_char;
 use crate::gui::mouse::MouseMove;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::rect::RectBuilder;
-use crate::keycodes::Key;
+use crate::keycodes::{is_printable, Key};
+use crate::keymap::{Keymap, MapOrAction};
 use crate::options::Options;
 use crate::status::Status;
 use cgmath::{vec2, Vector2};
@@ -27,12 +27,7 @@ use std::error::Error;
 use std::time::Duration;
 
 #[derive(PartialEq, Debug)]
-pub enum WindowAction {
-    SaveFileAs(String),
-}
-
-#[derive(PartialEq, Debug)]
-enum Action {
+enum InternalAction {
     ResizeWindow,
 }
 
@@ -56,8 +51,9 @@ pub struct Window<'a> {
     pub status_message: Option<Status>,
     persist_window_state: PersistWindowState,
     debug_log: DebugLog<'a>,
-    action_queue: Vec<Action>,
+    action_queue: Vec<InternalAction>,
     options: Options,
+    current_map: Keymap,
 }
 
 impl<'a> Window<'a> {
@@ -92,7 +88,8 @@ impl<'a> Window<'a> {
             persist_window_state,
             debug_log,
             action_queue: vec![],
-            options,
+            options: options.clone(),
+            current_map: options.keymap.clone(),
         };
         gui_window.open_files()?;
         gui_window.recalc_glyph_sizes(renderer);
@@ -118,7 +115,7 @@ impl<'a> Window<'a> {
         self.action_queue.dedup();
         while let Some(action) = self.action_queue.pop() {
             match action {
-                Action::ResizeWindow => {
+                InternalAction::ResizeWindow => {
                     let physical_size = self.logical_size.to_physical(self.ui_scale.into());
                     let _ = self
                         .debug_log
@@ -212,35 +209,18 @@ impl<'a> Window<'a> {
                         )));
                     }
                     WindowEvent::CloseRequested | WindowEvent::Destroyed => self.running = false,
-                    WindowEvent::ReceivedCharacter(typed_char) => {
+                    WindowEvent::ReceivedCharacter(typed_char) if is_printable(typed_char) => {
+                        println!("ReceivedChar: {}", typed_char.escape_unicode());
                         self.handle_key(Key::Other(typed_char));
                     }
                     WindowEvent::KeyboardInput {
                         input: keyboard_input,
                         ..
                     } => {
-                        // TODO: partial shortcut recognition: <Ctrl-w> + <l> for move to the pane
-                        // on the right...
                         if let Some(key) =
                             keycode_to_char::keyboard_event_to_keycode(keyboard_input)
                         {
                             self.handle_key(key);
-                            match key {
-                                Key::Control(Some('p')) => flame::dump_html(
-                                    &mut std::fs::File::create("flame-graph.html").unwrap(),
-                                )
-                                .unwrap_or(()),
-                                Key::Control(Some('-')) => self.dec_font_size(),
-                                Key::Control(Some('+')) => self.inc_font_size(),
-                                Key::Function(11) => {
-                                    // FIXME: does this mean we will fullscreen on the monitor we
-                                    // started on rather than one we move to? We don't reassign the
-                                    // monitor variable
-                                    let monitor = self.monitor.clone();
-                                    self.toggle_fullscreen(monitor)
-                                }
-                                _ => {}
-                            }
                         }
                     }
                     WindowEvent::Resized(new_logical_size) => {
@@ -250,7 +230,7 @@ impl<'a> Window<'a> {
                                 new_logical_size
                             ));
                             self.resize(new_logical_size);
-                            self.action_queue.push(Action::ResizeWindow);
+                            self.action_queue.push(InternalAction::ResizeWindow);
                         }
                     }
                     WindowEvent::HiDpiFactorChanged(new_dpi) => {
@@ -260,10 +240,11 @@ impl<'a> Window<'a> {
                                 .debug_log
                                 .debugln_timestamped(&format!("new DPI: {}", new_ui_scale));
                             self.set_ui_scale(new_ui_scale);
-                            self.action_queue.push(Action::ResizeWindow);
+                            self.action_queue.push(InternalAction::ResizeWindow);
                         }
                     }
                     WindowEvent::Moved(new_logical_position) => {
+                        self.monitor = self.window.window().get_current_monitor();
                         if let Some(monitor_name) =
                             self.window.window().get_current_monitor().get_name()
                         {
@@ -330,12 +311,12 @@ impl<'a> Window<'a> {
                     .bounds(text_bounds + vec2(10.0, 10.0))
                     .build();
 
-                renderer.draw_quad(POPUP_OUTLINE, popup_outline, 0.2); // Z???
+                renderer.draw_quad(POPUP_OUTLINE, popup_outline, 0.6); // Z???
                 let popup_rect = RectBuilder::new()
                     .center(popup_pos)
                     .bounds(text_bounds)
                     .build();
-                renderer.draw_quad(POPUP_BG, popup_rect, 0.2); // Z??
+                renderer.draw_quad(POPUP_BG, popup_rect, 0.6); // Z??
             }
 
             renderer.glyph_brush.queue(popup_section);
@@ -453,81 +434,91 @@ impl<'a> Window<'a> {
             .update_current_buffer(BufferAction::PrintDebugInfo);
     }
 
-    pub fn handle_key(&mut self, key: Key) {
-        let (handled, window_action) = self.container.handle_key(key);
+    // FIXME: shouldn't be a window handling these - should be a GUI/GuiEditor abstraction
+    fn do_gui_action(&mut self, action: GuiAction) {
+        use GuiAction::*;
 
-        if let Some(window_action) = window_action {
-            self.do_window_action(window_action);
+        match action {
+            DumpFlameGraph => {
+                flame::dump_html(&mut std::fs::File::create("flame-graph.html").unwrap())
+                    .unwrap_or(())
+            }
+            DecFontSize => self.dec_font_size(),
+            IncFontSize => self.inc_font_size(),
+            Quit => self.try_quit(),
+            UpdateSize(_, _) => {}
+            SetFontSize(_) => {}
+            SetUiScale(_) => {}
+            SetLineHeight(_) => {}
+            SetCharacterWidth(_) => {}
+            PrintInfo => self.print_info(),
+        }
+    }
+
+    fn do_pane_action(&mut self, action: PaneAction) {
+        self.container.do_pane_action(action);
+    }
+
+    fn run_action(&mut self, action: Action) {
+        match action {
+            Action::OnGui(gui_action) => self.do_gui_action(gui_action),
+            Action::OnWindow(window_action) => self.do_window_action(window_action),
+            Action::OnPane(pane_action) => self.do_pane_action(pane_action),
+            Action::OnBuffer(buffer_action) => self.handle_buffer_action(buffer_action),
+        }
+    }
+
+    pub fn handle_key(&mut self, key: Key) {
+        let mut handled = false;
+
+        if let Some(map_or_action) = self.current_map.lookup(&key) {
+            handled = true;
+
+            match map_or_action {
+                MapOrAction::Map(keymap) => {
+                    println!("Key: {:?} puts us into map: {:?}", key, keymap);
+                    self.current_map = keymap;
+                }
+                MapOrAction::Action(action) => {
+                    println!("Action: {:?}", action);
+                    self.run_action(action);
+                    self.current_map = self.options.keymap.clone(); // FIXME: don't do this unless it's required
+                }
+            }
         }
 
         if !handled {
-            self.handle_buffer_key(key);
+            println!("Key: {:?} wasn't handled by the keymap!!!", key);
+            self.current_map = self.options.keymap.clone(); // FIXME: only if needed
+        }
+
+        self.check();
+    }
+
+    pub fn check(&mut self) {
+        let actions = self.container.check();
+        for action in actions {
+            self.do_window_action(action);
         }
     }
 
     fn do_window_action(&mut self, window_action: WindowAction) {
         match window_action {
+            WindowAction::SaveFile => self.save_file(),
             WindowAction::SaveFileAs(filename) => self.save_file_as(filename),
+            WindowAction::FocusPane(direction) => self.container.focus_pane(direction),
+            WindowAction::ToggleFullscreen => {
+                let monitor = self.monitor.clone();
+                self.toggle_fullscreen(monitor);
+            }
+            WindowAction::SplitVertically => {
+                let _ = self.container.split_vertically(None);
+            }
         }
     }
 
-    fn handle_buffer_key(&mut self, key: Key) {
-        let buffer_cmd = match key {
-            Key::ArrowLeft => Some(Cmd::Move(MoveCursor::left(1))),
-            Key::ArrowRight => Some(Cmd::Move(MoveCursor::right(1))),
-            Key::ArrowUp => Some(Cmd::Move(MoveCursor::up(1))),
-            Key::ArrowDown => Some(Cmd::Move(MoveCursor::down(1))),
-            Key::PageDown => Some(Cmd::Move(MoveCursor::page_down(1))),
-            Key::PageUp => Some(Cmd::Move(MoveCursor::page_up(1))),
-            Key::Home => Some(Cmd::Move(MoveCursor::home())),
-            Key::End => Some(Cmd::Move(MoveCursor::end())),
-            Key::Delete => Some(Cmd::DeleteCharForward),
-            Key::Backspace => Some(Cmd::DeleteCharBackward),
-            Key::Return => Some(Cmd::Linebreak),
-            Key::Other(typed_char) => Some(Cmd::InsertChar(typed_char)),
-            Key::Function(fn_key) => {
-                println!("Unrecognised key: F{}", fn_key);
-                None
-            }
-            Key::Control(Some('-')) => None,
-            Key::Control(Some('+')) => None,
-            Key::Control(Some(' ')) => Some(Cmd::CloneCursor),
-            Key::Control(Some('m')) => Some(Cmd::PrintInfo),
-            Key::Control(Some('f')) => Some(Cmd::Search),
-            Key::Control(Some('q')) => Some(Cmd::Quit),
-            Key::Control(Some('s')) => Some(Cmd::Save),
-            Key::Control(Some(ctrl_char)) => {
-                println!("Unrecognised keypress: Ctrl-{}", ctrl_char);
-                None
-            }
-            Key::Control(None) => None,
-            Key::Escape => None,
-        };
-        if let Some(cmd) = buffer_cmd {
-            self.handle_buffer_cmd(cmd);
-        }
-    }
-
-    fn handle_buffer_cmd(&mut self, cmd: Cmd) {
-        match cmd {
-            Cmd::Move(movement) => self
-                .container
-                .update_current_buffer(BufferAction::MoveCursor(movement)),
-            Cmd::DeleteCharBackward => self.delete_char_backward(),
-            Cmd::DeleteCharForward => self.delete_char_forward(),
-            Cmd::Linebreak => self.insert_newline_and_return(),
-            Cmd::InsertChar(typed_char) => self.insert_char(typed_char),
-            Cmd::Search => self
-                .container
-                .update_current_buffer(BufferAction::StartSearch),
-            Cmd::CloneCursor => self
-                .container
-                .update_current_buffer(BufferAction::CloneCursor),
-            Cmd::Quit => self.try_quit(),
-            Cmd::PrintInfo => self.print_info(),
-            Cmd::Escape => {}
-            Cmd::Save => self.save_file(),
-        }
+    fn handle_buffer_action(&mut self, action: BufferAction) {
+        self.container.update_current_buffer(action);
     }
 
     fn save_file_as(&mut self, filename: String) {
@@ -567,29 +558,6 @@ impl<'a> Window<'a> {
 
     fn set_status_msg(&mut self, msg: String) {
         self.status_message = Some(Status::new_with_timeout(msg, Duration::from_secs(5)));
-    }
-
-    fn delete_char_backward(&mut self) {
-        self.container
-            .update_current_buffer(BufferAction::DeleteChar);
-    }
-
-    fn delete_char_forward(&mut self) {
-        // FIXME: move into DrawState
-        self.container
-            .update_current_buffer(BufferAction::MoveCursor(commands::MoveCursor::right(1)));
-        self.container
-            .update_current_buffer(BufferAction::DeleteChar);
-    }
-
-    fn insert_newline_and_return(&mut self) {
-        self.container
-            .update_current_buffer(BufferAction::InsertNewlineAndReturn);
-    }
-
-    fn insert_char(&mut self, typed_char: char) {
-        self.container
-            .update_current_buffer(BufferAction::InsertChar(typed_char));
     }
 
     pub fn resize(&mut self, logical_size: LogicalSize) {

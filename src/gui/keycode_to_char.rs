@@ -96,27 +96,24 @@ pub fn keyboard_event_to_keycode(event: KeyboardInput) -> Option<Key> {
             Some(VirtualKeyCode::RShift) => None,
             Some(keycode) => {
                 if event.modifiers.ctrl || event.modifiers.alt || event.modifiers.logo {
-                    if keycode == VirtualKeyCode::Minus && event.modifiers.ctrl {
-                        Some(Key::Control(Some('-')))
-                    } else if keycode == VirtualKeyCode::Equals
-                        && event.modifiers.shift
-                        && event.modifiers.ctrl
-                    {
-                        Some(Key::Control(Some('+')))
-                    } else if keycode == VirtualKeyCode::Space && event.modifiers.ctrl {
-                        Some(Key::Control(Some(' ')))
-                    } else if keycode == VirtualKeyCode::M && event.modifiers.ctrl {
-                        Some(Key::Control(Some('m')))
-                    } else if keycode == VirtualKeyCode::F && event.modifiers.ctrl {
-                        Some(Key::Control(Some('f')))
-                    } else if keycode == VirtualKeyCode::Q && event.modifiers.ctrl {
-                        Some(Key::Control(Some('q')))
-                    } else if keycode == VirtualKeyCode::S && event.modifiers.ctrl {
-                        Some(Key::Control(Some('s')))
-                    } else if keycode == VirtualKeyCode::V && event.modifiers.ctrl {
-                        Some(Key::Control(Some('v')))
+                    if event.modifiers.ctrl && !event.modifiers.alt && !event.modifiers.logo {
+                        if let Some(virtual_char) = KEYCODE_TO_CHAR.get(&keycode).cloned() {
+                            // FIXME: shift+virtualkeycode
+                            // } else if keycode == VirtualKeyCode::Equals
+                            //     && event.modifiers.shift
+                            //     && event.modifiers.ctrl
+                            // {
+                            //     Some(Key::Control(Some('+')))
+                            Some(Key::Control(Some(virtual_char)))
+                        } else {
+                            println!("Can't make keycode: {:?} into a Control code!", keycode);
+                            None
+                        }
                     } else {
-                        println!("Don't know what to do with received: {:?}", event);
+                        println!(
+                            "Dunno how to make a Key when these modifiers are held: {:?}",
+                            event.modifiers
+                        );
                         None
                     }
                 } else {
