@@ -21,7 +21,7 @@
       "args": [
         "--no-quit-warning",
         "-O",
-        "testfiles/test-utf8-unix.txt",
+        "testfiles/test.rb",
         "testfiles/kilo-dos2.c"
       ],
       "stopAtEntry": false,
