@@ -185,6 +185,19 @@ lazy_static! {
                 ])
                 .flag(HighlightNumbers)
                 .flag(HighlightStrings),
+            Syntax::new("Ruby")
+                .filematches(&[".rb"])
+                .flag(HighlightComments)
+                .singleline_comment_start("#")
+                .multiline_comment_start("=begin")
+                .multiline_comment_end("=end")
+                .flag(HighlightKeywords)
+                .keywords1(&[
+                    "class", "def", "require", "if", "else", "end", "elsif", "module",
+                ])
+                .keywords2(&[])
+                .flag(HighlightNumbers)
+                .flag(HighlightStrings),
         ]
     };
 }
