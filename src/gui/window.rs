@@ -1,6 +1,5 @@
 use crate::action::{Action, BufferAction, GuiAction, PaneAction, WindowAction};
 use crate::buffer::{Buffer, FileSaveStatus};
-use crate::commands::Cmd;
 use crate::config::{RunConfig, BIM_QUIT_TIMES};
 use crate::debug_log::DebugLog;
 use crate::gui::container::Container;
@@ -493,10 +492,6 @@ impl<'a> Window<'a> {
             self.current_map = self.options.keymap.clone(); // FIXME: only if needed
         }
 
-        if !handled {
-            self.handle_buffer_key(key);
-        }
-
         self.check();
     }
 
@@ -522,54 +517,6 @@ impl<'a> Window<'a> {
             WindowAction::SplitVertically => {
                 let _ = self.container.split_vertically(None);
             }
-        }
-    }
-
-    fn handle_buffer_key(&mut self, key: Key) {
-        let buffer_cmd = match key {
-            Key::ArrowLeft => None,
-            Key::ArrowRight => None,
-            Key::ArrowUp => None,
-            Key::ArrowDown => None,
-            Key::PageDown => None,
-            Key::PageUp => None,
-            Key::Home => None,
-            Key::End => None,
-            Key::Delete => None,
-            Key::Backspace => None,
-            Key::Return => None,
-            Key::TypedChar => None,
-            Key::Other(_) => None,
-            Key::Function(_) => None,
-            Key::Control(Some('-')) => None,
-            Key::Control(Some('+')) => None,
-            Key::Control(Some(' ')) => None,
-            Key::Control(Some('m')) => None,
-            Key::Control(Some('f')) => None,
-            Key::Control(Some('q')) => None,
-            Key::Control(Some('s')) => None,
-            Key::Control(Some(_)) => None,
-            Key::Control(None) => None,
-            Key::Escape => None,
-        };
-        if let Some(cmd) = buffer_cmd {
-            self.handle_buffer_cmd(cmd);
-        }
-    }
-
-    fn handle_buffer_cmd(&mut self, cmd: Cmd) {
-        match cmd {
-            Cmd::Move(_) => {}
-            Cmd::DeleteCharBackward => {}
-            Cmd::DeleteCharForward => {}
-            Cmd::Linebreak => {}
-            Cmd::InsertChar(_) => {}
-            Cmd::Search => {}
-            Cmd::CloneCursor => {}
-            Cmd::Quit => {}
-            Cmd::PrintInfo => {}
-            Cmd::Escape => {}
-            Cmd::Save => self.save_file(),
         }
     }
 
