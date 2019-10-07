@@ -312,12 +312,12 @@ impl<'a> Window<'a> {
                     .bounds(text_bounds + vec2(10.0, 10.0))
                     .build();
 
-                renderer.draw_quad(POPUP_OUTLINE, popup_outline, 0.2); // Z???
+                renderer.draw_quad(POPUP_OUTLINE, popup_outline, 0.6); // Z???
                 let popup_rect = RectBuilder::new()
                     .center(popup_pos)
                     .bounds(text_bounds)
                     .build();
-                renderer.draw_quad(POPUP_BG, popup_rect, 0.2); // Z??
+                renderer.draw_quad(POPUP_BG, popup_rect, 0.6); // Z??
             }
 
             renderer.glyph_brush.queue(popup_section);
