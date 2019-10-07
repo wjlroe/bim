@@ -130,6 +130,13 @@ impl<'a> Buffer<'a> {
         }
     }
 
+    pub fn set_filetype(&mut self, syntax_name: &str) {
+        *Rc::make_mut(&mut self.syntax) = SYNTAXES
+            .iter()
+            .find(|syntax| syntax.filetype == syntax_name);
+        self.set_syntax();
+    }
+
     pub fn open_file(&mut self, file: File) {
         self.clear();
 

@@ -344,6 +344,7 @@ impl<'a> DrawState<'a> {
             MouseScroll(delta) => self.mouse_scroll(delta),
             MouseClick(location) => self.mouse_click(location),
             SetFilename(filename) => self.buffer.set_filename(filename),
+            SetFiletype(filetype) => self.buffer.set_filetype(&filetype),
             StartSearch => self.start_search(),
             PrintDebugInfo => self.print_info(),
             InsertTypedChar => {
