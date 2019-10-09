@@ -130,6 +130,13 @@ impl<'a> Buffer<'a> {
         }
     }
 
+    pub fn set_filetype(&mut self, syntax_name: &str) {
+        *Rc::make_mut(&mut self.syntax) = SYNTAXES
+            .iter()
+            .find(|syntax| syntax.filetype == syntax_name);
+        self.set_syntax();
+    }
+
     pub fn open_file(&mut self, file: File) {
         self.clear();
 
@@ -241,7 +248,7 @@ impl<'a> Buffer<'a> {
         }
     }
 
-    pub fn insert_newline(&mut self, row: usize, col: usize) {
+    pub fn insert_newline(&mut self, row: usize, col: usize) -> i32 {
         let newline = self
             .rows
             .get(row)
@@ -249,21 +256,26 @@ impl<'a> Buffer<'a> {
             .unwrap_or_else(|| DEFAULT_NEWLINE.to_string());
         if col == 0 {
             self.insert_row(row, &newline);
+            0
         } else {
             let new_line_text = self.rows[row].truncate(col);
+            let prev_indent = self.rows[row].get_indent();
             self.insert_row(row + 1, &new_line_text);
+            self.rows[row + 1].set_indent(prev_indent);
             self.update_from(row);
+            self.update_from(row + 1);
+            prev_indent
         }
     }
 
     pub fn insert_newline_and_return(&mut self) {
-        self.insert_newline(
+        let indent = self.insert_newline(
             self.cursor.text_row() as usize,
             self.cursor.text_col() as usize,
         );
         self.cursor.change(|cursor| {
             cursor.text_row += 1;
-            cursor.text_col = 0;
+            cursor.text_col = indent;
         });
     }
 
@@ -763,3 +775,68 @@ fn test_move_cursor_with_inserted_text() {
     assert_eq!(1, buffer.cursor.text_col());
     assert_eq!(1, buffer.text_cursor_to_render(1, 0));
 }
+
+#[test]
+fn test_basic_autoindent_on_return_no_syntax() {
+    let mut buffer = Buffer::default();
+    let file_contents = vec!["void main() {", "  int a_var = 10;"];
+    for line in file_contents {
+        for c in line.chars() {
+            buffer.insert_char_at_cursor(c);
+        }
+        buffer.insert_newline_and_return();
+    }
+    assert_eq!(DEFAULT_NEWLINE_STR, buffer.rows[2].as_str());
+    assert_eq!(0, buffer.cursor.text_col());
+    assert_eq!(2, buffer.cursor.text_row());
+}
+
+#[test]
+fn test_basic_autoindent_on_return_c_syntax() {
+    let mut buffer = Buffer::default();
+    let file_contents = vec!["void main() {", "  int a_var = 10;", "  int b_var = 20;"];
+    for line in file_contents {
+        for c in line.chars() {
+            buffer.insert_char_at_cursor(c);
+        }
+        buffer.insert_newline_and_return();
+    }
+    buffer.set_filetype("C");
+
+    buffer.cursor.change(|cursor| {
+        cursor.text_row = 1;
+        cursor.text_col = 17;
+    });
+    buffer.insert_newline_and_return();
+
+    use crate::highlight::Highlight::*;
+
+    assert_eq!(vec![Normal; 3], buffer.rows[2].hl);
+
+    let line_to_type = "int c_var = 5;";
+    for c in line_to_type.chars() {
+        buffer.insert_char_at_cursor(c);
+    }
+
+    let expected_contents = vec![
+        format!("void main() {{{}", DEFAULT_NEWLINE_STR),
+        format!("  int a_var = 10;{}", DEFAULT_NEWLINE_STR),
+        format!("  int c_var = 5;{}", DEFAULT_NEWLINE_STR),
+        format!("  int b_var = 20;{}", DEFAULT_NEWLINE_STR),
+    ];
+    for (i, row) in expected_contents.iter().enumerate() {
+        assert_eq!(&row, &buffer.rows[i].as_str(), "Line {} is WRONG!", i);
+    }
+    assert_eq!(16, buffer.cursor.text_col());
+    assert_eq!(2, buffer.cursor.text_row());
+
+    let mut hl = vec![Normal; 2];
+    hl.extend_from_slice(&[Keyword2; 3]);
+    hl.extend_from_slice(&[Normal; 9]);
+    hl.extend_from_slice(&[Number; 1]);
+    hl.extend_from_slice(&[Normal; 2]);
+    assert_eq!(hl, buffer.rows[2].hl);
+}
+
+// TODO: need a case for autoindent (or not) when inserting newline in the middle of a statement
+// TODO: case for tab indents

@@ -41,6 +41,7 @@ pub enum BufferAction {
     MouseScroll(MouseMove),
     MouseClick(Vector2<f32>),
     SetFilename(String),
+    SetFiletype(String),
     StartSearch,
     PrintDebugInfo,
 }

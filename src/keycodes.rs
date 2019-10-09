@@ -48,6 +48,26 @@ pub fn is_printable(key: char) -> bool {
         return false;
     }
 
+    // Home
+    if key == '\u{f729}' {
+        return false;
+    }
+
+    // End
+    if key == '\u{f72b}' {
+        return false;
+    }
+
+    // PageUp
+    if key == '\u{f72c}' {
+        return false;
+    }
+
+    // PageDown
+    if key == '\u{f72d}' {
+        return false;
+    }
+
     true
 }
 

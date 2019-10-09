@@ -109,6 +109,18 @@ impl<'a> PartialEq for Row<'a> {
     }
 }
 
+impl<'a> fmt::Debug for Row<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let lines = vec![
+            format!("\t(chars) : '{}'", self.chars.escape_debug()),
+            format!("\t(render): '{}'", self.render.escape_debug()),
+            format!("\t(hl)    : {:?}", self.hl),
+        ];
+        let debug_str = format!("Row:\n{}", lines.join("\n"));
+        write!(f, "{}", debug_str)
+    }
+}
+
 impl<'a> Row<'a> {
     pub fn new(text: &str, syntax: Weak<Option<&'a Syntax<'a>>>) -> Self {
         let mut row = Row {
@@ -134,6 +146,39 @@ impl<'a> Row<'a> {
     pub fn set_syntax(&mut self, syntax: Weak<Option<&'a Syntax<'a>>>) {
         self.syntax = syntax;
         self.update();
+    }
+
+    pub fn get_indent(&self) -> i32 {
+        let mut indent = 0;
+
+        if self
+            .syntax
+            .upgrade()
+            .unwrap_or_else(|| std::rc::Rc::new(None))
+            .is_none()
+        {
+            return indent;
+        }
+
+        for c in self.as_str().chars() {
+            if c == ' ' {
+                indent += 1;
+            } else {
+                break;
+            }
+        }
+
+        indent
+    }
+
+    pub fn set_indent(&mut self, indent: i32) {
+        let cur_indent = self.get_indent();
+        if cur_indent < indent {
+            let more_indent = indent - cur_indent;
+            for _ in 0..more_indent {
+                self.insert_char(0, ' ');
+            }
+        }
     }
 
     fn update(&mut self) {
@@ -736,9 +781,9 @@ mod test {
 
     #[test]
     fn test_highlight_normal() {
-        row_with_text_and_filetype!("normal\r\n", "HLNumbers", syntax, row);
+        row_with_text_and_filetype!("  normal\r\n", "HLNumbers", syntax, row);
         row.update_syntax_highlight(false);
-        let mut highlights = vec![Highlight::Normal; 6];
+        let mut highlights = vec![Highlight::Normal; 8];
         highlights.push(Highlight::Normal); // newline
         assert_eq!(highlights, row.hl);
     }
@@ -1013,5 +1058,46 @@ mod test {
         let mut highlights = vec![Highlight::MultilineComment; 13];
         highlights.push(Highlight::Normal); // newline
         assert_eq!(highlights, row.hl);
+    }
+
+    #[test]
+    fn test_get_indent_with_no_syntax() {
+        {
+            let row = new_row_without_syntax("int a = 0;\r\n");
+            assert_eq!(0, row.get_indent());
+        }
+
+        {
+            let row = new_row_without_syntax("  int a = 0;\r\n");
+            assert_eq!(0, row.get_indent());
+        }
+    }
+
+    #[test]
+    fn test_get_indent_with_syntax() {
+        {
+            row_with_text_and_filetype!("int a = 0;\r\n", "HLEverything", syntax, row);
+            assert_eq!(0, row.get_indent());
+        }
+
+        {
+            row_with_text_and_filetype!("  int a = 0;\r\n", "HLEverything", syntax, row);
+            assert_eq!(2, row.get_indent());
+        }
+    }
+
+    #[test]
+    fn test_set_indent() {
+        {
+            row_with_text_and_filetype!("int a = 0;\r\n", "HLEverything", syntax, row);
+            row.update_syntax_highlight(false);
+            let mut hl_before = row.hl.clone();
+            row.set_indent(2);
+            row.update_syntax_highlight(false);
+            let mut highlights = vec![Highlight::Normal; 2];
+            highlights.append(&mut hl_before);
+            assert_eq!(highlights, row.hl);
+            assert_eq!("  int a = 0;\r\n", row.as_str());
+        }
     }
 }
