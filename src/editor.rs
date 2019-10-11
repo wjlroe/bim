@@ -1,23 +1,23 @@
 use crate::commands::{Cmd, SearchDirection};
 use crate::keycodes::{ctrl_key, Key};
-use crate::terminal::Terminal;
+use crate::terminal::window::Window;
 
 pub const BIM_VERSION: &str = "0.0.1";
 
 pub trait Editor {
     fn enable_raw_mode(&self);
-    fn get_window_size(&self) -> Terminal<'_>;
+    fn get_window_size(&self) -> Window<'_>;
     fn read_a_character(&self) -> Option<Key>;
 
     fn prompt<F>(
         &self,
-        terminal: &mut Terminal<'_>,
+        terminal: &mut Window<'_>,
         status_left: &str,
         status_right: &str,
         mut callback: F,
     ) -> Option<String>
     where
-        F: FnMut(&mut Terminal<'_>, &str, Key),
+        F: FnMut(&mut Window<'_>, &str, Key),
     {
         let mut entered_text = String::new();
         loop {
@@ -59,7 +59,7 @@ pub trait Editor {
         Some(entered_text)
     }
 
-    fn preprocess_cmd(&self, terminal: &mut Terminal<'_>, cmd: Cmd) {
+    fn preprocess_cmd(&self, terminal: &mut Window<'_>, cmd: Cmd) {
         use crate::commands::Cmd::*;
 
         if cmd == Save && !terminal.has_filename() {
@@ -121,7 +121,7 @@ pub trait Editor {
         }
     }
 
-    fn process_keypress(&self, mut terminal: &mut Terminal<'_>) {
+    fn process_keypress(&self, mut terminal: &mut Window<'_>) {
         if let Some(key) = self.read_a_character() {
             if let Some(cmd) = terminal.key_to_cmd(key) {
                 self.preprocess_cmd(&mut terminal, cmd);

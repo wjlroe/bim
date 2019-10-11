@@ -1,6 +1,6 @@
 use crate::editor::Editor;
 use crate::keycodes::Key;
-use crate::terminal::Terminal;
+use crate::terminal::window::Window;
 use errno::{errno, Errno};
 use libc::{
     atexit, c_char, c_void, ioctl, read, sscanf, tcgetattr, tcsetattr, termios, winsize, write,
@@ -36,7 +36,7 @@ static mut ORIG_TERMIOS: termios = termios {
     c_ispeed: 0,
 };
 
-fn get_window_size_ioctl<'a>() -> Option<Terminal<'a>> {
+fn get_window_size_ioctl<'a>() -> Option<Window<'a>> {
     let mut ws = winsize {
         ws_row: 0,
         ws_col: 0,
@@ -47,12 +47,12 @@ fn get_window_size_ioctl<'a>() -> Option<Terminal<'a>> {
         if ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut ws) == -1 || ws.ws_col == 0 {
             None
         } else {
-            Some(Terminal::new(ws.ws_col.into(), ws.ws_row.into()).window_size_method("ioctl"))
+            Some(Window::new(ws.ws_col.into(), ws.ws_row.into()).window_size_method("ioctl"))
         }
     }
 }
 
-fn get_window_size_cursor_pos<'a>() -> Option<Terminal<'a>> {
+fn get_window_size_cursor_pos<'a>() -> Option<Window<'a>> {
     if let Ok(12) = stdout().write(b"\x1b[999C\x1b[999B") {
         stdout().flush().unwrap();
         if let Ok(4) = stdout().write(b"\x1b[6n") {
@@ -91,7 +91,7 @@ fn get_window_size_cursor_pos<'a>() -> Option<Terminal<'a>> {
                     {
                         None
                     } else {
-                        Some(Terminal::new(rows, cols).window_size_method("cursor"))
+                        Some(Window::new(rows, cols).window_size_method("cursor"))
                     }
                 }
             }
@@ -212,7 +212,7 @@ impl Editor for EditorImpl {
         }
     }
 
-    fn get_window_size(&self) -> Terminal<'_> {
+    fn get_window_size(&self) -> Window<'_> {
         get_window_size_ioctl()
             .or_else(get_window_size_cursor_pos)
             .unwrap()

@@ -35,6 +35,16 @@ impl<'a> Syntax<'a> {
         }
     }
 
+    pub fn for_filename(filename: &str) -> Option<&'static Syntax<'static>> {
+        SYNTAXES
+            .iter()
+            .find(|syntax| syntax.matches_filename(filename))
+    }
+
+    pub fn for_filetype(filetype: &str) -> Option<&'static Syntax<'static>> {
+        SYNTAXES.iter().find(|syntax| syntax.filetype == filetype)
+    }
+
     #[allow(dead_code)]
     pub fn filematch(mut self, filematch: &'a str) -> Syntax<'_> {
         self.filematches.push(filematch);

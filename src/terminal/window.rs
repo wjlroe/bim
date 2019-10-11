@@ -6,6 +6,7 @@ use crate::debug_log::DebugLog;
 use crate::editor::BIM_VERSION;
 use crate::keycodes::{ctrl_key, Key};
 use crate::status::Status;
+use crate::terminal::buffer::TerminalBuffer;
 use std::error::Error;
 use std::io::{stdout, Write};
 use std::process::exit;
@@ -14,7 +15,7 @@ use std::time::Duration;
 const UI_ROWS: i32 = 2;
 const BIM_DEBUG_LOG: &str = ".bim_debug";
 
-pub struct Terminal<'a> {
+pub struct Window<'a> {
     pub screen_cols: i32,
     pub screen_rows: i32,
     window_size_method: &'a str,
@@ -28,9 +29,9 @@ pub struct Terminal<'a> {
     pub debug_log: DebugLog<'a>,
 }
 
-impl<'a> Terminal<'a> {
+impl<'a> Window<'a> {
     pub fn new(screen_cols: i32, screen_rows: i32) -> Self {
-        Terminal {
+        Self {
             screen_cols,
             screen_rows,
             window_size_method: "",
@@ -460,7 +461,7 @@ impl<'a> Terminal<'a> {
 
 #[test]
 fn test_backspace_to_join_lines() {
-    let mut terminal = Terminal::new(10, 10);
+    let mut terminal = Window::new(10, 10);
 
     terminal.buffer.append_row("this is the first line. \r\n");
     terminal.buffer.append_row("this is second line.\r\n");
@@ -487,7 +488,7 @@ fn test_backspace_to_join_lines() {
 
 #[test]
 fn test_enter_at_eol() {
-    let mut terminal = Terminal::new(10, 15);
+    let mut terminal = Window::new(10, 15);
     terminal.buffer.append_row("this is line 1.\r\n");
     terminal.buffer.append_row("this is line 2.\r\n");
     terminal.process_key(Key::End);
@@ -502,7 +503,7 @@ fn test_enter_at_eol() {
 fn test_key_to_cmd() {
     use crate::commands::Cmd::*;
 
-    let term = Terminal::new(1, 1);
+    let term = Window::new(1, 1);
     assert_eq!(Some(InsertChar('w')), term.key_to_cmd(Key::Other('w')));
     assert_eq!(Some(Quit), term.key_to_cmd(Key::Other(17 as char)));
     assert_eq!(
@@ -553,14 +554,14 @@ fn test_key_to_cmd() {
 
 #[test]
 fn test_empty_file() {
-    let mut terminal = Terminal::new(10, 10);
+    let mut terminal = Window::new(10, 10);
     terminal.process_key(Key::Return);
     assert_eq!(1, terminal.buffer.num_lines());
 }
 
 #[test]
 fn test_incremental_search() {
-    let mut terminal = Terminal::new(10, 10);
+    let mut terminal = Window::new(10, 10);
     terminal
         .buffer
         .append_row("line 1. has the search text on it\r\n");
@@ -597,7 +598,7 @@ fn test_incremental_search() {
 
 #[test]
 fn test_newline_inside_multiline_comment() {
-    let mut terminal = Terminal::new(100, 10);
+    let mut terminal = Window::new(100, 10);
     terminal.buffer.set_filename("test.c".to_string());
     terminal
         .buffer
@@ -616,7 +617,7 @@ fn test_newline_inside_multiline_comment() {
 
 #[test]
 fn test_backspace_inside_multiline_comment() {
-    let mut terminal = Terminal::new(100, 10);
+    let mut terminal = Window::new(100, 10);
     terminal.buffer.set_filename("test.c".to_string());
     terminal
         .buffer

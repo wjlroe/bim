@@ -37,12 +37,6 @@ impl<'a> Buffer<'a> {
         self.rows.get(line_num as usize).map(|row| row.size)
     }
 
-    pub fn row_onscreen_text(&self, line_num: usize, offset: usize, cols: usize) -> Option<String> {
-        self.rows
-            .get(line_num)
-            .map(|row| row.onscreen_text(offset, cols))
-    }
-
     // TODO: maybe introduce a RenderCursor and return it without params
     // we will still need to translate positions in the text to render
     // positions probably, but this just returns the column... it doesn't
@@ -122,10 +116,8 @@ impl<'a> Buffer<'a> {
     }
 
     fn select_syntax(&mut self) {
-        if let Some(ref filename) = self.filename {
-            *Rc::make_mut(&mut self.syntax) = SYNTAXES
-                .iter()
-                .find(|syntax| syntax.matches_filename(&filename));
+        if let Some(filename) = &self.filename {
+            *Rc::make_mut(&mut self.syntax) = Syntax::for_filename(filename);
             self.set_syntax();
         }
     }
@@ -598,32 +590,6 @@ fn test_insert_char() {
             .map(|r| r.as_str().clone())
             .collect::<Vec<_>>()
     );
-}
-
-#[test]
-fn test_search_match_highlighting() {
-    let mut buffer = Buffer::default();
-    buffer.append_row("nothing abc123 nothing\r\n");
-    let match_coords = buffer
-        .search_for(None, SearchDirection::Forwards, "abc123")
-        .unwrap();
-    let row_idx = match_coords.1;
-    let row = &buffer.rows[row_idx];
-    let onscreen = row.onscreen_text(0, 22);
-    assert!(onscreen.contains("\x1b[34mabc123\x1b[39m"));
-}
-
-#[test]
-fn test_clearing_search_overlay_from_onscreen_text() {
-    let mut buffer = Buffer::default();
-    buffer.append_row("nothing abc123 nothing\r\n");
-    let (_, row_idx) = buffer
-        .search_for(None, SearchDirection::Forwards, "abc123")
-        .unwrap();
-    buffer.clear_search_overlay();
-    let row = &buffer.rows[row_idx];
-    let onscreen = row.onscreen_text(0, 22);
-    assert!(!onscreen.contains("\x1b[34m"));
 }
 
 #[test]

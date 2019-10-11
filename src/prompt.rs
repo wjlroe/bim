@@ -1,6 +1,5 @@
 use crate::keycodes::Key;
 use crate::row::Row;
-use std::rc::Weak;
 
 // Marker for what to do when the prompt comes back
 #[derive(Copy, Clone)]
@@ -31,7 +30,7 @@ impl<'a> Prompt<'a> {
     pub fn new(prompt: &str, grab_cursor: bool) -> Self {
         let new_prompt = ensure_prompt_ending(prompt);
         Self {
-            row: Row::new(&new_prompt, Weak::new()),
+            row: Row::new_wo_syntax(&new_prompt),
             prompt_length: new_prompt.len(),
             grab_cursor,
             finished: false,
