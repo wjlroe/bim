@@ -12,6 +12,7 @@ build/
 .*debug
 .idea/dbnavigator.xml
 .idea/workspace.xml
+.idea/emacs.xml
 .bim_persist_state.yaml
 icon*.png
 bim.ico
