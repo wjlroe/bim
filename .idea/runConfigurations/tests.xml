@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+  <configuration default="false" name="tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
     <option name="channel" value="DEFAULT" />
-    <option name="command" value="run -- --no-quit-warning -O testfiles/test.rb testfiles/kilo-dos2.c" />
+    <option name="command" value="test" />
     <option name="allFeatures" value="false" />
     <option name="nocapture" value="false" />
     <option name="emulateTerminal" value="false" />
