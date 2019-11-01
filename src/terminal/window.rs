@@ -21,6 +21,7 @@ pub struct Window<'a> {
     window_size_method: &'a str,
     rcursor_x: i32,
     buffer: Buffer<'a>,
+    // TODO: Use a container instead of a buffer directly
     append_buffer: String,
     pub row_offset: i32,
     pub col_offset: i32,

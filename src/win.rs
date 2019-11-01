@@ -1,6 +1,6 @@
 use crate::editor::Editor;
 use crate::keycodes::Key;
-use crate::terminal::Terminal;
+use crate::terminal::window::Window;
 use libc::atexit;
 use std::char;
 use std::mem::zeroed;
@@ -163,7 +163,7 @@ impl Editor for EditorImpl {
         character
     }
 
-    fn get_window_size(&self) -> Terminal {
+    fn get_window_size(&self) -> Window {
         unsafe {
             let handle = GetStdHandle(STD_OUTPUT_HANDLE);
             let mut info = CONSOLE_SCREEN_BUFFER_INFO {
@@ -181,7 +181,7 @@ impl Editor for EditorImpl {
             if GetConsoleScreenBufferInfo(handle, &mut info) != 0 {
                 let x = info.srWindow.Right - info.srWindow.Left + 1;
                 let y = info.srWindow.Bottom - info.srWindow.Top + 1;
-                Terminal::new(x.into(), y.into())
+                Window::new(x.into(), y.into())
             } else {
                 panic!("GetConsoleScreenBufferInfo failed to get window size!");
             }

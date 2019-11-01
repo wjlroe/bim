@@ -1,6 +1,6 @@
-use crate::gui::rect::Rect;
 use crate::gui::transforms::Transforms;
 use crate::gui::{ColorFormat, DepthFormat};
+use crate::rect::Rect;
 use cgmath::{Matrix4, Vector2};
 use gfx::handle::{DepthStencilView, RenderTargetView};
 use gfx::traits::FactoryExt;

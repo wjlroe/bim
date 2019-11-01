@@ -1,16 +1,18 @@
 use crate::action::{Action, BufferAction, GuiAction, PaneAction, WindowAction};
 use crate::buffer::{Buffer, FileSaveStatus};
 use crate::config::{RunConfig, BIM_QUIT_TIMES};
+use crate::container::Container;
 use crate::debug_log::DebugLog;
-use crate::gui::container::Container;
 use crate::gui::gl_renderer::GlRenderer;
+use crate::gui::gui_container::GuiContainer;
+use crate::gui::gui_pane::GuiPane;
 use crate::gui::keycode_to_char;
-use crate::gui::mouse::MouseMove;
 use crate::gui::persist_window_state::PersistWindowState;
-use crate::gui::rect::RectBuilder;
 use crate::keycodes::{is_printable, Key};
 use crate::keymap::{Keymap, MapOrAction};
+use crate::mouse::MouseMove;
 use crate::options::Options;
+use crate::rect::RectBuilder;
 use crate::status::Status;
 use cgmath::{vec2, Vector2};
 use flame;
@@ -44,7 +46,7 @@ pub struct Window<'a> {
     ui_scale: f32,
     resized: bool,
     pub fullscreen: bool,
-    container: Container<'a>,
+    container: GuiContainer<'a>,
     quit_times: i8,
     running: bool,
     pub in_focus: bool,
@@ -70,6 +72,7 @@ impl<'a> Window<'a> {
         debug_log: DebugLog<'a>,
         options: Options,
     ) -> Result<Self, Box<dyn Error>> {
+        let pane = GuiPane::new(font_size, ui_scale, buffer, true);
         let mut gui_window = Self {
             monitor,
             window,
@@ -80,7 +83,7 @@ impl<'a> Window<'a> {
             font_size,
             resized: true,
             fullscreen: false,
-            container: Container::single(window_dim, vec2(0.0, 0.0), font_size, ui_scale, buffer),
+            container: GuiContainer::single(window_dim, vec2(0.0, 0.0), pane),
             quit_times: BIM_QUIT_TIMES + 1,
             running: true,
             in_focus: true,
@@ -430,8 +433,7 @@ impl<'a> Window<'a> {
     fn print_info(&mut self) {
         println!("window_dim: {:?}", self.window_dim);
         println!("mouse_position: {:?}", self.mouse_position);
-        self.container
-            .update_current_buffer(BufferAction::PrintDebugInfo);
+        self.container.do_pane_action(PaneAction::PrintDebugInfo);
     }
 
     // FIXME: shouldn't be a window handling these - should be a GUI/GuiEditor abstraction

@@ -1,4 +1,4 @@
-use crate::gui::rect::Rect;
+use crate::rect::Rect;
 use cgmath::{vec3, Matrix4, Vector2};
 
 pub struct Transforms {
@@ -26,7 +26,7 @@ impl Transforms {
 
 #[test]
 fn test_quad_filling_bounds_should_be_identity_matrix() {
-    use crate::gui::rect::RectBuilder;
+    use crate::rect::RectBuilder;
     use cgmath::{vec2, vec4};
 
     let transforms = Transforms::new(vec2(10.0, 10.0));

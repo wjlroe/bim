@@ -2,7 +2,7 @@ use crate::commands::SearchCmd;
 use crate::commands::SearchDirection;
 use crate::keycodes::Key;
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Search {
     needle: String,
     direction: SearchDirection,

@@ -1,5 +1,5 @@
 use crate::commands::{Direction, MoveCursor};
-use crate::gui::mouse::MouseMove;
+use crate::mouse::MouseMove;
 use cgmath::Vector2;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -28,6 +28,9 @@ pub enum WindowAction {
 #[derive(Clone, Debug, PartialEq)]
 pub enum PaneAction {
     UpdateSize(Vector2<f32>, Vector2<f32>),
+    MouseScroll(MouseMove),
+    MouseClick(Vector2<f32>),
+    PrintDebugInfo,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -38,12 +41,9 @@ pub enum BufferAction {
     DeleteChar(Direction),
     CloneCursor,
     MoveCursor(MoveCursor),
-    MouseScroll(MouseMove),
-    MouseClick(Vector2<f32>),
     SetFilename(String),
     SetFiletype(String),
     StartSearch,
-    PrintDebugInfo,
 }
 
 #[derive(Clone, Debug, PartialEq)]
