@@ -1,11 +1,11 @@
 use crate::gui::transforms::Transforms;
 use crate::gui::{ColorFormat, DepthFormat};
 use crate::rect::Rect;
-use cgmath::{Matrix4, Vector2};
 use gfx::handle::{DepthStencilView, RenderTargetView};
 use gfx::traits::FactoryExt;
 use gfx::{self, *};
 use gfx_glyph::GlyphBrush;
+use glam::{Mat4, Vec2};
 
 const QUAD: [Vertex; 4] = [
     Vertex { pos: [-1.0, 1.0] },
@@ -61,7 +61,7 @@ pub fn draw<R, C>(
     encoder: &mut Encoder<R, C>,
     quad_bundle: &mut Bundle<R, pipe::Data<R>>,
     color: [f32; 3],
-    transform: Matrix4<f32>,
+    transform: Mat4,
     z: f32,
 ) where
     R: Resources,
@@ -69,7 +69,7 @@ pub fn draw<R, C>(
 {
     let locals = Locals {
         color,
-        transform: transform.into(),
+        transform: transform.to_cols_array_2d(),
         z,
     };
     encoder.update_constant_buffer(&quad_bundle.data.locals, &locals);
@@ -94,7 +94,7 @@ impl<'a> GlRenderer<'a> {
             gfx_device_gl::Resources,
             pipe::Data<gfx_device_gl::Resources>,
         >,
-        window_dim: Vector2<f32>,
+        window_dim: Vec2,
     ) -> Self {
         Self {
             glyph_brush,
@@ -105,7 +105,7 @@ impl<'a> GlRenderer<'a> {
         }
     }
 
-    pub fn resize(&mut self, window_dim: Vector2<f32>) {
+    pub fn resize(&mut self, window_dim: Vec2) {
         self.transforms.window_dim = window_dim;
     }
 

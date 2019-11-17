@@ -14,13 +14,13 @@ use crate::mouse::MouseMove;
 use crate::options::Options;
 use crate::rect::RectBuilder;
 use crate::status::Status;
-use cgmath::{vec2, Vector2};
 use flame;
 use gfx::Device;
 use gfx_glyph::{
     GlyphCruncher, HorizontalAlign, Layout, Scale, Section, SectionText, VariedSection,
     VerticalAlign,
 };
+use glam::{vec2, Vec2};
 use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::{
     ElementState, Event, MonitorId, MouseScrollDelta, PossiblyCurrent, WindowEvent, WindowedContext,
@@ -39,9 +39,9 @@ const POPUP_OUTLINE: [f32; 3] = [240.0 / 255.0, 240.0 / 255.0, 240.0 / 255.0];
 pub struct Window<'a> {
     monitor: MonitorId,
     window: WindowedContext<PossiblyCurrent>,
-    window_dim: Vector2<f32>,
+    window_dim: Vec2,
     logical_size: LogicalSize,
-    mouse_position: Vector2<f32>,
+    mouse_position: Vec2,
     font_size: f32,
     ui_scale: f32,
     resized: bool,
@@ -63,7 +63,7 @@ impl<'a> Window<'a> {
         renderer: &mut GlRenderer<'a>,
         monitor: MonitorId,
         window: WindowedContext<PossiblyCurrent>,
-        window_dim: Vector2<f32>,
+        window_dim: Vec2,
         logical_size: LogicalSize,
         font_size: f32,
         ui_scale: f32,
@@ -290,8 +290,8 @@ impl<'a> Window<'a> {
             let layout = Layout::default()
                 .h_align(HorizontalAlign::Center)
                 .v_align(VerticalAlign::Center);
-            let popup_bounds: Vector2<f32> = self.window_dim - vec2(40.0, 40.0);
-            let popup_pos = vec2(self.window_dim.x / 2.0, self.window_dim.y / 2.0);
+            let popup_bounds: Vec2 = self.window_dim - vec2(40.0, 40.0);
+            let popup_pos = vec2(self.window_dim.x() / 2.0, self.window_dim.y() / 2.0);
             let popup_section = Section {
                 bounds: popup_bounds.into(),
                 screen_position: popup_pos.into(),
@@ -401,8 +401,11 @@ impl<'a> Window<'a> {
         self.mouse_position = vec2(mouse.0 as f32, mouse.1 as f32);
     }
 
-    fn physical_mouse_position(&self) -> Vector2<f32> {
-        let mouse_pos = (self.mouse_position.x as f64, self.mouse_position.y as f64);
+    fn physical_mouse_position(&self) -> Vec2 {
+        let mouse_pos = (
+            self.mouse_position.x() as f64,
+            self.mouse_position.y() as f64,
+        );
         let real_position = LogicalPosition::from(mouse_pos).to_physical(self.ui_scale.into());
         vec2(real_position.x as f32, real_position.y as f32)
     }

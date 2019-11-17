@@ -6,7 +6,7 @@ use crate::gui::gui_pane::GuiPane;
 use crate::mouse::MouseMove;
 use crate::pane::Pane;
 use crate::rect::RectBuilder;
-use cgmath::{vec2, Vector2};
+use glam::{vec2, Vec2};
 use std::error::Error;
 
 const PANE_BORDER_BG: [f32; 3] = [0.0, 250.0 / 256.0, 0.0];
@@ -14,8 +14,8 @@ const PANE_BORDER_BG: [f32; 3] = [0.0, 250.0 / 256.0, 0.0];
 pub struct GuiContainer<'a> {
     focused_idx: usize,
     panes: Vec<GuiPane<'a>>,
-    bounds: Vector2<f32>,
-    position: Vector2<f32>,
+    bounds: Vec2,
+    position: Vec2,
     arrangement: Arrangement,
 }
 
@@ -57,12 +57,12 @@ impl<'a> Container<'a> for GuiContainer<'a> {
     fn recalculate_layout(&mut self) {
         match self.arrangement {
             Arrangement::VSplit => {
-                let each_width = self.bounds.x / self.panes.len() as f32;
-                let bounds = vec2(each_width, self.bounds.y);
-                let mut position = vec2(self.position.x, self.position.y);
+                let each_width = self.bounds.x() / self.panes.len() as f32;
+                let bounds = vec2(each_width, self.bounds.y());
+                let mut position = vec2(self.position.x(), self.position.y());
                 for pane in self.panes.iter_mut() {
                     pane.do_action(PaneAction::UpdateSize(bounds, position));
-                    position.x += each_width; // TODO: any padding?
+                    position += vec2(each_width, 0.0); // TODO: any padding?
                 }
             }
         }
@@ -83,7 +83,7 @@ impl<'a> Container<'a> for GuiContainer<'a> {
 }
 
 impl<'a> GuiContainer<'a> {
-    pub fn single(bounds: Vector2<f32>, position: Vector2<f32>, pane: GuiPane<'a>) -> Self {
+    pub fn single(bounds: Vec2, position: Vec2, pane: GuiPane<'a>) -> Self {
         Self {
             bounds,
             position,
@@ -108,10 +108,10 @@ impl<'a> GuiContainer<'a> {
         match self.arrangement {
             Arrangement::VSplit => {
                 if let Some(pane) = self.panes.get(self.focused_idx) {
-                    let x_on_screen = pane.bounds.x;
+                    let x_on_screen = pane.bounds.x();
                     let rect = RectBuilder::new()
-                        .bounds(vec2(1.0, self.bounds.y))
-                        .top_left(vec2(x_on_screen, self.position.y))
+                        .bounds(vec2(1.0, self.bounds.y()))
+                        .top_left(vec2(x_on_screen, self.position.y()))
                         .build();
                     renderer.draw_quad(PANE_BORDER_BG, rect, 0.5);
                 }
@@ -125,18 +125,18 @@ impl<'a> GuiContainer<'a> {
         Ok(())
     }
 
-    fn which_pane_is_location(&self, location: Vector2<f32>) -> Option<usize> {
+    fn which_pane_is_location(&self, location: Vec2) -> Option<usize> {
         match self.arrangement {
             Arrangement::VSplit => {
                 // TODO: we assume even splits right now...
-                let each_width = self.bounds.x / self.panes.len() as f32;
-                let which_pane = f32::floor(location.x / each_width);
+                let each_width = self.bounds.x() / self.panes.len() as f32;
+                let which_pane = f32::floor(location.x() / each_width);
                 Some(which_pane as usize)
             }
         }
     }
 
-    pub fn mouse_scroll(&mut self, mouse_location: Vector2<f32>, delta: MouseMove) {
+    pub fn mouse_scroll(&mut self, mouse_location: Vec2, delta: MouseMove) {
         if let Some(pane_idx) = self.which_pane_is_location(mouse_location) {
             if let Some(pane) = self.panes.get_mut(pane_idx) {
                 pane.do_action(PaneAction::MouseScroll(delta));
@@ -144,7 +144,7 @@ impl<'a> GuiContainer<'a> {
         }
     }
 
-    pub fn mouse_click(&mut self, location: Vector2<f32>) {
+    pub fn mouse_click(&mut self, location: Vec2) {
         if let Some(pane_idx) = self.which_pane_is_location(location) {
             self.focus_pane_index(pane_idx);
             if let Some(pane) = self.panes.get_mut(self.focused_idx) {

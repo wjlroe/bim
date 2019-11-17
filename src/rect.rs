@@ -1,10 +1,10 @@
-use cgmath::{vec2, Vector2};
+use glam::{vec2, Vec2};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Rect {
-    pub top_left: Vector2<f32>,
-    pub center: Vector2<f32>,
-    pub bounds: Vector2<f32>,
+    pub top_left: Vec2,
+    pub center: Vec2,
+    pub bounds: Vec2,
 }
 
 impl Default for Rect {
@@ -41,18 +41,18 @@ impl RectBuilder {
         Self::default()
     }
 
-    pub fn bounds(mut self, bounds: Vector2<f32>) -> Self {
+    pub fn bounds(mut self, bounds: Vec2) -> Self {
         self.rect.bounds = bounds;
         self
     }
 
-    pub fn top_left(mut self, top_left: Vector2<f32>) -> Self {
+    pub fn top_left(mut self, top_left: Vec2) -> Self {
         self.rect.top_left = top_left;
         self.coords_set = CoordsSet::TopLeft;
         self
     }
 
-    pub fn center(mut self, center: Vector2<f32>) -> Self {
+    pub fn center(mut self, center: Vec2) -> Self {
         self.rect.center = center;
         self.coords_set = CoordsSet::Center;
         self
@@ -60,15 +60,15 @@ impl RectBuilder {
 
     fn calc_top_left(&mut self) {
         self.rect.top_left = vec2(
-            self.rect.center.x - self.rect.bounds.x / 2.0,
-            self.rect.center.y - self.rect.bounds.y / 2.0,
+            self.rect.center.x() - self.rect.bounds.x() / 2.0,
+            self.rect.center.y() - self.rect.bounds.y() / 2.0,
         );
     }
 
     fn calc_center(&mut self) {
         self.rect.center = vec2(
-            self.rect.top_left.x + self.rect.bounds.x / 2.0,
-            self.rect.top_left.y + self.rect.bounds.y / 2.0,
+            self.rect.top_left.x() + self.rect.bounds.x() / 2.0,
+            self.rect.top_left.y() + self.rect.bounds.y() / 2.0,
         );
     }
 

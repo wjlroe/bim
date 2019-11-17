@@ -1,8 +1,7 @@
-use cgmath::Vector2;
+use glam::Vec2;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MouseMove {
-    // FIXME: don't use cgmath here, because it'll be pulled into Terminal-only builds
-    Pixels(Vector2<f32>),
-    Lines(Vector2<f32>),
+    Pixels(Vec2),
+    Lines(Vec2),
 }

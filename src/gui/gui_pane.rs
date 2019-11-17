@@ -11,8 +11,8 @@ use crate::rect::{Rect, RectBuilder};
 use crate::search::Search;
 use crate::status_line::StatusLine;
 use crate::utils::char_position_to_byte_position;
-use cgmath::{vec2, Matrix4, Vector2, Vector3};
 use gfx_glyph::{Scale, Section, SectionText, VariedSection};
+use glam::{vec2, vec3, Mat4, Vec2};
 use std::error::Error;
 
 const LINE_COLS_AT: [u32; 2] = [80, 120];
@@ -34,8 +34,8 @@ pub struct GuiPane<'a> {
     pub prompt: Option<Input<'a>>,
     pub search: Option<Search>,
     focused: bool,
-    pub bounds: Vector2<f32>,
-    position: Vector2<f32>,
+    pub bounds: Vec2,
+    position: Vec2,
     line_height: f32,
     character_width: f32,
     pub font_size: f32,
@@ -193,12 +193,12 @@ impl<'a> Pane<'a> for GuiPane<'a> {
     fn mouse_scroll(&mut self, delta: MouseMove) {
         match delta {
             MouseMove::Lines(lines) => {
-                self.scroll_window_vertically(lines.y);
-                self.scroll_window_horizontally(lines.x);
+                self.scroll_window_vertically(lines.y());
+                self.scroll_window_horizontally(lines.x());
             }
             MouseMove::Pixels(pixels) => {
-                self.scroll_window_vertically(f32::ceil(pixels.y / self.line_height));
-                self.scroll_window_horizontally(pixels.x / self.character_width);
+                self.scroll_window_vertically(f32::ceil(pixels.y() / self.line_height));
+                self.scroll_window_horizontally(pixels.x() / self.character_width);
             }
         }
         self.update_cursor();
@@ -235,16 +235,16 @@ impl<'a> GuiPane<'a> {
         pane
     }
 
-    fn update_size(&mut self, bounds: Vector2<f32>, position: Vector2<f32>) {
+    fn update_size(&mut self, bounds: Vec2, position: Vec2) {
         self.bounds = bounds;
         self.position = position;
         self.update_screen_rows();
         self.scroll();
     }
 
-    fn row_offset_as_transform(&self) -> Matrix4<f32> {
-        let y_move = self.screen_position_vertical_offset() / (self.bounds.y / 2.0);
-        Matrix4::from_translation(Vector3::new(0.0, y_move, 0.0))
+    fn row_offset_as_transform(&self) -> Mat4 {
+        let y_move = self.screen_position_vertical_offset() / (self.bounds.y() / 2.0);
+        Mat4::from_translation(vec3(0.0, y_move, 0.0))
     }
 
     pub fn section_texts(&self) -> Vec<SectionText> {
@@ -335,8 +335,8 @@ impl<'a> GuiPane<'a> {
     fn render_status_text(
         &self,
         renderer: &mut GlRenderer,
-        bounds: Vector2<f32>,
-        _position: Vector2<f32>,
+        bounds: Vec2,
+        _position: Vec2,
         focused: bool,
     ) -> Result<(), Box<dyn Error>> {
         let status_bg = if focused {
@@ -352,10 +352,10 @@ impl<'a> GuiPane<'a> {
 
         let status_rect = RectBuilder::new()
             .top_left(vec2(
-                self.position.x,
-                self.position.y + self.bounds.y - self.line_height(),
+                self.position.x(),
+                self.position.y() + self.bounds.y() - self.line_height(),
             ))
-            .bounds(vec2(self.bounds.x, self.line_height()))
+            .bounds(vec2(self.bounds.x(), self.line_height()))
             .build();
         {
             let _guard = flame::start_guard("render status quad");
@@ -390,8 +390,8 @@ impl<'a> GuiPane<'a> {
     fn render_cursors(
         &self,
         renderer: &mut GlRenderer,
-        _bounds: Vector2<f32>,
-        _position: Vector2<f32>,
+        _bounds: Vec2,
+        _position: Vec2,
         focused: bool,
     ) -> Result<(), Box<dyn Error>> {
         let _guard = flame::start_guard("render cursors");
@@ -416,8 +416,8 @@ impl<'a> GuiPane<'a> {
     fn render_text(
         &self,
         renderer: &mut GlRenderer,
-        bounds: Vector2<f32>,
-        position: Vector2<f32>,
+        bounds: Vec2,
+        position: Vec2,
     ) -> Result<(), Box<dyn Error>> {
         let _guard = flame::start_guard("render buffer text");
 
@@ -432,13 +432,14 @@ impl<'a> GuiPane<'a> {
         };
         renderer.glyph_brush.queue(section);
 
-        let default_transform: Matrix4<f32> =
-            gfx_glyph::default_transform(&renderer.quad_bundle.data.out_color).into();
+        let default_transform: Mat4 = Mat4::from_cols_array_2d(&gfx_glyph::default_transform(
+            &renderer.quad_bundle.data.out_color,
+        ));
         let transform = self.row_offset_as_transform() * default_transform;
         renderer
             .glyph_brush
             .use_queue()
-            .transform(transform)
+            .transform(transform.to_cols_array_2d())
             .depth_target(&renderer.quad_bundle.data.out_depth)
             .draw(&mut renderer.encoder, &renderer.quad_bundle.data.out_color)?;
 
@@ -448,17 +449,17 @@ impl<'a> GuiPane<'a> {
     fn render_lines(
         &self,
         renderer: &mut GlRenderer,
-        bounds: Vector2<f32>,
-        position: Vector2<f32>,
+        bounds: Vec2,
+        position: Vec2,
     ) -> Result<(), Box<dyn Error>> {
         let _guard = flame::start_guard("render lines");
 
         for line in LINE_COLS_AT.iter() {
             let x_in_bounds = *line as f32 * self.character_width();
-            if x_in_bounds < bounds.x {
-                let x_on_screen = position.x + x_in_bounds;
+            if x_in_bounds < bounds.x() {
+                let x_on_screen = position.x() + x_in_bounds;
                 let rect = RectBuilder::new()
-                    .bounds(vec2(1.0, bounds.y))
+                    .bounds(vec2(1.0, bounds.y()))
                     .top_left(vec2(x_on_screen, 0.0))
                     .build();
                 renderer.draw_quad(LINE_COL_BG, rect, 0.2);
@@ -471,8 +472,8 @@ impl<'a> GuiPane<'a> {
     fn render_search(
         &self,
         renderer: &mut GlRenderer,
-        bounds: Vector2<f32>,
-        position: Vector2<f32>,
+        bounds: Vec2,
+        position: Vec2,
     ) -> Result<(), Box<dyn Error>> {
         if let Some(search) = self.search.as_ref() {
             let _guard = flame::start_guard("render top left search prompt");
@@ -500,13 +501,13 @@ impl<'a> GuiPane<'a> {
     fn render_prompt(
         &self,
         renderer: &mut GlRenderer,
-        bounds: Vector2<f32>,
-        position: Vector2<f32>,
+        bounds: Vec2,
+        position: Vec2,
     ) -> Result<(), Box<dyn Error>> {
         if let Some(top_left_text) = self.get_prompt().map(|prompt| prompt.display_text()) {
             let _guard = flame::start_guard("render top left prompt text");
 
-            let text_position: Vector2<f32> = position + vec2(0.0, self.top_padding());
+            let text_position: Vec2 = position + vec2(0.0, self.top_padding());
             let top_left_section = Section {
                 bounds: bounds.into(),
                 screen_position: text_position.into(),
@@ -584,11 +585,11 @@ impl<'a> GuiPane<'a> {
     }
 
     fn inner_width(&self) -> f32 {
-        self.bounds.x - self.left_padding
+        self.bounds.x() - self.left_padding
     }
 
     fn inner_height(&self) -> f32 {
-        self.bounds.y - self.bottom_padding() - self.top_padding()
+        self.bounds.y() - self.bottom_padding() - self.top_padding()
     }
 
     fn screen_rows(&self) -> i32 {
@@ -623,19 +624,20 @@ impl<'a> GuiPane<'a> {
         self.row_offset.fract() * self.line_height
     }
 
-    fn cursor_from_mouse_position(&self, mouse: Vector2<f32>) -> Vector2<i32> {
-        let row_on_screen =
-            ((mouse.y - self.top_padding()) / self.line_height() + self.row_offset).floor() as i32;
+    fn cursor_from_mouse_position(&self, mouse: Vec2) -> (i32, i32) {
+        let row_on_screen = ((mouse.y() - self.top_padding()) / self.line_height()
+            + self.row_offset)
+            .floor() as i32;
         let col_on_screen =
-            ((mouse.x - self.left_padding()) / self.character_width()).floor() as i32;
-        vec2(col_on_screen, row_on_screen)
+            ((mouse.x() - self.left_padding()) / self.character_width()).floor() as i32;
+        (col_on_screen, row_on_screen)
     }
 
-    fn move_cursor_to_mouse_position(&mut self, mouse: Vector2<f32>) {
+    fn move_cursor_to_mouse_position(&mut self, mouse: Vec2) {
         let cursor = self.cursor_from_mouse_position(mouse);
-        let clicked_line = i32::min((self.get_buffer().num_lines() as i32) - 1, cursor.y);
+        let clicked_line = i32::min((self.get_buffer().num_lines() as i32) - 1, cursor.1);
         let clicked_line_length = self.get_buffer().line_len(clicked_line).unwrap_or(0) as i32;
-        let clicked_line_x = i32::min(clicked_line_length, cursor.x);
+        let clicked_line_x = i32::min(clicked_line_length, cursor.0);
         let move_y = clicked_line - self.get_buffer().cursor.text_row();
         let move_x = clicked_line_x - self.get_buffer().cursor.text_col();
         self.get_buffer_mut().cursor.change(|cursor| {
@@ -645,7 +647,7 @@ impl<'a> GuiPane<'a> {
         self.update_cursor();
     }
 
-    fn mouse_click(&mut self, location: Vector2<f32>) {
+    fn mouse_click(&mut self, location: Vec2) {
         println!("mouse click: {:?}", location);
         self.move_cursor_to_mouse_position(location);
     }

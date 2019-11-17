@@ -18,7 +18,7 @@ gfx_device_gl = "0.16"
 gfx_gl = "0.6.0"
 gfx_window_glutin = "0.31"
 glutin = { version = "0.21", features = ["serde", "icon_loading"] }
-cgmath = "0.17.0"
+glam = "0.8"
 rand = "0.7"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"

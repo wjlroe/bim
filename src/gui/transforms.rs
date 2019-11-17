@@ -1,25 +1,25 @@
 use crate::rect::Rect;
-use cgmath::{vec3, Matrix4, Vector2};
+use glam::{vec3, Mat4, Vec2};
 
 pub struct Transforms {
-    pub window_dim: Vector2<f32>,
+    pub window_dim: Vec2,
 }
 
 impl Transforms {
-    pub fn new(window_dim: Vector2<f32>) -> Self {
+    pub fn new(window_dim: Vec2) -> Self {
         Self { window_dim }
     }
 
-    pub fn transform_for_quad(&self, rect: Rect) -> Matrix4<f32> {
-        let quad_scale = Matrix4::from_nonuniform_scale(
-            rect.bounds.x / self.window_dim.x,
-            rect.bounds.y / self.window_dim.y,
+    pub fn transform_for_quad(&self, rect: Rect) -> Mat4 {
+        let quad_scale = Mat4::from_scale(vec3(
+            rect.bounds.x() / self.window_dim.x(),
+            rect.bounds.y() / self.window_dim.y(),
             1.0,
-        );
+        ));
         let position = rect.center;
-        let x_translate = (position.x / self.window_dim.x) * 2.0 - 1.0;
-        let y_translate = -((position.y / self.window_dim.y) * 2.0 - 1.0);
-        let quad_translate = Matrix4::from_translation(vec3(x_translate, y_translate, 0.0));
+        let x_translate = (position.x() / self.window_dim.x()) * 2.0 - 1.0;
+        let y_translate = -((position.y() / self.window_dim.y()) * 2.0 - 1.0);
+        let quad_translate = Mat4::from_translation(vec3(x_translate, y_translate, 0.0));
         quad_translate * quad_scale
     }
 }
@@ -27,7 +27,7 @@ impl Transforms {
 #[test]
 fn test_quad_filling_bounds_should_be_identity_matrix() {
     use crate::rect::RectBuilder;
-    use cgmath::{vec2, vec4};
+    use glam::{vec2, vec4};
 
     let transforms = Transforms::new(vec2(10.0, 10.0));
     let rect = RectBuilder::new()

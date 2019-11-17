@@ -1,6 +1,6 @@
 use crate::commands::{Direction, MoveCursor};
 use crate::mouse::MouseMove;
-use cgmath::Vector2;
+use glam::Vec2;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GuiAction {
@@ -10,7 +10,7 @@ pub enum GuiAction {
     SetUiScale(f32),
     SetLineHeight(f32),
     SetCharacterWidth(f32),
-    UpdateSize(Vector2<f32>, Vector2<f32>), // FIXME: should be a window action, not entire app
+    UpdateSize(Vec2, Vec2), // FIXME: should be a window action, not entire app
     DumpFlameGraph,
     PrintInfo,
     Quit,
@@ -27,9 +27,9 @@ pub enum WindowAction {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PaneAction {
-    UpdateSize(Vector2<f32>, Vector2<f32>),
+    UpdateSize(Vec2, Vec2),
     MouseScroll(MouseMove),
-    MouseClick(Vector2<f32>),
+    MouseClick(Vec2),
     PrintDebugInfo,
 }
 
