@@ -144,11 +144,31 @@ impl<'a> GuiContainer<'a> {
         }
     }
 
+    fn absolute_position_to_pane_relative(&self, pane_idx: usize, location: Vec2) -> Vec2 {
+        // TODO: Only works for horizontal layouts
+        if pane_idx > 0 {
+            let skip_x: f32 = self
+                .panes
+                .iter()
+                .take(pane_idx)
+                .map(|pane| pane.bounds.x())
+                .sum();
+            vec2(location.x() - skip_x, location.y())
+        } else {
+            location
+        }
+    }
+
     pub fn mouse_click(&mut self, location: Vec2) {
         if let Some(pane_idx) = self.which_pane_is_location(location) {
             self.focus_pane_index(pane_idx);
+            let pane_location = self.absolute_position_to_pane_relative(pane_idx, location);
+            println!(
+                "abs location: {:?}, pane_local: {:?}",
+                location, pane_location
+            );
             if let Some(pane) = self.panes.get_mut(self.focused_idx) {
-                pane.do_action(PaneAction::MouseClick(location));
+                pane.do_action(PaneAction::MouseClick(pane_location));
             }
         }
     }
