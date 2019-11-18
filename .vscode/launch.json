@@ -12,9 +12,6 @@
           "value": "1"
         }
       ],
-      "env": {
-        "RUST_BACKTRACE": "1"
-      },
       "externalConsole": false,
       "preLaunchTask": "cargo build",
       "program": "${workspaceRoot}/target/debug/bim",
