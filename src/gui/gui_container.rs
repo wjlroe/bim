@@ -8,6 +8,7 @@ use crate::pane::Pane;
 use crate::rect::RectBuilder;
 use glam::{vec2, Vec2};
 use std::error::Error;
+use std::time::Duration;
 
 const PANE_BORDER_BG: [f32; 3] = [0.0, 250.0 / 256.0, 0.0];
 
@@ -170,6 +171,12 @@ impl<'a> GuiContainer<'a> {
             if let Some(pane) = self.panes.get_mut(self.focused_idx) {
                 pane.do_action(PaneAction::MouseClick(pane_location));
             }
+        }
+    }
+
+    pub fn update_dt(&mut self, dt: Duration) {
+        if let Some(pane) = self.panes.get_mut(self.focused_idx) {
+            pane.update_dt(dt);
         }
     }
 }

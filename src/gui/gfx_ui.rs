@@ -13,6 +13,7 @@ use glutin::dpi::LogicalSize;
 use glutin::Api::OpenGl;
 use glutin::{ContextBuilder, EventsLoop, GlProfile, GlRequest, Icon, WindowBuilder};
 use std::error::Error;
+use std::time::Instant;
 
 const XBIM_DEBUG_LOG: &str = ".xbim_debug";
 
@@ -102,15 +103,20 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
 
     let _default_status_text = format!("bim editor - version {}", BIM_VERSION);
 
+    let mut last_frame_time = Instant::now();
+
     #[cfg(not(feature = "event-callbacks"))]
     {
         while window.keep_running() {
+            let elapsed = last_frame_time.elapsed();
+            last_frame_time = Instant::now();
             window.start_frame();
 
             event_loop.poll_events(|event| {
                 let _ = window.update(&mut renderer, event);
             });
 
+            window.update_dt(elapsed);
             window.render(&mut renderer)?;
 
             window.end_frame();

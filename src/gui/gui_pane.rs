@@ -1,6 +1,7 @@
 use crate::action::{GuiAction, PaneAction};
 use crate::buffer::Buffer;
 use crate::cursor::{Cursor, CursorT};
+use crate::gui::animation::{Animation, AnimationState};
 use crate::gui::gl_renderer::GlRenderer;
 use crate::highlight::HighlightedSection;
 use crate::highlight::{highlight_to_color, Highlight};
@@ -14,6 +15,7 @@ use crate::utils::char_position_to_byte_position;
 use gfx_glyph::{Scale, Section, SectionText, VariedSection};
 use glam::{vec2, vec3, Mat4, Vec2};
 use std::error::Error;
+use std::time::Duration;
 
 const LINE_COLS_AT: [u32; 2] = [80, 120];
 const LINE_COL_BG: [f32; 3] = [0.0, 0.0, 0.0];
@@ -43,6 +45,7 @@ pub struct GuiPane<'a> {
     left_padding: f32,
     pub row_offset: f32,
     pub col_offset: f32,
+    cursor_animation: Animation,
 }
 
 impl<'a> Default for GuiPane<'a> {
@@ -65,6 +68,7 @@ impl<'a> Default for GuiPane<'a> {
             left_padding: 12.0,
             row_offset: 0.0,
             col_offset: 0.0,
+            cursor_animation: Animation::new(Duration::new(1, 0)),
         }
     }
 }
@@ -396,14 +400,16 @@ impl<'a> GuiPane<'a> {
     ) -> Result<(), Box<dyn Error>> {
         let _guard = flame::start_guard("render cursors");
 
-        let cursor_bg = if focused {
-            CURSOR_FOCUSED_BG
-        } else {
-            CURSOR_UNFOCUS_BG
-        };
+        if !focused || self.cursor_animation.state == AnimationState::Show {
+            let cursor_bg = if focused {
+                CURSOR_FOCUSED_BG
+            } else {
+                CURSOR_UNFOCUS_BG
+            };
 
-        let cursor_rect = self.onscreen_cursor(&self.buffer.cursor);
-        renderer.draw_quad(cursor_bg, cursor_rect, 0.2);
+            let cursor_rect = self.onscreen_cursor(&self.buffer.cursor);
+            renderer.draw_quad(cursor_bg, cursor_rect, 0.2);
+        }
 
         if let Some(other_cursor) = self.other_cursor {
             let other_cursor_rect = self.onscreen_cursor(&other_cursor);
@@ -686,6 +692,10 @@ impl<'a> GuiPane<'a> {
         if self.col_offset < 0.0 {
             self.col_offset = 0.0;
         }
+    }
+
+    pub fn update_dt(&mut self, duration: Duration) {
+        self.cursor_animation.add_duration(duration);
     }
 }
 
