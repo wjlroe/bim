@@ -269,6 +269,10 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
+    pub fn update_dt(&mut self, duration: Duration) {
+        self.container.update_dt(duration);
+    }
+
     pub fn render(&mut self, renderer: &mut GlRenderer<'a>) -> Result<(), Box<dyn Error>> {
         // Purple background
         let background = [0.16078, 0.16471, 0.26667, 1.0];

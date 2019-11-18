@@ -1,3 +1,4 @@
+mod animation;
 pub mod gfx_ui;
 mod gl_renderer;
 mod gui_container;
