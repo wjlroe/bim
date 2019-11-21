@@ -3,7 +3,7 @@
 Experiments in text editing.
 
 [![pipeline status](https://gitlab.com/wjlroe/bim/badges/master/pipeline.svg)](https://gitlab.com/wjlroe/bim/commits/master)
-[![Build status](https://ci.appveyor.com/api/projects/status/u9a6fp4nw7i0ust5/branch/master?svg=true)](https://ci.appveyor.com/project/WilliamRoe/bim/branch/master)
+[![Build status](https://ci.appveyor.com/api/projects/status/ma0vsxdpaqijtki9/branch/master?svg=true)](https://ci.appveyor.com/project/WilliamRoe/bim-mwu46/branch/master)
 
 
 ![Basic syntax highlighting!](https://i.imgur.com/uSDZ2Wn.png)
