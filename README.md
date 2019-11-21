@@ -2,7 +2,7 @@
 
 Experiments in text editing.
 
-[![Build Status](https://travis-ci.org/wjlroe/bim.svg?branch=master)](https://travis-ci.org/wjlroe/bim)
+[![pipeline status](https://gitlab.com/wjlroe/bim/badges/master/pipeline.svg)](https://gitlab.com/wjlroe/bim/commits/master)
 [![Build status](https://ci.appveyor.com/api/projects/status/u9a6fp4nw7i0ust5/branch/master?svg=true)](https://ci.appveyor.com/project/WilliamRoe/bim/branch/master)
 
 
