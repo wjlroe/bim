@@ -1,5 +1,8 @@
 image: "rust:1.39"
 
+variables:
+  CARGO_HOME: /root/.cargo
+
 before_script:
   - rustup component add rustfmt
   - rustc --version
@@ -14,5 +17,9 @@ cargo:
   script:
     - cargo test
   cache:
+    key:
+      files:
+        - Cargo.lock
     paths:
+      - /root/.cargo/registry
       - target/
