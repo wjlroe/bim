@@ -57,10 +57,10 @@ test_script:
 #   provider: GitHub
 
 cache:
-  - C:\Users\appveyor\.cargo\registry
+  - C:\Users\appveyor\.cargo\registry -> Cargo.lock
   - C:\Users\appveyor\.rustup\toolchains
   - C:\Users\appveyor\.rustup\update-hashes
-  - target
+  - target -> Cargo.lock
 
 notifications:
   - provider: Email
