@@ -9,6 +9,7 @@
       <sourceFolder url="file://$MODULE_DIR$/../bim\examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../bim\benches" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
+      <excludeFolder url="file://$MODULE_DIR$/testfiles" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
