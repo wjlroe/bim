@@ -368,16 +368,16 @@ impl<'a> Row<'a> {
         RenderCursorIter::new(self.as_str().chars())
     }
 
-    pub fn text_cursor_to_render(&self, cidx: i32) -> i32 {
+    pub fn text_cursor_to_render(&self, c_idx: i32) -> i32 {
         self.to_render_cursor_iter()
-            .find(|render_cursor| render_cursor.text_cursor == cidx)
+            .find(|render_cursor| render_cursor.text_cursor == c_idx)
             .map(|render_cursor| render_cursor.render_cursor)
             .unwrap_or(0)
     }
 
-    pub fn render_cursor_to_text(&self, ridx: usize) -> usize {
+    pub fn render_cursor_to_text(&self, r_idx: usize) -> usize {
         self.to_render_cursor_iter()
-            .find(|render_cursor| render_cursor.render_cursor == ridx as i32)
+            .find(|render_cursor| render_cursor.render_cursor == r_idx as i32)
             .map(|render_cursor| render_cursor.text_cursor)
             .unwrap_or(0) as usize
     }

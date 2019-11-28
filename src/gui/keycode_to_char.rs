@@ -98,7 +98,7 @@ pub fn keyboard_event_to_keycode(event: KeyboardInput) -> Option<Key> {
                 if event.modifiers.ctrl || event.modifiers.alt || event.modifiers.logo {
                     if event.modifiers.ctrl && !event.modifiers.alt && !event.modifiers.logo {
                         if let Some(virtual_char) = KEYCODE_TO_CHAR.get(&keycode).cloned() {
-                            // FIXME: shift+virtualkeycode
+                            // FIXME: shift+virtual_keycode
                             // } else if keycode == VirtualKeyCode::Equals
                             //     && event.modifiers.shift
                             //     && event.modifiers.ctrl

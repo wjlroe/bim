@@ -95,7 +95,7 @@ impl<'a> Window<'a> {
             current_map: options.keymap.clone(),
         };
         gui_window.open_files()?;
-        gui_window.recalc_glyph_sizes(renderer);
+        gui_window.recalculate_glyph_sizes(renderer);
         Ok(gui_window)
     }
 
@@ -139,9 +139,9 @@ impl<'a> Window<'a> {
         }
     }
 
-    fn recalc_glyph_sizes(&mut self, renderer: &mut GlRenderer<'a>) {
+    fn recalculate_glyph_sizes(&mut self, renderer: &mut GlRenderer<'a>) {
         if self.has_resized() {
-            let _guard = flame::start_guard("recalc_glyph_sized");
+            let _guard = flame::start_guard("recalculate_glyph_sized");
 
             let test_section = VariedSection {
                 bounds: self.window_dim.into(),
@@ -167,8 +167,8 @@ impl<'a> Window<'a> {
             let letter_c = positions[2];
 
             let first_line_min_y = letter_a.y;
-            let secon_line_min_y = letter_c.y;
-            let line_height = secon_line_min_y - first_line_min_y;
+            let second_line_min_y = letter_c.y;
+            let line_height = second_line_min_y - first_line_min_y;
             self.set_line_height(line_height);
 
             let a_pos_x = letter_a.x;
@@ -264,7 +264,7 @@ impl<'a> Window<'a> {
         };
 
         self.handle_actions(renderer);
-        self.recalc_glyph_sizes(renderer);
+        self.recalculate_glyph_sizes(renderer);
 
         Ok(())
     }

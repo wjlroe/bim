@@ -291,8 +291,8 @@ impl<'a> Buffer<'a> {
     }
 
     pub fn delete_char_at_cursor(&mut self) {
-        let numrows = self.num_lines() as i32;
-        if self.cursor.text_row() >= numrows {
+        let num_rows = self.num_lines() as i32;
+        if self.cursor.text_row() >= num_rows {
             return;
         }
         if self.cursor.text_col() > 0 {
@@ -459,10 +459,10 @@ impl<'a> Buffer<'a> {
             new_cursor.text_col = 0;
         }
 
-        let rowlen = self.line_len(new_cursor.text_row).unwrap_or(0);
+        let row_len = self.line_len(new_cursor.text_row).unwrap_or(0);
 
-        if new_cursor.text_col > rowlen as i32 {
-            new_cursor.text_col = rowlen as i32;
+        if new_cursor.text_col > row_len as i32 {
+            new_cursor.text_col = row_len as i32;
         }
 
         if current_cursor != new_cursor {
@@ -743,7 +743,7 @@ fn test_move_cursor_with_inserted_text() {
 }
 
 #[test]
-fn test_basic_autoindent_on_return_no_syntax() {
+fn test_basic_auto_indent_on_return_no_syntax() {
     let mut buffer = Buffer::default();
     let file_contents = vec!["void main() {", "  int a_var = 10;"];
     for line in file_contents {
@@ -758,7 +758,7 @@ fn test_basic_autoindent_on_return_no_syntax() {
 }
 
 #[test]
-fn test_basic_autoindent_on_return_c_syntax() {
+fn test_basic_auto_indent_on_return_c_syntax() {
     let mut buffer = Buffer::default();
     let file_contents = vec!["void main() {", "  int a_var = 10;", "  int b_var = 20;"];
     for line in file_contents {
@@ -804,5 +804,5 @@ fn test_basic_autoindent_on_return_c_syntax() {
     assert_eq!(hl, buffer.rows[2].hl);
 }
 
-// TODO: need a case for autoindent (or not) when inserting newline in the middle of a statement
+// TODO: need a case for auto indent (or not) when inserting newline in the middle of a statement
 // TODO: case for tab indents

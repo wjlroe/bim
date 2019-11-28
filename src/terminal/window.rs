@@ -60,11 +60,11 @@ impl<'a> Window<'a> {
     }
 
     fn draw_rows(&mut self) {
-        let numrows = self.buffer.num_lines() as i32;
+        let num_rows = self.buffer.num_lines() as i32;
         for i in 0..self.screen_rows {
-            let filerow = i + self.row_offset;
-            if filerow >= numrows {
-                if numrows == 0 && i == self.screen_rows / 3 {
+            let file_row = i + self.row_offset;
+            if file_row >= num_rows {
+                if num_rows == 0 && i == self.screen_rows / 3 {
                     let mut welcome = format!("bim editor - version {}", BIM_VERSION);
                     welcome.truncate(self.screen_cols as usize);
                     let mut padding = (self.screen_cols - welcome.len() as i32) / 2;
@@ -80,7 +80,7 @@ impl<'a> Window<'a> {
                     self.append_buffer.push_str("~");
                 }
             } else if let Some(onscreen_row) = self.buffer.row_onscreen_text(
-                filerow as usize,
+                file_row as usize,
                 self.col_offset as usize,
                 self.screen_cols as usize,
             ) {
@@ -113,7 +113,7 @@ impl<'a> Window<'a> {
             self.buffer.num_lines(),
             file_status
         );
-        let rstatus = format!(
+        let right_status = format!(
             "{} | {}/{}",
             filetype,
             self.buffer.cursor.text_row() + 1,
@@ -121,11 +121,11 @@ impl<'a> Window<'a> {
         );
         status.truncate(self.screen_cols as usize);
         self.append_buffer.push_str(&status);
-        let remaining = self.screen_cols - status.len() as i32 - rstatus.len() as i32;
+        let remaining = self.screen_cols - status.len() as i32 - right_status.len() as i32;
         for _ in 0..remaining {
             self.append_buffer.push(' ');
         }
-        self.append_buffer.push_str(&rstatus);
+        self.append_buffer.push_str(&right_status);
         self.append_buffer.push_str("\x1b[m");
         self.append_buffer.push_str("\r\n");
     }

@@ -1,9 +1,20 @@
 <component name="ProjectDictionaryState">
-  <dictionary name="will">
+  <dictionary name="Will">
     <words>
-      <w>filematch</w>
-      <w>filematches</w>
-      <w>singleline</w>
+      <w>debugln</w>
+      <w>glutin</w>
+      <w>iosevka</w>
+      <w>keycode</w>
+      <w>lwin</w>
+      <w>rcursor</w>
+      <w>rsize</w>
+      <w>tcgetattr</w>
+      <w>tcsetattr</w>
+      <w>unfocus</w>
+      <w>vbuf</w>
+      <w>vsplit</w>
+      <w>woot</w>
+      <w>xbim</w>
     </words>
   </dictionary>
 </component>
