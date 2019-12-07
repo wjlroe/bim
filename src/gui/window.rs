@@ -114,7 +114,7 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    fn handle_actions(&mut self, renderer: &mut GlRenderer) {
+    fn handle_actions(&mut self, renderer: &mut GlRenderer<'_>) {
         self.action_queue.dedup();
         while let Some(action) = self.action_queue.pop() {
             match action {
@@ -573,7 +573,7 @@ impl<'a> Window<'a> {
         self.logical_size = logical_size;
     }
 
-    pub fn set_window_dimensions(&mut self, dimensions: (u16, u16), renderer: &mut GlRenderer) {
+    pub fn set_window_dimensions(&mut self, dimensions: (u16, u16), renderer: &mut GlRenderer<'_>) {
         self.window_dim = vec2(dimensions.0.into(), dimensions.1.into());
         self.resized = true;
         renderer.resize(self.window_dim);
