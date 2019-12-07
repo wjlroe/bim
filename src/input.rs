@@ -43,7 +43,7 @@ impl<'a> Input<'a> {
         Some(self.next_action)
     }
 
-    pub fn get_row(&self) -> &Row {
+    pub fn get_row(&self) -> &Row<'_> {
         &self.prompt.row
     }
 

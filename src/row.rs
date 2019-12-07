@@ -22,7 +22,7 @@ pub enum Newline {
 }
 
 impl fmt::Display for Newline {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Newline::Unix => write!(f, "{}", UNIX_NEWLINE),
             Newline::Dos => write!(f, "{}", DOS_NEWLINE),
@@ -364,7 +364,7 @@ impl<'a> Row<'a> {
         }
     }
 
-    fn to_render_cursor_iter(&self) -> RenderCursorIter {
+    fn to_render_cursor_iter(&self) -> RenderCursorIter<'_> {
         RenderCursorIter::new(self.as_str().chars())
     }
 

@@ -251,7 +251,7 @@ impl<'a> GuiPane<'a> {
         Mat4::from_translation(vec3(0.0, y_move, 0.0))
     }
 
-    pub fn section_texts(&self) -> Vec<SectionText> {
+    pub fn section_texts(&self) -> Vec<SectionText<'_>> {
         let _guard = flame::start_guard("highlighted_sections -> section_texts");
 
         let mut section_texts = vec![];
@@ -338,7 +338,7 @@ impl<'a> GuiPane<'a> {
 
     fn render_status_text(
         &self,
-        renderer: &mut GlRenderer,
+        renderer: &mut GlRenderer<'_>,
         bounds: Vec2,
         _position: Vec2,
         focused: bool,
@@ -393,7 +393,7 @@ impl<'a> GuiPane<'a> {
 
     fn render_cursors(
         &self,
-        renderer: &mut GlRenderer,
+        renderer: &mut GlRenderer<'_>,
         _bounds: Vec2,
         _position: Vec2,
         focused: bool,
@@ -421,7 +421,7 @@ impl<'a> GuiPane<'a> {
 
     fn render_text(
         &self,
-        renderer: &mut GlRenderer,
+        renderer: &mut GlRenderer<'_>,
         bounds: Vec2,
         position: Vec2,
     ) -> Result<(), Box<dyn Error>> {
@@ -454,7 +454,7 @@ impl<'a> GuiPane<'a> {
 
     fn render_lines(
         &self,
-        renderer: &mut GlRenderer,
+        renderer: &mut GlRenderer<'_>,
         bounds: Vec2,
         position: Vec2,
     ) -> Result<(), Box<dyn Error>> {
@@ -477,7 +477,7 @@ impl<'a> GuiPane<'a> {
 
     fn render_search(
         &self,
-        renderer: &mut GlRenderer,
+        renderer: &mut GlRenderer<'_>,
         bounds: Vec2,
         position: Vec2,
     ) -> Result<(), Box<dyn Error>> {
@@ -506,7 +506,7 @@ impl<'a> GuiPane<'a> {
 
     fn render_prompt(
         &self,
-        renderer: &mut GlRenderer,
+        renderer: &mut GlRenderer<'_>,
         bounds: Vec2,
         position: Vec2,
     ) -> Result<(), Box<dyn Error>> {
@@ -536,7 +536,11 @@ impl<'a> GuiPane<'a> {
         Ok(())
     }
 
-    pub fn render(&self, renderer: &mut GlRenderer, focused: bool) -> Result<(), Box<dyn Error>> {
+    pub fn render(
+        &self,
+        renderer: &mut GlRenderer<'_>,
+        focused: bool,
+    ) -> Result<(), Box<dyn Error>> {
         let padded_position = self.position + vec2(self.left_padding(), 0.0);
         let new_bounds = self.bounds - vec2(self.left_padding(), 0.0);
 
