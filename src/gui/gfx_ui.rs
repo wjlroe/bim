@@ -93,7 +93,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
         gfx_window,
         window_dim,
         logical_size,
-        18.0,
+        28.0,
         dpi,
         buffer,
         persist_window_state,
