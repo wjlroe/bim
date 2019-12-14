@@ -1,4 +1,4 @@
-#![windows_subsystem = "console"]
+#![windows_subsystem = "windows"]
 
 use bim::config::RunConfig;
 use bim::editor::Editor;
