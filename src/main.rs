@@ -27,6 +27,7 @@ fn run_terminal(options: Options) {
     if options.run_type == Debug {
         terminal.log_debug();
     } else {
+        terminal.options = options;
         loop {
             terminal.refresh();
             editor.process_keypress(&mut terminal);

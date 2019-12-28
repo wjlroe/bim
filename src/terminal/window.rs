@@ -5,6 +5,7 @@ use crate::cursor::CursorT;
 use crate::debug_log::DebugLog;
 use crate::editor::BIM_VERSION;
 use crate::keycodes::{ctrl_key, Key};
+use crate::options::Options;
 use crate::status::Status;
 use crate::terminal::buffer::TerminalBuffer;
 use std::error::Error;
@@ -28,6 +29,7 @@ pub struct Window<'a> {
     quit_times: i8,
     status: Option<Status>,
     pub debug_log: DebugLog<'a>,
+    pub options: Options,
 }
 
 impl<'a> Window<'a> {
@@ -44,6 +46,7 @@ impl<'a> Window<'a> {
             quit_times: BIM_QUIT_TIMES,
             status: None,
             debug_log: DebugLog::new(BIM_DEBUG_LOG),
+            options: Options::default(),
         }
     }
 
@@ -394,7 +397,10 @@ impl<'a> Window<'a> {
         match cmd {
             Move(move_cursor) => self.move_cursor(move_cursor),
             Quit => {
-                if self.buffer.is_dirty() && self.quit_times.is_positive() {
+                if self.options.show_quit_warning()
+                    && self.buffer.is_dirty()
+                    && self.quit_times.is_positive()
+                {
                     let quit_times = self.quit_times;
                     self.set_status_message(format!(
                         "{} {} {} {}",
