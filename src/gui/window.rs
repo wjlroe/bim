@@ -36,7 +36,7 @@ enum InternalAction {
 const POPUP_BG: [f32; 3] = [51.0 / 255.0, 0.0, 102.0 / 255.0];
 const POPUP_OUTLINE: [f32; 3] = [240.0 / 255.0, 240.0 / 255.0, 240.0 / 255.0];
 // Purple background
-pub const BG_COLOR: [f32; 4] = [41.0 / 256.0, 42.0 / 256.0, 68.0 / 256.0, 1.0];
+pub const BG_COLOR: [f32; 4] = [41.0 / 255.0, 42.0 / 255.0, 68.0 / 255.0, 1.0];
 
 pub struct Window<'a> {
     monitor: MonitorId,

@@ -19,13 +19,13 @@ use std::time::Duration;
 
 const LINE_COLS_AT: [u32; 2] = [80, 120];
 const LINE_COL_BG: [f32; 3] = [0.0, 0.0, 0.0];
-const STATUS_FOCUSED_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
-const STATUS_UNFOCUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
+const STATUS_FOCUSED_BG: [f32; 3] = [215.0 / 255.0, 0.0, 135.0 / 255.0];
+const STATUS_UNFOCUS_BG: [f32; 3] = [215.0 / 255.0, 0.0, 135.0 / 255.0];
 const STATUS_FOCUSED_FG: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 const STATUS_UNFOCUS_FG: [f32; 4] = [0.8, 0.8, 0.8, 1.0];
-const CURSOR_FOCUSED_BG: [f32; 3] = [250.0 / 256.0, 250.0 / 256.0, 250.0 / 256.0];
-const CURSOR_UNFOCUS_BG: [f32; 3] = [150.0 / 256.0, 150.0 / 256.0, 150.0 / 256.0];
-const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
+const CURSOR_FOCUSED_BG: [f32; 3] = [250.0 / 255.0, 250.0 / 255.0, 250.0 / 255.0];
+const CURSOR_UNFOCUS_BG: [f32; 3] = [150.0 / 255.0, 150.0 / 255.0, 150.0 / 255.0];
+const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 255.0, 165.0 / 255.0, 0.0];
 const CURSOR_BLINK_INTERVAL: u64 = 500;
 
 pub struct GuiPane<'a> {
