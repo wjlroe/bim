@@ -14,6 +14,7 @@ pub use crate::win::EditorImpl;
 
 mod action;
 pub mod buffer;
+mod colours;
 mod commands;
 pub mod config;
 pub mod container;
