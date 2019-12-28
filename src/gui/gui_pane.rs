@@ -26,6 +26,7 @@ const STATUS_UNFOCUS_FG: [f32; 4] = [0.8, 0.8, 0.8, 1.0];
 const CURSOR_FOCUSED_BG: [f32; 3] = [250.0 / 256.0, 250.0 / 256.0, 250.0 / 256.0];
 const CURSOR_UNFOCUS_BG: [f32; 3] = [150.0 / 256.0, 150.0 / 256.0, 150.0 / 256.0];
 const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
+const CURSOR_BLINK_INTERVAL: u64 = 500;
 
 pub struct GuiPane<'a> {
     other_cursor: Option<Cursor>,
@@ -68,7 +69,7 @@ impl<'a> Default for GuiPane<'a> {
             left_padding: 12.0,
             row_offset: 0.0,
             col_offset: 0.0,
-            cursor_animation: Animation::new(Duration::new(1, 0)),
+            cursor_animation: Animation::new(Duration::from_millis(CURSOR_BLINK_INTERVAL)),
         }
     }
 }
@@ -223,6 +224,14 @@ impl<'a> Pane<'a> for GuiPane<'a> {
     fn restore_from_search(&mut self, search: Search) {
         self.row_offset = search.saved_row_offset();
         self.col_offset = search.saved_col_offset();
+    }
+
+    fn move_cursor<F>(&mut self, func: F)
+    where
+        F: Fn(&mut Cursor),
+    {
+        self.get_buffer_mut().cursor.change(func);
+        self.cursor_animation.cancel();
     }
 }
 

@@ -38,6 +38,9 @@ pub trait Pane<'a> {
     fn set_focused(&mut self, focused: bool);
     fn new_search(&self) -> Search;
     fn restore_from_search(&mut self, search: Search);
+    fn move_cursor<F>(&mut self, func: F)
+    where
+        F: Fn(&mut Cursor);
 
     fn is_dirty(&self) -> bool {
         self.get_buffer().is_dirty()
@@ -63,7 +66,7 @@ pub trait Pane<'a> {
             InsertChar(typed_char) => self.insert_char(typed_char),
             DeleteChar(direction) => self.delete_char(direction),
             CloneCursor => self.clone_cursor(),
-            MoveCursor(movement) => self.move_cursor(movement),
+            MoveCursor(movement) => self.do_cursor_movement(movement),
             SetFilename(filename) => self.get_buffer_mut().set_filename(filename),
             SetFiletype(filetype) => self.get_buffer_mut().set_filetype(&filetype),
             StartSearch => self.start_search(),
@@ -123,15 +126,136 @@ pub trait Pane<'a> {
         }
     }
 
-    fn move_cursor(&mut self, movement: MoveCursor) {
-        let screen_rows = self.get_screen_rows() as usize;
-        self.get_buffer_mut().move_cursor(movement, screen_rows);
+    fn do_cursor_movement(&mut self, movement: MoveCursor) {
+        use crate::commands::Direction::*;
+        use crate::commands::MoveUnit::*;
+
+        let page_size = self.get_screen_rows() as usize;
+        let num_lines = self.get_buffer().num_lines();
+
+        match movement {
+            MoveCursor {
+                unit: Rows,
+                direction: Up,
+                amount,
+            } => {
+                self.move_cursor(|cursor| {
+                    let max_amount = cursor.text_row();
+                    let possible_amount = std::cmp::min(amount as i32, max_amount);
+                    cursor.text_row -= possible_amount;
+                });
+            }
+            MoveCursor {
+                unit: Rows,
+                direction: Down,
+                amount,
+            } => {
+                self.move_cursor(|cursor| {
+                    let max_movement = num_lines as i32 - 1 - cursor.text_row();
+                    let possible_amount = std::cmp::min(amount as i32, max_movement);
+                    cursor.text_row += possible_amount;
+                });
+            }
+            MoveCursor {
+                unit: Cols,
+                direction: Left,
+                amount,
+            } => {
+                let mut new_cursor = self.get_buffer().cursor.current();
+                let mut left_amount = amount as i32;
+                while left_amount > 0 {
+                    if new_cursor.text_col != 0 {
+                        new_cursor.text_col -= 1;
+                    } else if new_cursor.text_row > 0 {
+                        new_cursor.text_row -= 1;
+                        new_cursor.text_col =
+                            self.get_buffer().line_len(new_cursor.text_row).unwrap_or(0) as i32;
+                    } else {
+                        break;
+                    }
+                    left_amount -= 1;
+                }
+                self.move_cursor(|cursor| {
+                    cursor.text_col = new_cursor.text_col();
+                    cursor.text_row = new_cursor.text_row();
+                });
+            }
+            MoveCursor {
+                unit: Cols,
+                direction: Right,
+                amount,
+            } => {
+                let mut new_cursor = self.get_buffer().cursor.current();
+                let mut right_amount = amount as i32;
+                let num_lines = self.get_buffer().num_lines() as i32;
+                while right_amount > 0 {
+                    if let Some(row_size) = self.get_buffer().line_len(new_cursor.text_row) {
+                        if new_cursor.text_col < row_size as i32 {
+                            new_cursor.text_col += 1;
+                        } else if new_cursor.text_col == row_size as i32
+                            && new_cursor.text_row < num_lines - 1
+                        {
+                            new_cursor.text_row += 1;
+                            new_cursor.text_col = 0;
+                        } else {
+                            break;
+                        }
+                        right_amount -= 1;
+                    } else {
+                        break;
+                    }
+                }
+                self.move_cursor(|cursor| {
+                    cursor.text_col = new_cursor.text_col();
+                    cursor.text_row = new_cursor.text_row();
+                });
+            }
+            MoveCursor {
+                unit: Start,
+                direction: Left,
+                ..
+            } => self
+                .get_buffer_mut()
+                .cursor
+                .change(|cursor| cursor.text_col = 0),
+            MoveCursor {
+                unit: End,
+                direction: Right,
+                ..
+            } => {
+                let new_x = self
+                    .get_buffer()
+                    .line_len(self.get_buffer().cursor.text_row())
+                    .unwrap_or(0) as i32;
+                self.move_cursor(|cursor| {
+                    cursor.text_col = new_x;
+                });
+            }
+            MoveCursor {
+                unit: Pages,
+                direction: Down,
+                amount,
+            } => {
+                let amount = amount * page_size;
+                self.do_cursor_movement(MoveCursor::down(amount));
+            }
+            MoveCursor {
+                unit: Pages,
+                direction: Up,
+                amount,
+            } => {
+                let amount = amount * page_size;
+                self.do_cursor_movement(MoveCursor::up(amount));
+            }
+            _ => {}
+        }
+        self.get_buffer_mut().check_cursor();
         self.update_cursor();
     }
 
     fn move_cursor_onscreen(&mut self) {
         let row_offset = self.get_row_offset_int();
-        self.get_buffer_mut().cursor.change(|cursor| {
+        self.move_cursor(|cursor| {
             cursor.text_row = row_offset;
         });
     }

@@ -1,4 +1,4 @@
-use crate::commands::{MoveCursor, SearchDirection};
+use crate::commands::SearchDirection;
 use crate::cursor::{CursorT, CursorWithHistory};
 use crate::row::{Row, DEFAULT_NEWLINE, DEFAULT_NEWLINE_STR, DOS_NEWLINE, UNIX_NEWLINE};
 use crate::syntax::{Syntax, SYNTAXES};
@@ -328,123 +328,7 @@ impl<'a> Buffer<'a> {
         self.cursor.change(|cursor| cursor.text_col += 1);
     }
 
-    pub fn move_cursor(&mut self, move_cursor: MoveCursor, page_size: usize) {
-        use crate::commands::Direction::*;
-        use crate::commands::MoveUnit::*;
-
-        match move_cursor {
-            MoveCursor {
-                unit: Rows,
-                direction: Up,
-                amount,
-            } => {
-                let max_amount = self.cursor.text_row();
-                let possible_amount = std::cmp::min(amount as i32, max_amount);
-                self.cursor
-                    .change(|cursor| cursor.text_row -= possible_amount);
-            }
-            MoveCursor {
-                unit: Rows,
-                direction: Down,
-                amount,
-            } => {
-                let max_movement = self.num_lines() as i32 - 1 - self.cursor.text_row();
-                let possible_amount = std::cmp::min(amount as i32, max_movement);
-                self.cursor
-                    .change(|cursor| cursor.text_row += possible_amount);
-            }
-            MoveCursor {
-                unit: Cols,
-                direction: Left,
-                amount,
-            } => {
-                let mut new_cursor = self.cursor.current();
-                let mut left_amount = amount as i32;
-                while left_amount > 0 {
-                    if new_cursor.text_col != 0 {
-                        new_cursor.text_col -= 1;
-                    } else if new_cursor.text_row > 0 {
-                        new_cursor.text_row -= 1;
-                        new_cursor.text_col =
-                            self.line_len(new_cursor.text_row).unwrap_or(0) as i32;
-                    } else {
-                        break;
-                    }
-                    left_amount -= 1;
-                }
-                self.cursor.change(|cursor| {
-                    cursor.text_col = new_cursor.text_col();
-                    cursor.text_row = new_cursor.text_row();
-                });
-            }
-            MoveCursor {
-                unit: Cols,
-                direction: Right,
-                amount,
-            } => {
-                let mut new_cursor = self.cursor.current();
-                let mut right_amount = amount as i32;
-                let num_lines = self.num_lines() as i32;
-                while right_amount > 0 {
-                    if let Some(row_size) = self.line_len(new_cursor.text_row) {
-                        if new_cursor.text_col < row_size as i32 {
-                            new_cursor.text_col += 1;
-                        } else if new_cursor.text_col == row_size as i32
-                            && new_cursor.text_row < num_lines - 1
-                        {
-                            new_cursor.text_row += 1;
-                            new_cursor.text_col = 0;
-                        } else {
-                            break;
-                        }
-                        right_amount -= 1;
-                    } else {
-                        break;
-                    }
-                }
-                self.cursor.change(|cursor| {
-                    cursor.text_col = new_cursor.text_col();
-                    cursor.text_row = new_cursor.text_row();
-                });
-            }
-            MoveCursor {
-                unit: Start,
-                direction: Left,
-                ..
-            } => self.cursor.change(|cursor| cursor.text_col = 0),
-            MoveCursor {
-                unit: End,
-                direction: Right,
-                ..
-            } => {
-                let new_x = self.line_len(self.cursor.text_row()).unwrap_or(0) as i32;
-                self.cursor.change(|cursor| {
-                    cursor.text_col = new_x;
-                });
-            }
-            MoveCursor {
-                unit: Pages,
-                direction: Down,
-                amount,
-            } => {
-                let amount = amount * page_size;
-                self.move_cursor(MoveCursor::down(amount), page_size);
-            }
-            MoveCursor {
-                unit: Pages,
-                direction: Up,
-                amount,
-            } => {
-                let amount = amount * page_size;
-                self.move_cursor(MoveCursor::up(amount), page_size);
-            }
-            _ => {}
-        }
-
-        self.check_cursor();
-    }
-
-    fn check_cursor(&mut self) {
+    pub fn check_cursor(&mut self) {
         let current_cursor = self.cursor.current();
         let mut new_cursor = self.cursor.current();
         if new_cursor.text_row < 0 {
@@ -704,7 +588,6 @@ fn test_move_cursor_to_search_match() {
 
 #[test]
 fn test_move_cursor() {
-    let page_size = 100;
     let mut buffer = Buffer::default();
     buffer.append_row("\t£lots");
     assert_eq!(0, buffer.cursor.text_col());
@@ -712,13 +595,13 @@ fn test_move_cursor() {
         0,
         buffer.text_cursor_to_render(buffer.cursor.text_col(), buffer.cursor.text_row())
     );
-    buffer.move_cursor(MoveCursor::right(1), page_size);
+    buffer.cursor.change(|cursor| cursor.text_col += 1);
     assert_eq!(1, buffer.cursor.text_col());
     assert_eq!(
         8,
         buffer.text_cursor_to_render(buffer.cursor.text_col(), buffer.cursor.text_row())
     );
-    buffer.move_cursor(MoveCursor::right(1), page_size);
+    buffer.cursor.change(|cursor| cursor.text_col += 1);
     assert_eq!(2, buffer.cursor.text_col());
     assert_eq!(
         9,
