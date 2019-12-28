@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 #[derive(Copy, Clone, Debug)]
 pub struct Colour {
     rgba: [f32; 4],
@@ -14,14 +16,20 @@ impl PartialEq for Colour {
     }
 }
 
+impl Into<[f32; 4]> for Colour {
+    fn into(self) -> [f32; 4] {
+        self.rgba
+    }
+}
+
 impl Colour {
-    fn new(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
+    pub fn new(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self {
             rgba: [red, green, blue, alpha],
         }
     }
 
-    fn rgb_from_int_tuple(rgb: (i32, i32, i32)) -> Self {
+    pub fn rgb_from_int_tuple(rgb: (i32, i32, i32)) -> Self {
         Self::new(
             rgb.0 as f32 / 255.0,
             rgb.1 as f32 / 255.0,
@@ -30,20 +38,28 @@ impl Colour {
         )
     }
 
-    fn red(&self) -> f32 {
+    pub fn red(&self) -> f32 {
         self.rgba[0]
     }
 
-    fn green(&self) -> f32 {
+    pub fn green(&self) -> f32 {
         self.rgba[1]
     }
 
-    fn blue(&self) -> f32 {
+    pub fn blue(&self) -> f32 {
         self.rgba[2]
     }
 
-    fn alpha(&self) -> f32 {
+    pub fn alpha(&self) -> f32 {
         self.rgba[3]
+    }
+
+    pub fn rgba(&self) -> [f32; 4] {
+        self.rgba
+    }
+
+    pub fn rgb(&self) -> [f32; 3] {
+        (&self.rgba[0..3]).try_into().expect("correct length array")
     }
 
     fn to_hsl(&self) -> [f32; 3] {
@@ -115,6 +131,12 @@ impl Colour {
     pub fn lighten(&self, percentage: f32) -> Colour {
         let mut hsl = self.to_hsl();
         hsl[2] = f32::min(1.0, hsl[2] + percentage);
+        Colour::from_hsl(hsl)
+    }
+
+    pub fn darken(&self, percentage: f32) -> Colour {
+        let mut hsl = self.to_hsl();
+        hsl[2] = f32::max(0.0, hsl[2] - percentage);
         Colour::from_hsl(hsl)
     }
 }
