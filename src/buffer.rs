@@ -588,7 +588,6 @@ fn test_move_cursor_to_search_match() {
 
 #[test]
 fn test_move_cursor() {
-    let page_size = 100;
     let mut buffer = Buffer::default();
     buffer.append_row("\t£lots");
     assert_eq!(0, buffer.cursor.text_col());
@@ -596,13 +595,13 @@ fn test_move_cursor() {
         0,
         buffer.text_cursor_to_render(buffer.cursor.text_col(), buffer.cursor.text_row())
     );
-    buffer.move_cursor(MoveCursor::right(1), page_size);
+    buffer.cursor.change(|cursor| cursor.text_col += 1);
     assert_eq!(1, buffer.cursor.text_col());
     assert_eq!(
         8,
         buffer.text_cursor_to_render(buffer.cursor.text_col(), buffer.cursor.text_row())
     );
-    buffer.move_cursor(MoveCursor::right(1), page_size);
+    buffer.cursor.change(|cursor| cursor.text_col += 1);
     assert_eq!(2, buffer.cursor.text_col());
     assert_eq!(
         9,
