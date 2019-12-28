@@ -50,10 +50,6 @@ impl Colour {
         self.rgba[2]
     }
 
-    pub fn alpha(&self) -> f32 {
-        self.rgba[3]
-    }
-
     pub fn rgba(&self) -> [f32; 4] {
         self.rgba
     }
