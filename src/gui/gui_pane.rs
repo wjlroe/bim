@@ -1,8 +1,10 @@
 use crate::action::{GuiAction, PaneAction};
 use crate::buffer::Buffer;
+use crate::colours::Colour;
 use crate::cursor::{Cursor, CursorT};
 use crate::gui::animation::{Animation, AnimationState};
 use crate::gui::gl_renderer::GlRenderer;
+use crate::gui::window;
 use crate::highlight::HighlightedSection;
 use crate::highlight::{highlight_to_color, Highlight};
 use crate::input::Input;
@@ -14,19 +16,25 @@ use crate::status_line::StatusLine;
 use crate::utils::char_position_to_byte_position;
 use gfx_glyph::{Scale, Section, SectionText, VariedSection};
 use glam::{vec2, vec3, Mat4, Vec2};
+use lazy_static::lazy_static;
 use std::error::Error;
 use std::time::Duration;
 
 const LINE_COLS_AT: [u32; 2] = [80, 120];
-const LINE_COL_BG: [f32; 3] = [0.0, 0.0, 0.0];
-const STATUS_FOCUSED_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
-const STATUS_UNFOCUS_BG: [f32; 3] = [215.0 / 256.0, 0.0, 135.0 / 256.0];
-const STATUS_FOCUSED_FG: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
-const STATUS_UNFOCUS_FG: [f32; 4] = [0.8, 0.8, 0.8, 1.0];
-const CURSOR_FOCUSED_BG: [f32; 3] = [250.0 / 256.0, 250.0 / 256.0, 250.0 / 256.0];
-const CURSOR_UNFOCUS_BG: [f32; 3] = [150.0 / 256.0, 150.0 / 256.0, 150.0 / 256.0];
-const OTHER_CURSOR_BG: [f32; 3] = [255.0 / 256.0, 165.0 / 256.0, 0.0];
 const CURSOR_BLINK_INTERVAL: u64 = 500;
+
+lazy_static! {
+    static ref LINE_COL_BG: Colour = Colour::rgb_from_int_tuple((0, 0, 0));
+    static ref STATUS_FOCUSED_BG: Colour = Colour::rgb_from_int_tuple((215, 0, 135));
+    static ref STATUS_UNFOCUS_BG: Colour = Colour::rgb_from_int_tuple((215, 0, 135));
+    static ref STATUS_FOCUSED_FG: Colour = Colour::rgb_from_int_tuple((255, 255, 255));
+    static ref STATUS_UNFOCUS_FG: Colour = STATUS_FOCUSED_FG.darken(0.2);
+    static ref CURSOR_FOCUSED_BG: Colour = Colour::rgb_from_int_tuple((250, 250, 250));
+    static ref CURSOR_UNFOCUS_BG: Colour = Colour::rgb_from_int_tuple((150, 150, 150));
+    static ref OTHER_CURSOR_BG: Colour = Colour::rgb_from_int_tuple((255, 165, 0));
+    static ref LINE_HIGHLIGHT_FOCUSED_BG: Colour = window::BG_COLOR.lighten(0.2);
+    static ref LINE_HIGHLIGHT_UNFOCUS_BG: Colour = LINE_HIGHLIGHT_FOCUSED_BG.darken(0.1);
+}
 
 pub struct GuiPane<'a> {
     other_cursor: Option<Cursor>,
@@ -353,14 +361,14 @@ impl<'a> GuiPane<'a> {
         focused: bool,
     ) -> Result<(), Box<dyn Error>> {
         let status_bg = if focused {
-            STATUS_FOCUSED_BG
+            *STATUS_FOCUSED_BG
         } else {
-            STATUS_UNFOCUS_BG
+            *STATUS_UNFOCUS_BG
         };
         let status_fg = if focused {
-            STATUS_FOCUSED_FG
+            *STATUS_FOCUSED_FG
         } else {
-            STATUS_UNFOCUS_FG
+            *STATUS_UNFOCUS_FG
         };
 
         let status_rect = RectBuilder::new()
@@ -373,7 +381,7 @@ impl<'a> GuiPane<'a> {
         {
             let _guard = flame::start_guard("render status quad");
             // Render status background
-            renderer.draw_quad(status_bg, status_rect, 0.5);
+            renderer.draw_quad(status_bg.rgb(), status_rect, 0.5);
         }
 
         {
@@ -382,7 +390,7 @@ impl<'a> GuiPane<'a> {
                 bounds: bounds.into(),
                 screen_position: status_rect.top_left.into(),
                 text: &self.status_text(),
-                color: status_fg,
+                color: status_fg.rgba(),
                 scale: Scale::uniform(self.font_scale()),
                 z: 0.5,
                 ..Section::default()
@@ -400,6 +408,29 @@ impl<'a> GuiPane<'a> {
         Ok(())
     }
 
+    fn render_highlight_line(
+        &self,
+        renderer: &mut GlRenderer<'_>,
+        bounds: Vec2,
+        position: Vec2,
+        focused: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        let _guard = flame::start_guard("render highlight line");
+
+        let hl_colour = if focused {
+            *LINE_HIGHLIGHT_FOCUSED_BG
+        } else {
+            *LINE_HIGHLIGHT_UNFOCUS_BG
+        };
+        let cursor_rect = self.onscreen_cursor(&self.buffer.cursor);
+        let highlight_line_rect = RectBuilder::new()
+            .bounds(vec2(bounds.x(), self.line_height()))
+            .top_left(vec2(position.x(), cursor_rect.top_left.y()))
+            .build();
+        renderer.draw_quad(hl_colour.rgb(), highlight_line_rect, 1.0);
+        Ok(())
+    }
+
     fn render_cursors(
         &self,
         renderer: &mut GlRenderer<'_>,
@@ -411,18 +442,18 @@ impl<'a> GuiPane<'a> {
 
         if !focused || self.cursor_animation.state == AnimationState::Show {
             let cursor_bg = if focused {
-                CURSOR_FOCUSED_BG
+                *CURSOR_FOCUSED_BG
             } else {
-                CURSOR_UNFOCUS_BG
+                *CURSOR_UNFOCUS_BG
             };
 
             let cursor_rect = self.onscreen_cursor(&self.buffer.cursor);
-            renderer.draw_quad(cursor_bg, cursor_rect, 0.2);
+            renderer.draw_quad(cursor_bg.rgb(), cursor_rect, 0.2);
         }
 
         if let Some(other_cursor) = self.other_cursor {
             let other_cursor_rect = self.onscreen_cursor(&other_cursor);
-            renderer.draw_quad(OTHER_CURSOR_BG, other_cursor_rect, 0.2);
+            renderer.draw_quad(OTHER_CURSOR_BG.rgb(), other_cursor_rect, 0.2);
         }
 
         Ok(())
@@ -477,7 +508,7 @@ impl<'a> GuiPane<'a> {
                     .bounds(vec2(1.0, bounds.y()))
                     .top_left(vec2(x_on_screen, 0.0))
                     .build();
-                renderer.draw_quad(LINE_COL_BG, rect, 0.2);
+                renderer.draw_quad(LINE_COL_BG.rgb(), rect, 0.2);
             }
         }
 
@@ -553,6 +584,7 @@ impl<'a> GuiPane<'a> {
         let padded_position = self.position + vec2(self.left_padding(), 0.0);
         let new_bounds = self.bounds - vec2(self.left_padding(), 0.0);
 
+        self.render_highlight_line(renderer, self.bounds, self.position, focused)?;
         self.render_text(renderer, self.bounds, self.position)?;
         self.render_cursors(renderer, new_bounds, padded_position, focused)?;
         self.render_lines(renderer, new_bounds, padded_position)?;

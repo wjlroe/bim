@@ -10,7 +10,7 @@ use glam::{vec2, Vec2};
 use std::error::Error;
 use std::time::Duration;
 
-const PANE_BORDER_BG: [f32; 3] = [0.0, 250.0 / 256.0, 0.0];
+const PANE_BORDER_BG: [f32; 3] = [0.0, 250.0 / 255.0, 0.0];
 
 pub struct GuiContainer<'a> {
     focused_idx: usize,

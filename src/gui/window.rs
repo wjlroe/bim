@@ -1,5 +1,6 @@
 use crate::action::{Action, BufferAction, GuiAction, PaneAction, WindowAction};
 use crate::buffer::{Buffer, FileSaveStatus};
+use crate::colours::Colour;
 use crate::config::{RunConfig, BIM_QUIT_TIMES};
 use crate::container::Container;
 use crate::debug_log::DebugLog;
@@ -25,6 +26,7 @@ use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::{
     ElementState, Event, MonitorId, MouseScrollDelta, PossiblyCurrent, WindowEvent, WindowedContext,
 };
+use lazy_static::lazy_static;
 use std::error::Error;
 use std::time::Duration;
 
@@ -33,8 +35,11 @@ enum InternalAction {
     ResizeWindow,
 }
 
-const POPUP_BG: [f32; 3] = [51.0 / 255.0, 0.0, 102.0 / 255.0];
-const POPUP_OUTLINE: [f32; 3] = [240.0 / 255.0, 240.0 / 255.0, 240.0 / 255.0];
+lazy_static! {
+    static ref POPUP_BG: Colour = Colour::rgb_from_int_tuple((51, 0, 102));
+    static ref POPUP_OUTLINE: Colour = Colour::rgb_from_int_tuple((240, 240, 240));
+    pub static ref BG_COLOR: Colour = Colour::rgb_from_int_tuple((41, 42, 68));
+}
 
 pub struct Window<'a> {
     monitor: MonitorId,
@@ -274,11 +279,9 @@ impl<'a> Window<'a> {
     }
 
     pub fn render(&mut self, renderer: &mut GlRenderer<'a>) -> Result<(), Box<dyn Error>> {
-        // Purple background
-        let background = [0.16078, 0.16471, 0.26667, 1.0];
         renderer
             .encoder
-            .clear(&renderer.quad_bundle.data.out_color, background);
+            .clear(&renderer.quad_bundle.data.out_color, BG_COLOR.rgba());
         renderer
             .encoder
             .clear_depth(&renderer.quad_bundle.data.out_depth, 1.0);
@@ -318,12 +321,12 @@ impl<'a> Window<'a> {
                     .bounds(text_bounds + vec2(10.0, 10.0))
                     .build();
 
-                renderer.draw_quad(POPUP_OUTLINE, popup_outline, 0.6); // Z???
+                renderer.draw_quad(POPUP_OUTLINE.rgb(), popup_outline, 0.6); // Z???
                 let popup_rect = RectBuilder::new()
                     .center(popup_pos)
                     .bounds(text_bounds)
                     .build();
-                renderer.draw_quad(POPUP_BG, popup_rect, 0.6); // Z??
+                renderer.draw_quad(POPUP_BG.rgb(), popup_rect, 0.6); // Z??
             }
 
             renderer.glyph_brush.queue(popup_section);
