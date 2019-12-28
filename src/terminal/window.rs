@@ -245,9 +245,129 @@ impl<'a> Window<'a> {
         };
     }
 
-    pub fn move_cursor(&mut self, move_cursor: MoveCursor) {
-        self.buffer
-            .move_cursor(move_cursor, self.screen_rows as usize);
+    pub fn move_cursor(&mut self, movement: MoveCursor) {
+        // FIXME: This is a duplicate of src/pane.rs:do_cursor_movement()
+        // We need to use Pane in terminal to share that code
+        use crate::commands::Direction::*;
+        use crate::commands::MoveUnit::*;
+
+        let page_size = self.screen_rows as usize;
+        let num_lines = self.buffer.num_lines();
+
+        match movement {
+            MoveCursor {
+                unit: Rows,
+                direction: Up,
+                amount,
+            } => {
+                self.buffer.cursor.change(|cursor| {
+                    let max_amount = cursor.text_row();
+                    let possible_amount = std::cmp::min(amount as i32, max_amount);
+                    cursor.text_row -= possible_amount;
+                });
+            }
+            MoveCursor {
+                unit: Rows,
+                direction: Down,
+                amount,
+            } => {
+                self.buffer.cursor.change(|cursor| {
+                    let max_movement = num_lines as i32 - 1 - cursor.text_row();
+                    let possible_amount = std::cmp::min(amount as i32, max_movement);
+                    cursor.text_row += possible_amount;
+                });
+            }
+            MoveCursor {
+                unit: Cols,
+                direction: Left,
+                amount,
+            } => {
+                let mut new_cursor = self.buffer.cursor.current();
+                let mut left_amount = amount as i32;
+                while left_amount > 0 {
+                    if new_cursor.text_col != 0 {
+                        new_cursor.text_col -= 1;
+                    } else if new_cursor.text_row > 0 {
+                        new_cursor.text_row -= 1;
+                        new_cursor.text_col =
+                            self.buffer.line_len(new_cursor.text_row).unwrap_or(0) as i32;
+                    } else {
+                        break;
+                    }
+                    left_amount -= 1;
+                }
+                self.buffer.cursor.change(|cursor| {
+                    cursor.text_col = new_cursor.text_col();
+                    cursor.text_row = new_cursor.text_row();
+                });
+            }
+            MoveCursor {
+                unit: Cols,
+                direction: Right,
+                amount,
+            } => {
+                let mut new_cursor = self.buffer.cursor.current();
+                let mut right_amount = amount as i32;
+                let num_lines = self.buffer.num_lines() as i32;
+                while right_amount > 0 {
+                    if let Some(row_size) = self.buffer.line_len(new_cursor.text_row) {
+                        if new_cursor.text_col < row_size as i32 {
+                            new_cursor.text_col += 1;
+                        } else if new_cursor.text_col == row_size as i32
+                            && new_cursor.text_row < num_lines - 1
+                        {
+                            new_cursor.text_row += 1;
+                            new_cursor.text_col = 0;
+                        } else {
+                            break;
+                        }
+                        right_amount -= 1;
+                    } else {
+                        break;
+                    }
+                }
+                self.buffer.cursor.change(|cursor| {
+                    cursor.text_col = new_cursor.text_col();
+                    cursor.text_row = new_cursor.text_row();
+                });
+            }
+            MoveCursor {
+                unit: Start,
+                direction: Left,
+                ..
+            } => self.buffer.cursor.change(|cursor| cursor.text_col = 0),
+            MoveCursor {
+                unit: End,
+                direction: Right,
+                ..
+            } => {
+                let new_x = self
+                    .buffer
+                    .line_len(self.buffer.cursor.text_row())
+                    .unwrap_or(0) as i32;
+                self.buffer.cursor.change(|cursor| {
+                    cursor.text_col = new_x;
+                });
+            }
+            MoveCursor {
+                unit: Pages,
+                direction: Down,
+                amount,
+            } => {
+                let amount = amount * page_size;
+                self.move_cursor(MoveCursor::down(amount));
+            }
+            MoveCursor {
+                unit: Pages,
+                direction: Up,
+                amount,
+            } => {
+                let amount = amount * page_size;
+                self.move_cursor(MoveCursor::up(amount));
+            }
+            _ => {}
+        }
+        self.buffer.check_cursor();
     }
 
     fn insert_char(&mut self, character: char) {

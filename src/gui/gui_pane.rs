@@ -225,6 +225,14 @@ impl<'a> Pane<'a> for GuiPane<'a> {
         self.row_offset = search.saved_row_offset();
         self.col_offset = search.saved_col_offset();
     }
+
+    fn move_cursor<F>(&mut self, func: F)
+    where
+        F: Fn(&mut Cursor),
+    {
+        self.get_buffer_mut().cursor.change(func);
+        self.cursor_animation.cancel();
+    }
 }
 
 impl<'a> GuiPane<'a> {

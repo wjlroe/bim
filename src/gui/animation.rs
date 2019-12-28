@@ -35,6 +35,11 @@ impl Animation {
         }
     }
 
+    pub fn cancel(&mut self) {
+        self.time_in_state = Duration::default();
+        self.state = AnimationState::default();
+    }
+
     fn next_state(&mut self) {
         use AnimationState::*;
 
