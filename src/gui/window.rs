@@ -35,6 +35,8 @@ enum InternalAction {
 
 const POPUP_BG: [f32; 3] = [51.0 / 255.0, 0.0, 102.0 / 255.0];
 const POPUP_OUTLINE: [f32; 3] = [240.0 / 255.0, 240.0 / 255.0, 240.0 / 255.0];
+// Purple background
+pub const BG_COLOR: [f32; 4] = [41.0 / 256.0, 42.0 / 256.0, 68.0 / 256.0, 1.0];
 
 pub struct Window<'a> {
     monitor: MonitorId,
@@ -274,11 +276,9 @@ impl<'a> Window<'a> {
     }
 
     pub fn render(&mut self, renderer: &mut GlRenderer<'a>) -> Result<(), Box<dyn Error>> {
-        // Purple background
-        let background = [0.16078, 0.16471, 0.26667, 1.0];
         renderer
             .encoder
-            .clear(&renderer.quad_bundle.data.out_color, background);
+            .clear(&renderer.quad_bundle.data.out_color, BG_COLOR);
         renderer
             .encoder
             .clear_depth(&renderer.quad_bundle.data.out_depth, 1.0);
