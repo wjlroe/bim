@@ -54,6 +54,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
 
     debug_log.debugln_timestamped(&format!("color_view: {:?}", main_color))?;
     debug_log.debugln_timestamped(&format!("depth_view: {:?}", main_depth))?;
+    debug_log.debugln_timestamped(&format!("OpenGL Version: {:?}", device.get_info().version))?;
 
     unsafe {
         device.with_gl(|gl| gl.Disable(gfx_gl::FRAMEBUFFER_SRGB));
