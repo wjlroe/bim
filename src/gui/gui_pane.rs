@@ -467,11 +467,9 @@ impl<'a> GuiPane<'a> {
     ) -> Result<(), Box<dyn Error>> {
         let _guard = flame::start_guard("render buffer text");
 
-        let text_pos = vec2(self.left_padding(), self.top_padding()) + position;
-        let inner_bounds = vec2(
-            bounds.x() - self.left_padding(),
-            bounds.y() - self.top_padding(),
-        );
+        let padding = vec2(self.left_padding(), self.top_padding());
+        let text_pos = padding + position;
+        let inner_bounds = bounds - padding;
 
         let section = VariedSection {
             bounds: inner_bounds.into(),
