@@ -15,7 +15,7 @@ use crate::rect::{Rect, RectBuilder};
 use crate::search::Search;
 use crate::status_line::StatusLine;
 use crate::utils::char_position_to_byte_position;
-use gfx_glyph::{Scale, Section, SectionText, VariedSection};
+use gfx_glyph::{BuiltInLineBreaker, Layout, Scale, Section, SectionText, VariedSection};
 use glam::{vec2, vec3, Mat4, Vec2};
 use lazy_static::lazy_static;
 use std::error::Error;
@@ -419,11 +419,13 @@ impl<'a> Pane<'a> {
         let text_pos = padding + position;
         let inner_bounds = bounds - padding;
 
+        let layout = Layout::default().line_breaker(BuiltInLineBreaker::AnyCharLineBreaker);
         let section = VariedSection {
             bounds: inner_bounds.into(),
             screen_position: text_pos.into(),
             text: self.section_texts(),
             z: 1.0,
+            layout,
             ..VariedSection::default()
         };
         renderer.glyph_brush.queue(section);
