@@ -108,7 +108,7 @@ impl<'a> GuiContainer<'a> {
     pub fn render(&self, renderer: &mut GlRenderer<'_>) -> Result<(), Box<dyn Error>> {
         match self.arrangement {
             Arrangement::VSplit => {
-                if let Some(pane) = self.panes.get(self.focused_idx) {
+                if let Some(pane) = self.panes.get(0) {
                     let x_on_screen = pane.bounds.x();
                     let rect = RectBuilder::new()
                         .bounds(vec2(1.0, self.bounds.y()))
