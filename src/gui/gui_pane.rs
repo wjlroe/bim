@@ -468,9 +468,13 @@ impl<'a> GuiPane<'a> {
         let _guard = flame::start_guard("render buffer text");
 
         let text_pos = vec2(self.left_padding(), self.top_padding()) + position;
+        let inner_bounds = vec2(
+            bounds.x() - self.left_padding(),
+            bounds.y() - self.top_padding(),
+        );
 
         let section = VariedSection {
-            bounds: bounds.into(),
+            bounds: inner_bounds.into(),
             screen_position: text_pos.into(),
             text: self.section_texts(),
             z: 1.0,
