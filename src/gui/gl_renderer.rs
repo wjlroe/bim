@@ -5,7 +5,7 @@ use gfx::handle::{DepthStencilView, RenderTargetView};
 use gfx::traits::FactoryExt;
 use gfx::{self, *};
 use gfx_glyph::GlyphBrush;
-use glam::{Mat4, Vec2};
+use glam::{vec2, Mat4, Vec2};
 
 const QUAD: [Vertex; 4] = [
     Vertex { pos: [-1.0, 1.0] },
@@ -119,5 +119,12 @@ impl<'a> GlRenderer<'a> {
             transform,
             z,
         );
+    }
+
+    pub fn draw_outline(&mut self, color: [f32; 4], rect: Rect, z: f32, thickness: f32) {
+        let mut inner_rect = rect;
+        inner_rect.bounds -= vec2(thickness * 2.0, thickness * 2.0);
+        self.draw_quad(TRANSPARENT, inner_rect, z - 0.001);
+        self.draw_quad(color, rect, z);
     }
 }
