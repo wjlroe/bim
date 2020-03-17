@@ -329,7 +329,7 @@ impl<'a> Pane<'a> {
         {
             let _guard = flame::start_guard("render status quad");
             // Render status background
-            renderer.draw_quad(status_bg.rgb(), status_rect, 0.5);
+            renderer.draw_quad(status_bg.rgba(), status_rect, 0.5);
         }
 
         {
@@ -375,7 +375,7 @@ impl<'a> Pane<'a> {
             .bounds(vec2(bounds.x(), self.line_height))
             .top_left(vec2(position.x(), cursor_rect.top_left.y()))
             .build();
-        renderer.draw_quad(hl_colour.rgb(), highlight_line_rect, 1.0);
+        renderer.draw_quad(hl_colour.rgba(), highlight_line_rect, 1.0);
         Ok(())
     }
 
@@ -396,12 +396,12 @@ impl<'a> Pane<'a> {
             };
 
             let cursor_rect = self.onscreen_cursor(&self.buffer.cursor);
-            renderer.draw_quad(cursor_bg.rgb(), cursor_rect, 0.2);
+            renderer.draw_quad(cursor_bg.rgba(), cursor_rect, 0.2);
         }
 
         if let Some(other_cursor) = self.other_cursor {
             let other_cursor_rect = self.onscreen_cursor(&other_cursor);
-            renderer.draw_quad(OTHER_CURSOR_BG.rgb(), other_cursor_rect, 0.2);
+            renderer.draw_quad(OTHER_CURSOR_BG.rgba(), other_cursor_rect, 0.2);
         }
 
         Ok(())
@@ -460,7 +460,7 @@ impl<'a> Pane<'a> {
                     .bounds(vec2(1.0, bounds.y()))
                     .top_left(vec2(x_on_screen, 0.0))
                     .build();
-                renderer.draw_quad(LINE_COL_BG.rgb(), rect, 0.2);
+                renderer.draw_quad(LINE_COL_BG.rgba(), rect, 0.2);
             }
         }
 

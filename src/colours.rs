@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 #[derive(Copy, Clone, Debug)]
 pub struct Colour {
     rgba: [f32; 4],
@@ -52,10 +50,6 @@ impl Colour {
 
     pub fn rgba(&self) -> [f32; 4] {
         self.rgba
-    }
-
-    pub fn rgb(&self) -> [f32; 3] {
-        (&self.rgba[0..3]).try_into().expect("correct length array")
     }
 
     fn to_hsl(&self) -> [f32; 3] {

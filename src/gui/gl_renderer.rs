@@ -14,6 +14,7 @@ const QUAD: [Vertex; 4] = [
     Vertex { pos: [1.0, 1.0] },
 ];
 const QUAD_INDICES: [u16; 6] = [0u16, 1, 2, 2, 3, 0];
+const TRANSPARENT: [f32; 4] = [0.0, 0.0, 0.0, 0.0];
 
 gfx_defines! {
   vertex Vertex {
@@ -22,7 +23,7 @@ gfx_defines! {
 
   constant Locals {
     transform: [[f32; 4]; 4] = "u_Transform",
-    color: [f32; 3] = "u_Color",
+    color: [f32; 4] = "u_Color",
     z: f32 = "u_Z",
   }
 
@@ -60,7 +61,7 @@ pub fn create_bundle<R: Resources, F: FactoryExt<R>>(
 pub fn draw<R, C>(
     encoder: &mut Encoder<R, C>,
     quad_bundle: &mut Bundle<R, pipe::Data<R>>,
-    color: [f32; 3],
+    color: [f32; 4],
     transform: Mat4,
     z: f32,
 ) where
@@ -109,7 +110,7 @@ impl<'a> GlRenderer<'a> {
         self.transforms.window_dim = window_dim;
     }
 
-    pub fn draw_quad(&mut self, color: [f32; 3], rect: Rect, z: f32) {
+    pub fn draw_quad(&mut self, color: [f32; 4], rect: Rect, z: f32) {
         let transform = self.transforms.transform_for_quad(rect);
         draw(
             &mut self.encoder,

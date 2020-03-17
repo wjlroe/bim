@@ -1,15 +1,19 @@
 use crate::action::{BufferAction, GuiAction, PaneAction, WindowAction};
 use crate::buffer::{Buffer, FileSaveStatus};
+use crate::colours::Colour;
 use crate::commands::Direction;
 use crate::gui::gl_renderer::GlRenderer;
 use crate::gui::pane::Pane;
 use crate::mouse::MouseMove;
 use crate::rect::RectBuilder;
 use glam::{vec2, Vec2};
+use lazy_static::lazy_static;
 use std::error::Error;
 use std::time::Duration;
 
-const PANE_BORDER_BG: [f32; 3] = [0.0, 250.0 / 255.0, 0.0];
+lazy_static! {
+    static ref PANE_BORDER_BG: Colour = Colour::rgb_from_int_tuple((0, 250, 0));
+}
 
 pub enum Arrangement {
     VSplit,
@@ -103,7 +107,7 @@ impl<'a> Container<'a> {
                         .bounds(vec2(1.0, self.bounds.y()))
                         .top_left(vec2(x_on_screen, self.position.y()))
                         .build();
-                    renderer.draw_quad(PANE_BORDER_BG, rect, 0.5);
+                    renderer.draw_quad(PANE_BORDER_BG.rgba(), rect, 0.5);
                 }
             }
         }
