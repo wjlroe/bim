@@ -167,9 +167,9 @@ impl<'a> Container<'a> {
         }
     }
 
-    pub fn update_dt(&mut self, dt: Duration) {
+    pub fn update_dt(&mut self, dt: Duration, renderer: &mut GlRenderer) {
         if let Some(pane) = self.panes.get_mut(self.focused_idx) {
-            pane.update_dt(dt);
+            pane.update_dt(dt, renderer);
         }
     }
 

@@ -273,13 +273,13 @@ impl<'a> Window<'a> {
         Ok(())
     }
 
-    pub fn update_dt(&mut self, duration: Duration) {
+    pub fn update_dt(&mut self, duration: Duration, renderer: &mut GlRenderer) {
         if let Some(status) = self.status_message.as_mut() {
             if !status.is_valid() {
                 self.status_message = None;
             }
         }
-        self.container.update_dt(duration);
+        self.container.update_dt(duration, renderer);
     }
 
     pub fn render(&mut self, renderer: &mut GlRenderer<'a>) -> Result<(), Box<dyn Error>> {

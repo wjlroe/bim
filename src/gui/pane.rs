@@ -15,7 +15,9 @@ use crate::rect::{Rect, RectBuilder};
 use crate::search::Search;
 use crate::status_line::StatusLine;
 use crate::utils::char_position_to_byte_position;
-use gfx_glyph::{BuiltInLineBreaker, Layout, Scale, Section, SectionText, VariedSection};
+use gfx_glyph::{
+    BuiltInLineBreaker, GlyphCruncher, Layout, Scale, Section, SectionText, VariedSection,
+};
 use glam::{vec2, vec3, Mat4, Vec2};
 use lazy_static::lazy_static;
 use std::error::Error;
@@ -35,12 +37,32 @@ lazy_static! {
     static ref OTHER_CURSOR_BG: Colour = Colour::rgb_from_int_tuple((255, 165, 0));
     static ref LINE_HIGHLIGHT_FOCUSED_BG: Colour = window::BG_COLOR.lighten(0.2);
     static ref LINE_HIGHLIGHT_UNFOCUS_BG: Colour = LINE_HIGHLIGHT_FOCUSED_BG.darken(0.1);
+    static ref METRIC_BORDER: Colour = Colour::rgb_from_int_tuple((215, 135, 255));
+}
+
+#[derive(Debug)]
+struct LineMetric {
+    lnum: i32,      // which line number in the buffer is this for?
+    position: Vec2, // top-left point of the line on screen
+    bounds: Vec2,   // total bounds of the line, wrapping included
+}
+
+impl LineMetric {
+    fn new(lnum: i32, position: Vec2, bounds: Vec2) -> Self {
+        Self {
+            lnum,
+            position,
+            bounds,
+        }
+    }
 }
 
 pub struct Pane<'a> {
     other_cursor: Option<Cursor>,
     pub buffer: Buffer<'a>,
     pub highlighted_sections: Vec<HighlightedSection>,
+    line_metrics: Vec<LineMetric>,
+    line_metrics_need_recalc: bool,
     pub status_line: StatusLine,
     screen_rows: i32,
     pub prompt: Option<Input<'a>>,
@@ -48,7 +70,9 @@ pub struct Pane<'a> {
     focused: bool,
     pub bounds: Vec2,
     position: Vec2,
-    line_height: f32,
+    line_height: f32, // TODO: remove general line height
+    top_prompt_height: f32,
+    status_height: f32,
     character_width: f32,
     pub font_size: f32,
     pub ui_scale: f32,
@@ -64,6 +88,8 @@ impl<'a> Default for Pane<'a> {
             other_cursor: None,
             buffer: Buffer::default(),
             highlighted_sections: Vec::new(),
+            line_metrics: Vec::new(),
+            line_metrics_need_recalc: true,
             status_line: StatusLine::default(),
             screen_rows: 0,
             prompt: None,
@@ -71,7 +97,9 @@ impl<'a> Default for Pane<'a> {
             focused: false,
             bounds: vec2(0.0, 0.0),
             position: vec2(0.0, 0.0),
+            top_prompt_height: 0.0,
             line_height: 0.0,
+            status_height: 0.0,
             character_width: 0.0,
             font_size: 0.0,
             ui_scale: 0.0,
@@ -120,20 +148,24 @@ impl<'a> Pane<'a> {
     }
 
     fn scroll(&mut self) {
+        // FIXME: use per-line calculated heights, because they can wrap
         if self.line_height > 0.0 {
-            if self.buffer.cursor.text_row() >= self.row_offset.floor() as i32 + self.screen_rows {
-                self.row_offset = (self.buffer.cursor.text_row() - self.screen_rows + 1) as f32;
+            let mut row_offset = self.row_offset;
+            if self.buffer.cursor.text_row() >= row_offset.floor() as i32 + self.screen_rows {
+                row_offset = (self.buffer.cursor.text_row() - self.screen_rows + 1) as f32;
             }
 
-            if self.buffer.cursor.text_row() < self.row_offset.ceil() as i32 {
-                self.row_offset = self.buffer.cursor.text_row() as f32;
+            if self.buffer.cursor.text_row() < row_offset.ceil() as i32 {
+                row_offset = self.buffer.cursor.text_row() as f32;
             }
+            self.set_row_offset(row_offset);
         }
     }
 
     fn print_info(&self) {
-        println!("status_height: {}", self.line_height);
-        println!("inner: ({}, {})", self.inner_width(), self.inner_height());
+        println!("top_prompt_height: {}", self.top_prompt_height);
+        println!("status_height: {}", self.status_height);
+        println!("inner_bounds: {}", self.inner_bounds());
         println!(
             "cursor on screen: {:?}",
             self.onscreen_cursor(&self.buffer.cursor)
@@ -176,6 +208,7 @@ impl<'a> Pane<'a> {
                 self.scroll_window_horizontally(lines.x());
             }
             MouseMove::Pixels(pixels) => {
+                // FIXME: this needs to use actual line heights for lines on screen
                 self.scroll_window_vertically(f32::ceil(pixels.y() / self.line_height));
                 self.scroll_window_horizontally(pixels.x() / self.character_width);
             }
@@ -207,6 +240,7 @@ impl<'a> Pane<'a> {
     fn update_size(&mut self, bounds: Vec2, position: Vec2) {
         self.bounds = bounds;
         self.position = position;
+        self.line_metrics_need_recalc = true;
         self.update_screen_rows();
         self.scroll();
     }
@@ -528,6 +562,25 @@ impl<'a> Pane<'a> {
         Ok(())
     }
 
+    fn render_cursor_line_metric_bounds(
+        &self,
+        renderer: &mut GlRenderer<'_>,
+    ) -> Result<(), Box<dyn Error>> {
+        let cursor = &self.buffer.cursor;
+        // println!("{:?}", self.line_metrics);
+        for metric in &self.line_metrics {
+            if metric.lnum == cursor.text_row() {
+                let rect = RectBuilder::new()
+                    .bounds(metric.bounds)
+                    .top_left(metric.position)
+                    .build();
+                renderer.draw_outline(METRIC_BORDER.rgba(), rect, 0.2, 2.0);
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn render(
         &self,
         renderer: &mut GlRenderer<'_>,
@@ -543,6 +596,7 @@ impl<'a> Pane<'a> {
         self.render_prompt(renderer, new_bounds, padded_position)?;
         self.render_search(renderer, new_bounds, padded_position)?;
         self.render_status_text(renderer, self.bounds, self.position, focused)?;
+        self.render_cursor_line_metric_bounds(renderer)?;
 
         Ok(())
     }
@@ -554,6 +608,8 @@ impl<'a> Pane<'a> {
             UpdateSize(bounds, position) => self.update_size(bounds, position),
             SetFontSize(font_size) => self.set_font_size(font_size),
             SetUiScale(dpi) => self.set_ui_scale(dpi),
+            // TODO: Do we need line_height? lines wrap, so the app doesn't know how high any
+            // single line is
             SetLineHeight(line_height) => self.set_line_height(line_height),
             SetCharacterWidth(character_width) => self.set_character_width(character_width),
             DumpFlameGraph => {}
@@ -571,24 +627,24 @@ impl<'a> Pane<'a> {
     pub fn set_line_height(&mut self, height: f32) {
         self.line_height = height;
         self.update_font_metrics();
+        self.line_metrics_need_recalc = true;
     }
 
     pub fn set_character_width(&mut self, width: f32) {
         self.character_width = width;
-        self.update_font_metrics();
+        self.line_metrics_need_recalc = true;
     }
 
     fn set_font_size(&mut self, font_size: f32) {
         self.font_size = font_size;
-        self.update_font_metrics();
+        self.line_metrics_need_recalc = true;
     }
 
-    fn inner_width(&self) -> f32 {
-        self.bounds.x() - self.left_padding
-    }
-
-    fn inner_height(&self) -> f32 {
-        self.bounds.y() - self.bottom_padding() - self.top_padding()
+    fn inner_bounds(&self) -> Vec2 {
+        vec2(
+            self.bounds.x() - self.left_padding,
+            self.bounds.y() - self.bottom_padding() - self.top_padding(),
+        )
     }
 
     fn font_scale(&self) -> f32 {
@@ -597,7 +653,7 @@ impl<'a> Pane<'a> {
 
     fn top_padding(&self) -> f32 {
         if self.top_prompt_visible() {
-            self.line_height // if search is on
+            self.top_prompt_height // if search is on
         } else {
             0.0
         }
@@ -644,7 +700,56 @@ impl<'a> Pane<'a> {
     }
 
     fn update_screen_rows(&mut self) {
-        self.screen_rows = (self.inner_height() / self.line_height).floor() as i32;
+        // FIXME: calculate this from the real heights of on-screen lines
+        self.screen_rows = (self.inner_bounds().y() / self.line_height).floor() as i32;
+    }
+
+    // TODO: fix this so we don't have to massage the position when we render these
+    fn update_line_metrics(&mut self, renderer: &mut GlRenderer) {
+        println!("Regenerating line metrics");
+        self.line_metrics.clear();
+
+        // TODO: do we need this padding vector? it's the base vector for position
+        let padding = vec2(self.left_padding, self.top_padding());
+        let mut text_pos = self.position
+            + vec2(
+                self.left_padding,
+                self.top_padding() - self.row_offset.fract(),
+            ); // FIXME: row_offset is the number of rows, not the pixels!
+        let inner_bounds = self.bounds - padding;
+
+        let layout = Layout::default().line_breaker(BuiltInLineBreaker::AnyCharLineBreaker);
+        for row in self.row_offset.floor() as i32
+            ..i32::min(
+                self.buffer.num_lines() as i32,
+                self.screen_rows + self.row_offset.floor() as i32,
+            )
+        {
+            let section = Section {
+                bounds: inner_bounds.into(),
+                screen_position: text_pos.into(),
+                scale: Scale::uniform(self.font_scale()),
+                text: &self.buffer.rows[row as usize].render,
+                layout,
+                ..Section::default()
+            };
+            if let Some(section_bounds) = renderer.glyph_brush.glyph_bounds(section) {
+                self.line_metrics.push(LineMetric::new(
+                    row,
+                    text_pos,
+                    vec2(section_bounds.max.x, section_bounds.height()),
+                ));
+                text_pos += vec2(0.0, section_bounds.height());
+            } else {
+                // line with no glyphs, assume it's 1 char wide/tall
+                self.line_metrics.push(LineMetric::new(
+                    row,
+                    text_pos,
+                    vec2(self.character_width, self.line_height),
+                ));
+                text_pos += vec2(0.0, self.line_height);
+            }
+        }
     }
 
     fn update_font_metrics(&mut self) {
@@ -652,29 +757,43 @@ impl<'a> Pane<'a> {
         self.scroll();
     }
 
+    fn set_row_offset(&mut self, offset: f32) {
+        if self.row_offset != offset {
+            self.line_metrics_need_recalc = true;
+        }
+        self.row_offset = offset;
+    }
+
     fn scroll_window_vertically(&mut self, amount: f32) {
-        self.row_offset += amount;
-        if self.row_offset < 0.0 {
-            self.row_offset = 0.0;
+        let mut row_offset = self.row_offset + amount;
+        if row_offset < 0.0 {
+            row_offset = 0.0;
         }
         let max_offset = self.buffer.num_lines() as f32;
-        if self.row_offset >= max_offset {
-            self.row_offset = max_offset - 1.0;
+        if row_offset >= max_offset {
+            row_offset = max_offset - 1.0;
         }
+        self.set_row_offset(row_offset);
         if !self.is_cursor_onscreen() {
             self.move_cursor_onscreen();
         }
     }
 
     fn scroll_window_horizontally(&mut self, amount: f32) {
+        // TODO: recalc line metrics here too, might change wrapping
         self.col_offset += amount;
         if self.col_offset < 0.0 {
             self.col_offset = 0.0;
         }
     }
 
-    pub fn update_dt(&mut self, duration: Duration) {
+    pub fn update_dt(&mut self, duration: Duration, renderer: &mut GlRenderer) {
         self.cursor_animation.add_duration(duration);
+
+        if self.line_metrics_need_recalc {
+            self.update_line_metrics(renderer);
+            self.line_metrics_need_recalc = false;
+        }
     }
 
     pub fn is_dirty(&self) -> bool {

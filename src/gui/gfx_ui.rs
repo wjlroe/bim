@@ -117,7 +117,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
                 let _ = window.update(&mut renderer, event);
             });
 
-            window.update_dt(elapsed);
+            window.update_dt(elapsed, &mut renderer);
             window.render(&mut renderer)?;
 
             window.end_frame();
