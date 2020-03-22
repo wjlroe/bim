@@ -1,0 +1,38 @@
+version(1);
+project_name = "bim";
+
+patterns = {
+"*.rs",
+"*.frag",
+"*.vert",
+"*.bat",
+"*.sh",
+"*.4coder",
+"*.toml",
+"*.yml",
+"*.yaml",
+};
+blacklist_patterns = {
+".*",
+};
+load_paths_only = {
+ {"."},
+};
+load_paths = {
+ { load_paths_only, .os = "win"  },
+ { load_paths_only, .os = "linux"},
+ { load_paths_only, .os = "mac"  },
+};
+
+run_unix = "./scripts/graphical-run-split.sh";
+run_win   = "./scripts/graphical_run_split.bat";
+
+command_list = {
+ { .name = "run",
+   .out = "*compilation*", .footer_panel = true, .save_dirty_files = true,
+   .cmd = { {run_win,  .os ="win"   },
+            {run_unix, .os ="linux" },
+            {run_unix, .os ="mac"   }, }, },
+};
+
+fkey_command[5] = "run";
