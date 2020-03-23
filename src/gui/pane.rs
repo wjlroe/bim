@@ -324,20 +324,25 @@ impl<'a> Pane<'a> {
     where
         C: CursorT,
     {
+        let mut cursor_rect = Rect::default();
+
         let rcursor_x = self
             .buffer
             .text_cursor_to_render(cursor.text_col(), cursor.text_row());
         let cursor_width = self.character_width;
         let cursor_height = self.line_height;
 
-        let cursor_y = cursor.text_row() as f32;
         let cursor_x = rcursor_x as f32;
-        let x_on_screen = (cursor_width * cursor_x) + self.left_padding;
-        let y_on_screen = (cursor_height * (cursor_y - self.row_offset)) + self.top_padding();
-        RectBuilder::new()
-            .bounds(vec2(cursor_width, cursor_height))
-            .top_left(self.position + vec2(x_on_screen, y_on_screen))
-            .build()
+        for metric in &self.line_metrics {
+            if metric.lnum == cursor.text_row() {
+                cursor_rect = RectBuilder::new()
+                    .bounds(vec2(cursor_width, cursor_height))
+                    .top_left(metric.position + vec2(cursor_x * cursor_width, 0.0))
+                    .build();
+                break;
+            }
+        }
+        cursor_rect
     }
 
     fn render_status_text(
