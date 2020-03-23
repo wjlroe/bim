@@ -237,6 +237,11 @@ impl<'a> Pane<'a> {
         self.cursor_animation.cancel();
     }
 
+    fn mark_buffer_changed(&mut self) {
+        self.update_highlighted_sections();
+        self.line_metrics_need_recalc = true;
+    }
+
     fn update_size(&mut self, bounds: Vec2, position: Vec2) {
         self.bounds = bounds;
         self.position = position;
@@ -1096,10 +1101,6 @@ impl<'a> Pane<'a> {
         self.buffer.clear_search_overlay();
         self.update_highlighted_sections();
         self.update_cursor();
-    }
-
-    fn mark_buffer_changed(&mut self) {
-        self.update_highlighted_sections();
     }
 
     fn status_text(&self) -> String {
