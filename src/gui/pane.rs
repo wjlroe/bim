@@ -774,6 +774,13 @@ impl<'a> Pane<'a> {
         self.row_offset = offset;
     }
 
+    fn set_col_offset(&mut self, offset: f32) {
+        if self.col_offset != offset {
+            self.line_metrics_need_recalc = true;
+        }
+        self.col_offset = offset;
+    }
+
     fn scroll_window_vertically(&mut self, amount: f32) {
         let mut row_offset = self.row_offset + amount;
         if row_offset < 0.0 {
@@ -790,11 +797,11 @@ impl<'a> Pane<'a> {
     }
 
     fn scroll_window_horizontally(&mut self, amount: f32) {
-        // TODO: recalc line metrics here too, might change wrapping
-        self.col_offset += amount;
-        if self.col_offset < 0.0 {
-            self.col_offset = 0.0;
+        let mut col_offset = self.col_offset + amount;
+        if col_offset < 0.0 {
+            col_offset = 0.0;
         }
+        self.set_col_offset(col_offset);
     }
 
     pub fn update_dt(&mut self, duration: Duration, renderer: &mut GlRenderer) {
