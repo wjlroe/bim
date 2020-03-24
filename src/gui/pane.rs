@@ -80,6 +80,7 @@ pub struct Pane<'a> {
     pub row_offset: f32,
     pub col_offset: f32,
     cursor_animation: Animation,
+    cursor_rect: Rect,
 }
 
 impl<'a> Default for Pane<'a> {
@@ -107,6 +108,7 @@ impl<'a> Default for Pane<'a> {
             row_offset: 0.0,
             col_offset: 0.0,
             cursor_animation: Animation::new(Duration::from_millis(CURSOR_BLINK_INTERVAL)),
+            cursor_rect: Rect::default(),
         }
     }
 }
@@ -134,6 +136,10 @@ impl<'a> Pane<'a> {
 
     fn set_prompt(&mut self, prompt: Option<Input<'a>>) {
         self.prompt = prompt;
+    }
+
+    fn init(&mut self) {
+        self.update_cursor_rect();
     }
 
     pub fn do_action(&mut self, action: PaneAction) {
@@ -199,6 +205,7 @@ impl<'a> Pane<'a> {
         self.update_screen_rows();
         self.scroll();
         self.update_status_line();
+        self.update_cursor_rect();
     }
 
     fn mouse_scroll(&mut self, delta: MouseMove) {
@@ -335,9 +342,12 @@ impl<'a> Pane<'a> {
         let cursor_x = rcursor_x as f32;
         for metric in &self.line_metrics {
             if metric.lnum == cursor.text_row() {
+                let mut x_offset = cursor_x * cursor_width;
+                let y_offset = (x_offset / metric.bounds.x()).floor() * cursor_height;
+                x_offset %= metric.bounds.x();
                 cursor_rect = RectBuilder::new()
                     .bounds(vec2(cursor_width, cursor_height))
-                    .top_left(metric.position + vec2(cursor_x * cursor_width, 0.0))
+                    .top_left(metric.position + vec2(x_offset, y_offset))
                     .build();
                 break;
             }
@@ -439,8 +449,7 @@ impl<'a> Pane<'a> {
                 *CURSOR_UNFOCUS_BG
             };
 
-            let cursor_rect = self.onscreen_cursor(&self.buffer.cursor);
-            renderer.draw_quad(cursor_bg.rgba(), cursor_rect, 0.2);
+            renderer.draw_quad(cursor_bg.rgba(), self.cursor_rect, 0.2);
         }
 
         if let Some(other_cursor) = self.other_cursor {
@@ -712,6 +721,10 @@ impl<'a> Pane<'a> {
     fn update_screen_rows(&mut self) {
         // FIXME: calculate this from the real heights of on-screen lines
         self.screen_rows = (self.inner_bounds().y() / self.line_height).floor() as i32;
+    }
+
+    fn update_cursor_rect(&mut self) {
+        self.cursor_rect = self.onscreen_cursor(&self.buffer.cursor);
     }
 
     // TODO: fix this so we don't have to massage the position when we render these
