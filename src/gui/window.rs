@@ -2,12 +2,11 @@ use crate::action::{Action, BufferAction, GuiAction, PaneAction, WindowAction};
 use crate::buffer::{Buffer, FileSaveStatus};
 use crate::colours::Colour;
 use crate::config::{RunConfig, BIM_QUIT_TIMES};
-use crate::container::Container;
 use crate::debug_log::DebugLog;
+use crate::gui::container::Container;
 use crate::gui::gl_renderer::GlRenderer;
-use crate::gui::gui_container::GuiContainer;
-use crate::gui::gui_pane::GuiPane;
 use crate::gui::keycode_to_char;
+use crate::gui::pane::Pane;
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::keycodes::{is_printable, Key};
 use crate::keymap::{Keymap, MapOrAction};
@@ -51,7 +50,7 @@ pub struct Window<'a> {
     ui_scale: f32,
     resized: bool,
     pub fullscreen: bool,
-    container: GuiContainer<'a>,
+    container: Container<'a>,
     quit_times: i8,
     running: bool,
     pub in_focus: bool,
@@ -77,7 +76,7 @@ impl<'a> Window<'a> {
         debug_log: DebugLog<'a>,
         options: Options,
     ) -> Result<Self, Box<dyn Error>> {
-        let pane = GuiPane::new(font_size, ui_scale, buffer, true);
+        let pane = Pane::new(font_size, ui_scale, buffer, true);
         let mut gui_window = Self {
             monitor,
             window,
@@ -88,7 +87,7 @@ impl<'a> Window<'a> {
             font_size,
             resized: true,
             fullscreen: false,
-            container: GuiContainer::single(window_dim, vec2(0.0, 0.0), pane),
+            container: Container::single(window_dim, vec2(0.0, 0.0), pane),
             quit_times: BIM_QUIT_TIMES + 1,
             running: true,
             in_focus: true,
@@ -275,6 +274,11 @@ impl<'a> Window<'a> {
     }
 
     pub fn update_dt(&mut self, duration: Duration) {
+        if let Some(status) = self.status_message.as_mut() {
+            if !status.is_valid() {
+                self.status_message = None;
+            }
+        }
         self.container.update_dt(duration);
     }
 
