@@ -1,11 +1,11 @@
 use crate::buffer::Buffer;
 use crate::debug_log::DebugLog;
-use crate::editor::BIM_VERSION;
 use crate::gui::gl_renderer::{create_bundle, GlRenderer};
 use crate::gui::persist_window_state::PersistWindowState;
 use crate::gui::window::Window;
 use crate::gui::{ColorFormat, DepthFormat};
 use crate::options::Options;
+use crate::BIM_VERSION;
 use gfx;
 use gfx_glyph::GlyphBrushBuilder;
 use glam::vec2;

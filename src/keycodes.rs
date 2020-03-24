@@ -18,10 +18,6 @@ pub enum Key {
     TypedChar, // any typed char, not specific
 }
 
-pub fn ctrl_key(key: char, keycode: u32) -> bool {
-    (key as u32 & 0x1f) == keycode
-}
-
 // TODO: Replace this with something sensible
 pub fn is_printable(key: char) -> bool {
     if key.is_control() {
@@ -69,10 +65,4 @@ pub fn is_printable(key: char) -> bool {
     }
 
     true
-}
-
-#[test]
-fn test_ctrl_key() {
-    assert!(ctrl_key('q', 17u32));
-    assert!(!ctrl_key('q', 'w' as u32));
 }

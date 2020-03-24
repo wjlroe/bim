@@ -1,4 +1,3 @@
-use crate::keycodes::Key;
 use crate::row::Row;
 
 // Marker for what to do when the prompt comes back
@@ -54,34 +53,12 @@ impl<'a> Prompt<'a> {
         self.row.append_char(typed_char);
     }
 
-    pub fn done(&mut self) {
-        self.finished = true;
+    pub fn del_char(&mut self) {
+        self.row.pop_char();
     }
 
-    pub fn handle_key(&mut self, key: Key) -> bool {
-        let mut handled = false;
-
-        match key {
-            Key::Other(typed_char) => {
-                self.row.append_char(typed_char);
-                handled = true;
-            }
-            Key::Backspace | Key::Delete => {
-                self.row.pop_char();
-                handled = true;
-            }
-            Key::Return => {
-                self.finished = true;
-                handled = true;
-            }
-            Key::Escape => {
-                self.cancelled = true;
-                handled = true;
-            }
-            _ => {}
-        }
-
-        handled
+    pub fn done(&mut self) {
+        self.finished = true;
     }
 
     pub fn as_string(&self) -> &str {
@@ -94,7 +71,7 @@ fn test_prompt() {
     let mut prompt = Prompt::new("Save file as", true);
     assert_eq!("Save file as: ", prompt.as_string());
     assert_eq!("", prompt.input());
-    prompt.handle_key(Key::Other('h'));
+    prompt.type_char('h');
     assert_eq!("Save file as: h", prompt.as_string());
     assert_eq!("h", prompt.input());
 }

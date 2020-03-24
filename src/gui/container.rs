@@ -1,10 +1,9 @@
-use crate::action::{GuiAction, PaneAction};
-use crate::buffer::Buffer;
-use crate::container::*;
+use crate::action::{BufferAction, GuiAction, PaneAction, WindowAction};
+use crate::buffer::{Buffer, FileSaveStatus};
+use crate::commands::Direction;
 use crate::gui::gl_renderer::GlRenderer;
-use crate::gui::gui_pane::GuiPane;
+use crate::gui::pane::Pane;
 use crate::mouse::MouseMove;
-use crate::pane::Pane;
 use crate::rect::RectBuilder;
 use glam::{vec2, Vec2};
 use std::error::Error;
@@ -12,15 +11,25 @@ use std::time::Duration;
 
 const PANE_BORDER_BG: [f32; 3] = [0.0, 250.0 / 255.0, 0.0];
 
-pub struct GuiContainer<'a> {
+pub enum Arrangement {
+    VSplit,
+}
+
+impl Default for Arrangement {
+    fn default() -> Self {
+        Self::VSplit
+    }
+}
+
+pub struct Container<'a> {
     focused_idx: usize,
-    panes: Vec<GuiPane<'a>>,
+    panes: Vec<Pane<'a>>,
     bounds: Vec2,
     position: Vec2,
     arrangement: Arrangement,
 }
 
-impl<'a> Default for GuiContainer<'a> {
+impl<'a> Default for Container<'a> {
     fn default() -> Self {
         Self {
             focused_idx: 0,
@@ -32,26 +41,21 @@ impl<'a> Default for GuiContainer<'a> {
     }
 }
 
-impl<'a> Container<'a> for GuiContainer<'a> {
-    type PaneType = GuiPane<'a>;
-
-    fn get_panes(&self) -> &Vec<GuiPane<'a>> {
-        &self.panes
-    }
-
-    fn get_panes_mut(&mut self) -> &mut Vec<GuiPane<'a>> {
-        &mut self.panes
-    }
-
-    fn get_focused_idx(&self) -> usize {
-        self.focused_idx
+impl<'a> Container<'a> {
+    pub fn single(bounds: Vec2, position: Vec2, pane: Pane<'a>) -> Self {
+        Self {
+            bounds,
+            position,
+            panes: vec![pane],
+            ..Container::default()
+        }
     }
 
     fn set_focused_idx(&mut self, idx: usize) {
         self.focused_idx = idx;
     }
 
-    fn push_pane(&mut self, pane: GuiPane<'a>) {
+    fn push_pane(&mut self, pane: Pane<'a>) {
         self.panes.push(pane);
     }
 
@@ -69,27 +73,12 @@ impl<'a> Container<'a> for GuiContainer<'a> {
         }
     }
 
-    fn new_pane(&self, buffer: Buffer<'a>, focused: bool) -> GuiPane<'a> {
+    fn new_pane(&self, buffer: Buffer<'a>, focused: bool) -> Pane<'a> {
         if let Some(pane) = self.panes.get(self.focused_idx) {
-            GuiPane::new(pane.font_size, pane.ui_scale, buffer, focused)
+            Pane::new(pane.font_size, pane.ui_scale, buffer, focused)
         } else {
             // FIXME: Where to get the default font_size and ui_scale from?
-            GuiPane::new(12.0, 1.0, buffer, focused)
-        }
-    }
-
-    fn get_arrangement(&self) -> &Arrangement {
-        &self.arrangement
-    }
-}
-
-impl<'a> GuiContainer<'a> {
-    pub fn single(bounds: Vec2, position: Vec2, pane: GuiPane<'a>) -> Self {
-        Self {
-            bounds,
-            position,
-            panes: vec![pane],
-            ..GuiContainer::default()
+            Pane::new(12.0, 1.0, buffer, focused)
         }
     }
 
@@ -179,6 +168,77 @@ impl<'a> GuiContainer<'a> {
             pane.update_dt(dt);
         }
     }
+
+    pub fn do_pane_action(&mut self, action: PaneAction) {
+        if let Some(pane) = self.panes.get_mut(self.focused_idx) {
+            pane.do_action(action);
+        }
+    }
+
+    pub fn update_current_buffer(&mut self, action: BufferAction) {
+        if let Some(pane) = self.panes.get_mut(self.focused_idx) {
+            pane.update_buffer(action);
+        }
+    }
+
+    pub fn split_vertically(&mut self, filename: Option<&str>) -> Result<(), Box<dyn Error>> {
+        let mut buffer = Buffer::default();
+        if let Some(filename) = filename {
+            buffer.open(filename)?;
+        }
+        let new_pane = self.new_pane(buffer, false);
+        self.push_pane(new_pane);
+        self.recalculate_layout();
+        Ok(())
+    }
+
+    pub fn check(&mut self) -> Vec<WindowAction> {
+        let mut actions = vec![];
+
+        for pane in self.panes.iter_mut() {
+            actions.append(&mut pane.check());
+        }
+
+        actions
+    }
+
+    fn focus_pane_index(&mut self, pane_idx: usize) {
+        self.set_focused_idx(pane_idx);
+        for (idx, pane) in self.panes.iter_mut().enumerate() {
+            pane.set_focused(idx == pane_idx);
+        }
+    }
+
+    pub fn focus_pane(&mut self, direction: Direction) {
+        match self.arrangement {
+            Arrangement::VSplit => {
+                let num_panes = self.panes.len();
+                if num_panes > 1 {
+                    let movement = match direction {
+                        Direction::Right => 1,
+                        Direction::Left => -1,
+                        _ => 0, // TODO: We have no idea how to do Up/Down
+                    };
+                    let new_pane_idx = (self.focused_idx as i32 + movement) % num_panes as i32;
+                    self.focus_pane_index(new_pane_idx as usize);
+                }
+            }
+        }
+    }
+
+    pub fn save_file(&mut self) -> Option<Result<FileSaveStatus, Box<dyn Error>>> {
+        if let Some(pane) = self.panes.get_mut(self.focused_idx) {
+            Some(pane.save_file())
+        } else {
+            None
+        }
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.panes
+            .iter()
+            .fold(false, |dirty, pane| dirty || pane.is_dirty())
+    }
 }
 
 #[test]
@@ -186,8 +246,8 @@ fn test_which_pane_is_location() {
     let buffer = Buffer::default();
     let bounds = vec2(10.0, 10.0);
     let position = vec2(0.0, 0.0);
-    let gui_pane = GuiPane::new(12.0, 1.0, buffer, true);
-    let mut container = GuiContainer::single(bounds, position, gui_pane);
+    let gui_pane = Pane::new(12.0, 1.0, buffer, true);
+    let mut container = Container::single(bounds, position, gui_pane);
     assert_eq!(Some(0), container.which_pane_is_location(vec2(0.0, 0.0)));
     let _ = container.split_vertically(None);
     assert_eq!(Some(0), container.which_pane_is_location(vec2(0.0, 0.0)));

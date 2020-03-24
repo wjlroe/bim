@@ -110,28 +110,3 @@ impl MoveCursor {
         }
     }
 }
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Cmd {
-    Move(MoveCursor),
-    DeleteCharBackward,
-    DeleteCharForward,
-    Linebreak,
-    Quit,
-    Save,
-    InsertChar(char),
-    Search,
-    CloneCursor,
-    PrintInfo,
-    Escape,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum SearchCmd {
-    Quit, // go back to prev. location
-    Exit, // keep search location as cursor
-    NextMatch,
-    PrevMatch,
-    DeleteChar,
-    InsertChar(char),
-}
