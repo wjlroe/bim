@@ -168,7 +168,7 @@ impl<'a> Container<'a> {
     }
 
     pub fn update_dt(&mut self, dt: Duration, renderer: &mut GlRenderer) {
-        if let Some(pane) = self.panes.get_mut(self.focused_idx) {
+        for pane in self.panes.iter_mut() {
             pane.update_dt(dt, renderer);
         }
     }
