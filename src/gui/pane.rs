@@ -138,10 +138,6 @@ impl<'a> Pane<'a> {
         self.prompt = prompt;
     }
 
-    fn init(&mut self) {
-        self.update_cursor_rect();
-    }
-
     pub fn do_action(&mut self, action: PaneAction) {
         use PaneAction::*;
 
@@ -823,6 +819,7 @@ impl<'a> Pane<'a> {
         if self.line_metrics_need_recalc {
             self.update_line_metrics(renderer);
             self.line_metrics_need_recalc = false;
+            self.update_cursor_rect();
         }
     }
 

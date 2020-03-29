@@ -78,20 +78,6 @@ impl<'a> Container<'a> {
     }
 
     fn new_pane(&self, buffer: Buffer<'a>, focused: bool) -> Pane<'a> {
-        // FIXME: I want to let this calculate all its stuff here but I can't because
-        // this function is generic and doesn't know about the renderer or whatever
-        // and I don't know how to square that circle with both Terminal and gui/gfx
-        // versions of Pane. This wouldn't be a problem if I could just add a mutable pointer
-        // to the renderer in the struct here for GuiContainer, and GuiPane etc. but
-        // I can't do that because in Rust you can't have more than 1 mutable reference to
-        // a thing for really bad reasons. To work around that stupidity, I'd have to
-        // wrap that pointer in some sort of Rc or something, I don't even know, then you
-        // have to unwrap the renderer every single time you use it, which adds loads of
-        // boilerplate. So to make this work I have essentially 2 choices:
-        // 1. Deal with Rust's idiocy - add Rc<&mut GlRenderer> or something to every struct that
-        //    needs to use it
-        // 2. Rip out all the terminal code and the resulting generic crap and just code
-        //    to the gui, no generics.
         if let Some(pane) = self.panes.get(self.focused_idx) {
             Pane::new(pane.font_size, pane.ui_scale, buffer, focused)
         } else {
