@@ -7,6 +7,12 @@ pub struct Rect {
     pub bounds: Vec2,
 }
 
+impl Rect {
+    pub fn bottom_right(&self) -> Vec2 {
+        self.top_left + self.bounds
+    }
+}
+
 impl Default for Rect {
     fn default() -> Self {
         Self {
@@ -14,6 +20,15 @@ impl Default for Rect {
             center: vec2(0.0, 0.0),
             bounds: vec2(0.0, 0.0),
         }
+    }
+}
+
+impl From<gfx_glyph::Rect<f32>> for Rect {
+    fn from(rect: gfx_glyph::Rect<f32>) -> Self {
+        RectBuilder::new()
+            .top_left(vec2(rect.min.x, rect.min.y))
+            .bounds(vec2(rect.max.x - rect.min.x, rect.max.y - rect.min.y))
+            .build()
     }
 }
 

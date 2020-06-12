@@ -20,6 +20,7 @@ use gfx_glyph::{
 };
 use glam::{vec2, vec3, Mat4, Vec2};
 use lazy_static::lazy_static;
+use std::cmp::Ordering;
 use std::error::Error;
 use std::time::Duration;
 
@@ -42,15 +43,55 @@ lazy_static! {
 
 #[derive(Debug)]
 struct LineMetric {
-    lnum: i32,      // which line number in the buffer is this for?
+    lnum: i32, // which line number in the buffer is this for?
+    char_rects: Vec<Rect>,
     position: Vec2, // top-left point of the line on screen
     bounds: Vec2,   // total bounds of the line, wrapping included
 }
 
 impl LineMetric {
-    fn new(lnum: i32, position: Vec2, bounds: Vec2) -> Self {
+    fn new(lnum: i32, char_rects: Vec<Rect>) -> Self {
+        if lnum == 0 {
+            println!("char_rects: {:?}", char_rects);
+        }
+        let min_x = char_rects
+            .iter()
+            .map(|p| p.top_left.x())
+            .min_by(|x1, x2| x1.partial_cmp(x2).unwrap_or(Ordering::Equal))
+            .unwrap_or(0.0);
+        let min_y = char_rects
+            .iter()
+            .map(|p| p.top_left.y())
+            .min_by(|y1, y2| y1.partial_cmp(y2).unwrap_or(Ordering::Equal))
+            .unwrap_or(0.0);
+        let right_edge_char = char_rects
+            .iter()
+            .max_by(|r1, r2| {
+                r1.top_left
+                    .x()
+                    .partial_cmp(&r2.top_left.x())
+                    .unwrap_or(Ordering::Equal)
+            })
+            .cloned()
+            .unwrap_or(Rect::default());
+        let bottom_edge_char = char_rects
+            .iter()
+            .max_by(|r1, r2| {
+                r1.top_left
+                    .y()
+                    .partial_cmp(&r2.top_left.y())
+                    .unwrap_or(Ordering::Equal)
+            })
+            .cloned()
+            .unwrap_or(Rect::default());
+        let position = vec2(min_x, min_y);
+        let bounds = vec2(
+            right_edge_char.bottom_right().x() - min_x,
+            bottom_edge_char.bottom_right().y() - min_y,
+        );
         Self {
             lnum,
+            char_rects,
             position,
             bounds,
         }
@@ -582,7 +623,6 @@ impl<'a> Pane<'a> {
         renderer: &mut GlRenderer<'_>,
     ) -> Result<(), Box<dyn Error>> {
         let cursor = &self.buffer.cursor;
-        // println!("{:?}", self.line_metrics);
         for metric in &self.line_metrics {
             if metric.lnum == cursor.text_row() {
                 let rect = RectBuilder::new()
@@ -723,18 +763,16 @@ impl<'a> Pane<'a> {
         self.cursor_rect = self.onscreen_cursor(&self.buffer.cursor);
     }
 
-    // TODO: fix this so we don't have to massage the position when we render these
     fn update_line_metrics(&mut self, renderer: &mut GlRenderer) {
         println!("Regenerating line metrics");
         self.line_metrics.clear();
 
-        // TODO: do we need this padding vector? it's the base vector for position
         let padding = vec2(self.left_padding, self.top_padding());
         let mut text_pos = self.position
             + vec2(
                 self.left_padding,
                 self.top_padding() - self.row_offset.fract(),
-            ); // FIXME: row_offset is the number of rows, not the pixels!
+            );
         let inner_bounds = self.bounds - padding;
 
         let layout = Layout::default().line_breaker(BuiltInLineBreaker::AnyCharLineBreaker);
@@ -744,30 +782,40 @@ impl<'a> Pane<'a> {
                 self.screen_rows + self.row_offset.floor() as i32,
             )
         {
+            let text = self.buffer.rows[row as usize].render.replace(" ", "A");
+            if row == self.row_offset.floor() as i32 {
+                println!("text_pos: {:?}", text_pos);
+            }
             let section = Section {
                 bounds: inner_bounds.into(),
                 screen_position: text_pos.into(),
                 scale: Scale::uniform(self.font_scale()),
-                text: &self.buffer.rows[row as usize].render,
+                text: &text,
                 layout,
                 ..Section::default()
             };
-            if let Some(section_bounds) = renderer.glyph_brush.glyph_bounds(section) {
-                self.line_metrics.push(LineMetric::new(
-                    row,
-                    text_pos,
-                    vec2(section_bounds.max.x, section_bounds.height()),
-                ));
-                text_pos += vec2(0.0, section_bounds.height());
-            } else {
-                // line with no glyphs, assume it's 1 char wide/tall
-                self.line_metrics.push(LineMetric::new(
-                    row,
-                    text_pos,
-                    vec2(self.character_width, self.line_height),
-                ));
-                text_pos += vec2(0.0, self.line_height);
-            }
+            let char_rects: Vec<Rect> = renderer
+                .glyph_brush
+                .glyphs(section)
+                .map(|pos_glyph| {
+                    let mut rect = pos_glyph
+                        .unpositioned()
+                        .exact_bounding_box()
+                        .map(|rect| {
+                            if row == self.row_offset.floor() as i32 {
+                                println!("Exact bounding box: {:?}", rect);
+                            }
+                            rect
+                        })
+                        .map(|rect| rect.into())
+                        .unwrap_or(Rect::default());
+                    rect.top_left = vec2(pos_glyph.position().x, pos_glyph.position().y);
+                    rect
+                })
+                .collect();
+            let line_metric = LineMetric::new(row, char_rects);
+            text_pos += vec2(0.0, line_metric.bounds.y());
+            self.line_metrics.push(line_metric);
         }
     }
 
