@@ -17,7 +17,6 @@
 *.jpg binary
 
 .env text eol=lf
-scripts/prepare_ci.sh eol=lf
 
 testfiles/*dos* eol=crlf
 testfiles/*unix* eol=lf
