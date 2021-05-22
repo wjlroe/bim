@@ -17,4 +17,4 @@ jobs:
       - name: install pre-commit
         run:  curl https://pre-commit.com/install-local.py | python -
       - name: run pre-commit
-        run: pre-commit run --all-files
+        run: ~/bin/pre-commit run --all-files
