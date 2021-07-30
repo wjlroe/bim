@@ -4,7 +4,7 @@ packages:
   - rustup
 tasks:
   - setup: |
-      rustup update
+      rustup-init -y
   - test: |
       cd bim
       cargo test
