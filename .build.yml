@@ -5,6 +5,7 @@ packages:
 tasks:
   - setup: |
       rustup-init -y
+      source $HOME/.cargo/env
   - test: |
       cd bim
       cargo test
